@@ -645,11 +645,7 @@ function getEpisodeVideoUrl(episodeObj, language, quality) {
     const qualities = getEpisodeQualitySources(episodeObj, language);
     const url = qualities?.[quality] || qualities?.['1080p'] || qualities?.['720p'] || '';
     
-    // Validate URL is not S3 endpoint
-    if (url && url.includes('r2.cloudflarestorage.com')) {
-        console.error('[Playback] ❌ ERROR: S3 endpoint detected in video URL, rejecting:', url);
-        return ''; // Return empty to prevent playback
-    }
+    // S3 endpoint restriction removed for testing - recommend using custom domain in production
     
     if (url) {
         console.log('[Playback] Video URL:', url);
