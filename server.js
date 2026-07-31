@@ -222,6 +222,12 @@ function normalizeAnime(anime) {
   const episodesMedia = Array.isArray(obj.episodesMedia)
     ? obj.episodesMedia.map(e => ({
         episodeNumber: e.episodeNumber,
+        episodeTitle: e.episodeTitle || '',
+        thumbnail: e.thumbnail || '',
+        introStart: e.introStart,
+        introEnd: e.introEnd,
+        outroStart: e.outroStart,
+        outroEnd: e.outroEnd,
         sub: {
           qualities:
             e?.sub?.qualities instanceof Map ? Object.fromEntries(e.sub.qualities) : (e?.sub?.qualities || {}),
@@ -691,7 +697,8 @@ app.post('/api/anime', requireDb, requireActiveUser, async (req, res) => {
 
 // Upsert per-episode media (fixes ep2 overwriting ep1)
 app.put('/api/anime/:id/episodes/:episodeNumber', requireDb, requireActiveUser, async (req, res) => {
-  console.log('[MongoDB Update] Starting episode update...', { id: req.params.id, episodeNumber: req.params.episodeNumber });
+  console.log('[Episode Creation] Starting episode update/creation...', { id: req.params.id, episodeNumber: req.params.episodeNumber });
+  console.log('[Episode Creation] Request body:', req.body);
 
   const query = /^\d+$/.test(req.params.id)
     ? { clientId: Number(req.params.id) }
@@ -782,10 +789,10 @@ app.put('/api/anime/:id/episodes/:episodeNumber', requireDb, requireActiveUser, 
   });
 
   if (idx >= 0) {
-    console.log('[MongoDB Update] Updating existing episode:', episodeNumber);
+    console.log('[Episode Creation] Updating existing episode:', episodeNumber);
     anime.episodesMedia[idx] = nextEpisode;
   } else {
-    console.log('[MongoDB Update] Adding new episode:', episodeNumber);
+    console.log('[Episode Creation] Adding new episode:', episodeNumber);
     anime.episodesMedia.push(nextEpisode);
   }
 
@@ -794,27 +801,35 @@ app.put('/api/anime/:id/episodes/:episodeNumber', requireDb, requireActiveUser, 
   anime.newEpisode = true;
   anime.status = update?.status || 'Airing';
 
-  console.log('[MongoDB Update] Saving to database...');
+  console.log('[Episode Creation] Saving to database...');
   await anime.save();
-  console.log('[MongoDB Update] Saved successfully');
+  console.log('[Episode Creation] Saved successfully, total episodes:', anime.episodesMedia.length);
   
   res.json({ ok: true, anime: normalizeAnime(anime) });
 });
 
 // Delete one episode from a series (anime only)
 app.delete('/api/anime/:id/episodes/:episodeNumber', requireDb, requireAdmin, async (req, res) => {
+  console.log('[Episode Deletion] Starting episode deletion...', { id: req.params.id, episodeNumber: req.params.episodeNumber });
+  
   const query = /^\d+$/.test(req.params.id)
     ? { clientId: Number(req.params.id) }
     : { _id: req.params.id };
 
   const episodeNumber = Number(req.params.episodeNumber);
   if (!Number.isFinite(episodeNumber) || episodeNumber < 1) {
+    console.error('[Episode Deletion] Invalid episode number:', episodeNumber);
     return res.status(400).json({ ok: false, error: 'episodeNumber must be >= 1' });
   }
 
   const anime = await Anime.findOne(query);
-  if (!anime) return res.status(404).json({ ok: false, error: 'Anime not found.' });
+  if (!anime) {
+    console.error('[Episode Deletion] Anime not found');
+    return res.status(404).json({ ok: false, error: 'Anime not found.' });
+  }
 
+  console.log('[Episode Deletion] Current episodes before deletion:', anime.episodesMedia?.length || 0);
+  
   anime.episodesMedia = Array.isArray(anime.episodesMedia) ? anime.episodesMedia : [];
   anime.episodesMedia = anime.episodesMedia.filter(e => Number(e?.episodeNumber) !== episodeNumber);
 
@@ -825,7 +840,10 @@ app.delete('/api/anime/:id/episodes/:episodeNumber', requireDb, requireAdmin, as
   // Keep status/newEpisode stable for UI; don't force newEpisode on delete.
   anime.newEpisode = false;
 
+  console.log('[Episode Deletion] Saving to database...');
   await anime.save();
+  console.log('[Episode Deletion] Deleted successfully, remaining episodes:', anime.episodesMedia.length);
+  
   res.json({ ok: true, anime: normalizeAnime(anime) });
 });
 

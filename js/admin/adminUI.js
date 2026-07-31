@@ -439,12 +439,30 @@
         if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
     }
 
+    function calculateNextEpisodeNumber() {
+        const anime = window.currentHubAnime;
+        if (!anime) return 1;
+        
+        const episodes = Array.isArray(anime.episodesMedia) ? anime.episodesMedia : [];
+        const existingNumbers = episodes.map(e => Number(e.episodeNumber));
+        
+        // Start from 1 and find the first available number
+        let nextNum = 1;
+        while (existingNumbers.includes(nextNum)) {
+            nextNum++;
+        }
+        
+        return nextNum;
+    }
+
     function renderEpisodeManagementHub(anime) {
+        console.log('[Episode Hub] Rendering episode management hub for anime:', anime.title);
         const modal = document.getElementById('upload-modal');
         if (!modal || !anime) return;
 
         const episodes = Array.isArray(anime.episodesMedia) ? anime.episodesMedia : [];
-        const nextEpNum = episodes.length > 0 ? Math.max(...episodes.map(e => e.episodeNumber)) + 1 : 1;
+        const nextEpNum = calculateNextEpisodeNumber();
+        console.log('[Episode Hub] Current episodes:', episodes.map(e => e.episodeNumber), 'Next episode number:', nextEpNum);
 
         modal.innerHTML = `
         <div class="glass-card rounded-3xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden anim-slide-up shadow-2xl border-white/10">
@@ -498,7 +516,7 @@
                         `}
                     </div>
                     <div class="p-4 bg-black/10 dark:bg-white/3 border-t border-white/10">
-                        <button class="w-full btn-primary py-3 flex items-center justify-center gap-2 shadow-xl text-xs font-black uppercase" onclick="resetWorkspaceForNewEpisode(${nextEpNum})">
+                        <button class="w-full btn-primary py-3 flex items-center justify-center gap-2 shadow-xl text-xs font-black uppercase" id="add-new-episode-btn">
                             <i data-lucide="plus-circle" class="w-4 h-4"></i>
                             <span>Add New Episode</span>
                         </button>
@@ -518,6 +536,13 @@
         // Set current active anime for workspace use
         window.currentHubAnime = anime;
         bindWorkspaceInteractions();
+        
+        // Bind the Add New Episode button
+        const addEpisodeBtn = document.getElementById('add-new-episode-btn');
+        if (addEpisodeBtn) {
+            addEpisodeBtn.onclick = () => resetWorkspaceForNewEpisode(calculateNextEpisodeNumber());
+            console.log('[Episode Hub] Add New Episode button bound');
+        }
     }
 
     function renderWorkspaceForm(anime, epNum, existingData = null) {
@@ -573,8 +598,8 @@
                             <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500 transition-transform duration-300" id="icon-acc-1080"></i>
                         </button>
                         <div class="p-4 grid grid-cols-2 gap-4 bg-black/5 dark:bg-black/20" id="acc-1080">
-                            ${renderDropZone('admin-video-file', 'Subbed Video (1080p)')}
-                            ${renderDropZone('admin-dub-video-file', 'Dubbed Video (1080p)')}
+                            ${renderDropZone('admin-video-file', 'Subbed Video (1080p)', existingData?.sub?.qualities?.['1080p'])}
+                            ${renderDropZone('admin-dub-video-file', 'Dubbed Video (1080p)', existingData?.dub?.qualities?.['1080p'])}
                         </div>
                     </div>
 
@@ -588,8 +613,8 @@
                             <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500 transition-transform duration-300 rotate-180" id="icon-acc-720"></i>
                         </button>
                         <div class="p-4 grid grid-cols-2 gap-4 bg-black/5 dark:bg-black/20 hidden" id="acc-720">
-                            ${renderDropZone('admin-sub-720-video-file', 'Subbed Video (720p)')}
-                            ${renderDropZone('admin-dub-720-video-file', 'Dubbed Video (720p)')}
+                            ${renderDropZone('admin-sub-720-video-file', 'Subbed Video (720p)', existingData?.sub?.qualities?.['720p'])}
+                            ${renderDropZone('admin-dub-720-video-file', 'Dubbed Video (720p)', existingData?.dub?.qualities?.['720p'])}
                         </div>
                     </div>
                 </div>
@@ -636,22 +661,23 @@
         </div>`;
     }
 
-    function renderDropZone(id, label) {
+    function renderDropZone(id, label, existingUrl = null) {
+        const hasExisting = existingUrl && typeof existingUrl === 'string' && existingUrl.length > 0;
         return `
         <div class="drop-zone group relative h-32 rounded-xl border-2 border-dashed border-black/10 dark:border-white/10 hover:border-gold-400/40 bg-black/5 dark:bg-white/3 hover:bg-gold-400/5 transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden" 
              onclick="document.getElementById('${id}').click()" 
              data-drop-target="${id}">
             <input id="${id}" type="file" class="hidden" accept="video/*" onchange="handleFileSelect('${id}', this.files[0])">
-            <div class="flex flex-col items-center gap-1 group-hover:scale-110 transition-transform duration-500" id="label-${id}">
+            <div class="flex flex-col items-center gap-1 group-hover:scale-110 transition-transform duration-500 ${hasExisting ? 'hidden' : ''}" id="label-${id}">
                 <div class="w-10 h-10 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center mb-1">
                     <i data-lucide="upload-cloud" class="w-5 h-5 text-gray-400 dark:text-gray-500 group-hover:text-gold-400"></i>
                 </div>
                 <span class="text-[10px] font-black text-gray-400 dark:text-gray-400 uppercase tracking-wider text-center px-4">${label}</span>
             </div>
-            <div id="file-info-${id}" class="hidden absolute inset-0 bg-gold-400/10 flex flex-col items-center justify-center p-4">
+            <div id="file-info-${id}" class="${hasExisting ? '' : 'hidden'} absolute inset-0 bg-gold-400/10 flex flex-col items-center justify-center p-4">
                 <i data-lucide="file-video" class="w-6 h-6 text-gold-400 mb-1"></i>
-                <span class="text-[9px] font-bold text-black dark:text-white truncate w-full text-center" id="name-${id}">filename.mp4</span>
-                <button class="mt-2 text-[8px] font-black text-red-400 uppercase tracking-widest hover:text-red-300" onclick="clearFile('${id}', event)">Remove</button>
+                <span class="text-[9px] font-bold text-black dark:text-white truncate w-full text-center" id="name-${id}">${hasExisting ? 'Video uploaded' : 'filename.mp4'}</span>
+                <button class="mt-2 text-[8px] font-black text-red-400 uppercase tracking-widest hover:text-red-300" onclick="clearFile('${id}', event)">${hasExisting ? 'Replace' : 'Remove'}</button>
             </div>
         </div>`;
     }
@@ -692,50 +718,206 @@
         warning.classList.toggle('hidden', !exists);
     }
 
-    function resetWorkspaceForNewEpisode(nextNum) {
+    async function resetWorkspaceForNewEpisode(nextNum) {
+        console.log('[Add New Episode] Button clicked, next episode number:', nextNum);
+        
         const workspace = document.getElementById('hub-workspace');
-        if (workspace && window.currentHubAnime) {
-            workspace.innerHTML = renderWorkspaceForm(window.currentHubAnime, nextNum);
+        if (!workspace || !window.currentHubAnime) {
+            console.error('[Add New Episode] Missing workspace or currentHubAnime');
+            return;
+        }
+
+        const anime = window.currentHubAnime;
+        console.log('[Add New Episode] Current anime:', anime.title, 'ID:', anime.id);
+
+        // Recalculate next episode number to avoid conflicts
+        const episodes = Array.isArray(anime.episodesMedia) ? anime.episodesMedia : [];
+        const existingNumbers = episodes.map(e => Number(e.episodeNumber));
+        let calculatedNextNum = nextNum;
+        
+        // Find the next available episode number
+        while (existingNumbers.includes(calculatedNextNum)) {
+            calculatedNextNum++;
+        }
+        
+        if (calculatedNextNum !== nextNum) {
+            console.log('[Add New Episode] Adjusted episode number from', nextNum, 'to', calculatedNextNum, 'to avoid conflict');
+        }
+
+        // Create the new episode in the database
+        try {
+            console.log('[Add New Episode] Creating episode in database...');
+            const token = global.authService && typeof global.authService.getToken === 'function'
+                ? global.authService.getToken()
+                : null;
+
+            if (!token) {
+                console.error('[Add New Episode] No auth token available');
+                alert('Authentication required. Please log in again.');
+                return;
+            }
+
+            const response = await fetch(`/api/anime/${anime.id}/episodes/${calculatedNextNum}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    episodeNumber: calculatedNextNum,
+                    episodeTitle: '',
+                    sub: { qualities: {} },
+                    dub: { qualities: {} }
+                })
+            });
+
+            console.log('[Add New Episode] API response status:', response.status);
+            const data = await response.json();
+            console.log('[Add New Episode] API response data:', data);
+
+            if (!response.ok || !data.ok) {
+                console.error('[Add New Episode] Failed to create episode:', data.error);
+                alert('Failed to create episode: ' + (data.error || 'Unknown error'));
+                return;
+            }
+
+            console.log('[Add New Episode] Episode created successfully in database');
+
+            // Update the local anime data with the response
+            if (data.anime) {
+                window.currentHubAnime = data.anime;
+                console.log('[Add New Episode] Updated local anime data, episodes count:', data.anime.episodesMedia?.length || 0);
+            }
+
+            // Refresh the episode list in the sidebar
+            const episodeList = document.getElementById('hub-episode-list');
+            if (episodeList) {
+                const episodes = Array.isArray(window.currentHubAnime.episodesMedia) ? window.currentHubAnime.episodesMedia : [];
+                console.log('[Add New Episode] Refreshing sidebar with episodes:', episodes.map(e => e.episodeNumber));
+                
+                episodeList.innerHTML = episodes.length > 0 ? episodes.sort((a, b) => b.episodeNumber - a.episodeNumber).map(e => `
+                    <div class="group p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-transparent dark:border-white/5 hover:border-gold-400/30 hover:bg-black/8 dark:hover:bg-white/8 transition-all flex items-center justify-between cursor-pointer ${Number(e.episodeNumber) === Number(calculatedNextNum) ? 'hub-episode-active' : ''}" onclick="loadEpisodeIntoWorkspace(${e.episodeNumber})">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-green-400/10 flex items-center justify-center border border-green-400/20">
+                                <i data-lucide="check" class="w-4 h-4 text-green-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-black dark:text-white">Episode ${e.episodeNumber}</p>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase">${Object.keys(e.sub?.qualities || {}).length > 0 ? 'Sub' : ''} ${Object.keys(e.dub?.qualities || {}).length > 0 ? '• Dub' : ''}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button class="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gold-400"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+                            <button class="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400" onclick="deleteHubEpisode(${e.episodeNumber}, event)"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                    </div>
+                `).join('') : `
+                    <div class="flex flex-col items-center justify-center py-10 text-center opacity-40">
+                        <i data-lucide="inbox" class="w-10 h-10 mb-2"></i>
+                        <p class="text-xs font-bold text-black dark:text-white">No episodes yet</p>
+                    </div>
+                `;
+                
+                // Re-initialize icons for the updated sidebar
+                if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+            }
+
+            // Update the workspace form for the new episode
+            workspace.innerHTML = renderWorkspaceForm(window.currentHubAnime, calculatedNextNum);
             if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
             bindWorkspaceInteractions();
-            
-            // Mark all items in sidebar as inactive
-            document.querySelectorAll('#hub-episode-list > div').forEach(el => el.classList.remove('hub-episode-active'));
+
+            console.log('[Add New Episode] Workspace updated for episode:', calculatedNextNum);
+
+        } catch (error) {
+            console.error('[Add New Episode] Error creating episode:', error);
+            alert('Error creating episode: ' + error.message);
         }
     }
 
     function loadEpisodeIntoWorkspace(num) {
+        console.log('[Load Episode] Loading episode into workspace:', num);
         const anime = window.currentHubAnime;
-        if (!anime) return;
+        if (!anime) {
+            console.error('[Load Episode] No current anime found');
+            return;
+        }
+        
         const ep = (anime.episodesMedia || []).find(e => Number(e.episodeNumber) === Number(num));
+        console.log('[Load Episode] Found episode data:', ep ? 'Yes' : 'No');
+        
         const workspace = document.getElementById('hub-workspace');
         if (workspace && ep) {
             workspace.innerHTML = renderWorkspaceForm(anime, num, ep);
             if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
             bindWorkspaceInteractions();
 
+            // Initialize existing video indicators
+            initializeExistingVideos(ep);
+
             // UI feedback in list
             document.querySelectorAll('#hub-episode-list > div').forEach(el => {
                 const isTarget = el.querySelector('p')?.textContent.includes('Episode ' + num);
                 el.classList.toggle('hub-episode-active', isTarget);
             });
+            
+            console.log('[Load Episode] Episode loaded successfully');
+        } else {
+            console.error('[Load Episode] Failed to load episode - workspace or episode data missing');
         }
     }
 
+    function initializeExistingVideos(ep) {
+        // Mark all quality inputs that have existing videos
+        const qualities = ['1080p', '720p'];
+        const languages = ['sub', 'dub'];
+        
+        qualities.forEach(quality => {
+            languages.forEach(lang => {
+                const url = ep?.[lang]?.qualities?.[quality];
+                if (url) {
+                    const inputId = lang === 'sub' 
+                        ? (quality === '1080p' ? 'admin-video-file' : 'admin-sub-720-video-file')
+                        : (quality === '1080p' ? 'admin-dub-video-file' : 'admin-dub-720-video-file');
+                    
+                    const input = document.getElementById(inputId);
+                    const nameEl = document.getElementById(`name-${inputId}`);
+                    if (input && nameEl) {
+                        // Store the existing URL as a data attribute
+                        input.dataset.existingUrl = url;
+                        nameEl.textContent = 'Video uploaded (click to replace)';
+                    }
+                }
+            });
+        });
+    }
+
     async function deleteHubEpisode(num, event) {
+        console.log('[Delete Episode] Attempting to delete episode:', num);
         if (event) event.stopPropagation();
         const anime = window.currentHubAnime;
-        if (!anime) return;
-        if (!confirm(`Delete Episode ${num} permanently?`)) return;
+        if (!anime) {
+            console.error('[Delete Episode] No current anime found');
+            return;
+        }
+        if (!confirm(`Delete Episode ${num} permanently?`)) {
+            console.log('[Delete Episode] Delete cancelled by user');
+            return;
+        }
 
         try {
+            console.log('[Delete Episode] Sending delete request to server...');
             const token = getAuthToken();
             const res = await fetch(`/api/anime/${anime.id}/episodes/${num}`, {
                 method: 'DELETE',
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
             const data = await res.json().catch(() => ({}));
+            console.log('[Delete Episode] Server response:', data);
+            
             if (!res.ok || !data.ok) throw new Error(data.error || 'Delete failed');
+
+            console.log('[Delete Episode] Episode deleted successfully, refreshing UI...');
 
             // Refresh local data
             if (typeof updateLocalAnimeData === 'function') updateLocalAnimeData(data.anime);
@@ -743,8 +925,18 @@
             
             // Re-render Hub
             renderEpisodeManagementHub(data.anime);
+            
+            // Re-bind the Add New Episode button after re-render
+            const addEpisodeBtn = document.getElementById('add-new-episode-btn');
+            if (addEpisodeBtn) {
+                addEpisodeBtn.onclick = () => resetWorkspaceForNewEpisode(calculateNextEpisodeNumber());
+                console.log('[Delete Episode] Add New Episode button rebound after deletion');
+            }
+            
             showToast(`Episode ${num} deleted.`);
+            console.log('[Delete Episode] UI refreshed successfully');
         } catch (e) {
+            console.error('[Delete Episode] Error deleting episode:', e);
             alertGold('Error deleting episode: ' + e.message);
         }
     }
@@ -974,8 +1166,12 @@
     
                 console.log('[UPLOAD] 🔄 Refreshing UI...');
                 if (window.renderEpisodeManagementHub && window.currentHubAnime) {
+                    // Find the updated anime from local data
                     const updated = animeData.find(a => a.id === existing.id);
-                    renderEpisodeManagementHub(updated || existing);
+                    // Update the current hub anime with the latest data
+                    window.currentHubAnime = updated || data.anime;
+                    // Re-render the episode management hub with the updated data
+                    renderEpisodeManagementHub(window.currentHubAnime);
                 } else {
                     hideUploadModal();
                     switchAdminTab('anime');
@@ -1840,50 +2036,206 @@ function editAdminAnime(id) {
         warning.classList.toggle('hidden', !exists);
     }
 
-    function resetWorkspaceForNewEpisode(nextNum) {
+    async function resetWorkspaceForNewEpisode(nextNum) {
+        console.log('[Add New Episode] Button clicked, next episode number:', nextNum);
+        
         const workspace = document.getElementById('hub-workspace');
-        if (workspace && window.currentHubAnime) {
-            workspace.innerHTML = renderWorkspaceForm(window.currentHubAnime, nextNum);
+        if (!workspace || !window.currentHubAnime) {
+            console.error('[Add New Episode] Missing workspace or currentHubAnime');
+            return;
+        }
+
+        const anime = window.currentHubAnime;
+        console.log('[Add New Episode] Current anime:', anime.title, 'ID:', anime.id);
+
+        // Recalculate next episode number to avoid conflicts
+        const episodes = Array.isArray(anime.episodesMedia) ? anime.episodesMedia : [];
+        const existingNumbers = episodes.map(e => Number(e.episodeNumber));
+        let calculatedNextNum = nextNum;
+        
+        // Find the next available episode number
+        while (existingNumbers.includes(calculatedNextNum)) {
+            calculatedNextNum++;
+        }
+        
+        if (calculatedNextNum !== nextNum) {
+            console.log('[Add New Episode] Adjusted episode number from', nextNum, 'to', calculatedNextNum, 'to avoid conflict');
+        }
+
+        // Create the new episode in the database
+        try {
+            console.log('[Add New Episode] Creating episode in database...');
+            const token = global.authService && typeof global.authService.getToken === 'function'
+                ? global.authService.getToken()
+                : null;
+
+            if (!token) {
+                console.error('[Add New Episode] No auth token available');
+                alert('Authentication required. Please log in again.');
+                return;
+            }
+
+            const response = await fetch(`/api/anime/${anime.id}/episodes/${calculatedNextNum}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    episodeNumber: calculatedNextNum,
+                    episodeTitle: '',
+                    sub: { qualities: {} },
+                    dub: { qualities: {} }
+                })
+            });
+
+            console.log('[Add New Episode] API response status:', response.status);
+            const data = await response.json();
+            console.log('[Add New Episode] API response data:', data);
+
+            if (!response.ok || !data.ok) {
+                console.error('[Add New Episode] Failed to create episode:', data.error);
+                alert('Failed to create episode: ' + (data.error || 'Unknown error'));
+                return;
+            }
+
+            console.log('[Add New Episode] Episode created successfully in database');
+
+            // Update the local anime data with the response
+            if (data.anime) {
+                window.currentHubAnime = data.anime;
+                console.log('[Add New Episode] Updated local anime data, episodes count:', data.anime.episodesMedia?.length || 0);
+            }
+
+            // Refresh the episode list in the sidebar
+            const episodeList = document.getElementById('hub-episode-list');
+            if (episodeList) {
+                const episodes = Array.isArray(window.currentHubAnime.episodesMedia) ? window.currentHubAnime.episodesMedia : [];
+                console.log('[Add New Episode] Refreshing sidebar with episodes:', episodes.map(e => e.episodeNumber));
+                
+                episodeList.innerHTML = episodes.length > 0 ? episodes.sort((a, b) => b.episodeNumber - a.episodeNumber).map(e => `
+                    <div class="group p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-transparent dark:border-white/5 hover:border-gold-400/30 hover:bg-black/8 dark:hover:bg-white/8 transition-all flex items-center justify-between cursor-pointer ${Number(e.episodeNumber) === Number(calculatedNextNum) ? 'hub-episode-active' : ''}" onclick="loadEpisodeIntoWorkspace(${e.episodeNumber})">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-green-400/10 flex items-center justify-center border border-green-400/20">
+                                <i data-lucide="check" class="w-4 h-4 text-green-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-black dark:text-white">Episode ${e.episodeNumber}</p>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase">${Object.keys(e.sub?.qualities || {}).length > 0 ? 'Sub' : ''} ${Object.keys(e.dub?.qualities || {}).length > 0 ? '• Dub' : ''}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button class="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gold-400"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+                            <button class="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400" onclick="deleteHubEpisode(${e.episodeNumber}, event)"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                    </div>
+                `).join('') : `
+                    <div class="flex flex-col items-center justify-center py-10 text-center opacity-40">
+                        <i data-lucide="inbox" class="w-10 h-10 mb-2"></i>
+                        <p class="text-xs font-bold text-black dark:text-white">No episodes yet</p>
+                    </div>
+                `;
+                
+                // Re-initialize icons for the updated sidebar
+                if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+            }
+
+            // Update the workspace form for the new episode
+            workspace.innerHTML = renderWorkspaceForm(window.currentHubAnime, calculatedNextNum);
             if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
             bindWorkspaceInteractions();
-            
-            // Mark all items in sidebar as inactive
-            document.querySelectorAll('#hub-episode-list > div').forEach(el => el.classList.remove('hub-episode-active'));
+
+            console.log('[Add New Episode] Workspace updated for episode:', calculatedNextNum);
+
+        } catch (error) {
+            console.error('[Add New Episode] Error creating episode:', error);
+            alert('Error creating episode: ' + error.message);
         }
     }
 
     function loadEpisodeIntoWorkspace(num) {
+        console.log('[Load Episode] Loading episode into workspace:', num);
         const anime = window.currentHubAnime;
-        if (!anime) return;
+        if (!anime) {
+            console.error('[Load Episode] No current anime found');
+            return;
+        }
+        
         const ep = (anime.episodesMedia || []).find(e => Number(e.episodeNumber) === Number(num));
+        console.log('[Load Episode] Found episode data:', ep ? 'Yes' : 'No');
+        
         const workspace = document.getElementById('hub-workspace');
         if (workspace && ep) {
             workspace.innerHTML = renderWorkspaceForm(anime, num, ep);
             if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
             bindWorkspaceInteractions();
 
+            // Initialize existing video indicators
+            initializeExistingVideos(ep);
+
             // UI feedback in list
             document.querySelectorAll('#hub-episode-list > div').forEach(el => {
                 const isTarget = el.querySelector('p')?.textContent.includes('Episode ' + num);
                 el.classList.toggle('hub-episode-active', isTarget);
             });
+            
+            console.log('[Load Episode] Episode loaded successfully');
+        } else {
+            console.error('[Load Episode] Failed to load episode - workspace or episode data missing');
         }
     }
 
+    function initializeExistingVideos(ep) {
+        // Mark all quality inputs that have existing videos
+        const qualities = ['1080p', '720p'];
+        const languages = ['sub', 'dub'];
+        
+        qualities.forEach(quality => {
+            languages.forEach(lang => {
+                const url = ep?.[lang]?.qualities?.[quality];
+                if (url) {
+                    const inputId = lang === 'sub' 
+                        ? (quality === '1080p' ? 'admin-video-file' : 'admin-sub-720-video-file')
+                        : (quality === '1080p' ? 'admin-dub-video-file' : 'admin-dub-720-video-file');
+                    
+                    const input = document.getElementById(inputId);
+                    const nameEl = document.getElementById(`name-${inputId}`);
+                    if (input && nameEl) {
+                        // Store the existing URL as a data attribute
+                        input.dataset.existingUrl = url;
+                        nameEl.textContent = 'Video uploaded (click to replace)';
+                    }
+                }
+            });
+        });
+    }
+
     async function deleteHubEpisode(num, event) {
+        console.log('[Delete Episode] Attempting to delete episode:', num);
         if (event) event.stopPropagation();
         const anime = window.currentHubAnime;
-        if (!anime) return;
-        if (!confirm(`Delete Episode ${num} permanently?`)) return;
+        if (!anime) {
+            console.error('[Delete Episode] No current anime found');
+            return;
+        }
+        if (!confirm(`Delete Episode ${num} permanently?`)) {
+            console.log('[Delete Episode] Delete cancelled by user');
+            return;
+        }
 
         try {
+            console.log('[Delete Episode] Sending delete request to server...');
             const token = getAuthToken();
             const res = await fetch(`/api/anime/${anime.id}/episodes/${num}`, {
                 method: 'DELETE',
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
             });
             const data = await res.json().catch(() => ({}));
+            console.log('[Delete Episode] Server response:', data);
+            
             if (!res.ok || !data.ok) throw new Error(data.error || 'Delete failed');
+
+            console.log('[Delete Episode] Episode deleted successfully, refreshing UI...');
 
             // Refresh local data
             if (typeof updateLocalAnimeData === 'function') updateLocalAnimeData(data.anime);
@@ -1891,8 +2243,18 @@ function editAdminAnime(id) {
             
             // Re-render Hub
             renderEpisodeManagementHub(data.anime);
+            
+            // Re-bind the Add New Episode button after re-render
+            const addEpisodeBtn = document.getElementById('add-new-episode-btn');
+            if (addEpisodeBtn) {
+                addEpisodeBtn.onclick = () => resetWorkspaceForNewEpisode(calculateNextEpisodeNumber());
+                console.log('[Delete Episode] Add New Episode button rebound after deletion');
+            }
+            
             showToast(`Episode ${num} deleted.`);
+            console.log('[Delete Episode] UI refreshed successfully');
         } catch (e) {
+            console.error('[Delete Episode] Error deleting episode:', e);
             if (window.alertGold) alertGold('Error deleting episode: ' + e.message);
             else alert('Error deleting episode: ' + e.message);
         }
@@ -1956,6 +2318,7 @@ function editAdminAnime(id) {
 
     // Redesign Hub Exports
     global.renderEpisodeManagementHub = renderEpisodeManagementHub;
+    global.calculateNextEpisodeNumber = calculateNextEpisodeNumber;
     global.toggleAccordion = toggleAccordion;
     global.handleFileSelect = handleFileSelect;
     global.clearFile = clearFile;
