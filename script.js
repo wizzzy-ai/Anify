@@ -2662,9 +2662,7 @@ function renderAdminUsers() {
 
 function ensureAdminOrRedirect() {
     if (isAdminToken()) return true;
-    const content = document.getElementById('main-content');
-    if (content) content.innerHTML = `<div class="pt-24 pb-20 min-h-screen flex items-center justify-center"><div class="text-center glass-card rounded-2xl p-8 max-w-md"><h1 class="text-2xl font-black mb-2">Access denied</h1><p class="text-gray-500">Admin role required.</p><button onclick="navigate('home')" class="btn-primary mt-6">Back to Home</button></div></div>`;
-    currentPage = 'home';
+    navigate('home');
     return false;
 }
 
