@@ -897,7 +897,10 @@ function handleRouteChange() {
         case 'login': content.innerHTML = renderLogin(); break;
         case 'register': content.innerHTML = renderRegister(); break;
         case 'profile': content.innerHTML = renderProfile(); break;
-        case 'admin': content.innerHTML = renderAdmin(); break;
+        case 'admin': 
+            if (!ensureAdminOrRedirect()) return;
+            content.innerHTML = renderAdmin(); 
+            break;
         default:
             currentPage = 'home';
             content.innerHTML = renderHome();
