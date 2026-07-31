@@ -16,10 +16,22 @@
     }
 
     async function saveAnimeToApi(anime, isEdit = false) {
+        const token = global.authService && typeof global.authService.getToken === 'function'
+            ? global.authService.getToken()
+            : null;
+
+        if (!token) {
+            console.warn('Saved locally only: Missing token');
+            return null;
+        }
+
         try {
             const res = await fetch(isEdit ? `/api/anime/${anime.id}` : '/api/anime', {
                 method: isEdit ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ ...anime, clientId: Number(anime.id) || undefined }),
             });
             const data = await res.json().catch(() => ({}));
