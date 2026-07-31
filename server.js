@@ -416,7 +416,7 @@ async function sendUploadedFile(req, res, fieldName) {
       );
       console.log('[UPLOAD] ✅ Cloudinary upload SUCCESS:', { url: result.url, public_id: result.public_id });
     } else {
-      console.log('[UPLOAD] ☁️ Uploading video to Cloudinary...');
+      console.log('[UPLOAD] ☁️ Uploading video to storage...');
       const { videoType = 'banner', metadata = {} } = req.body || {};
       const parsedMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
       
@@ -427,7 +427,7 @@ async function sendUploadedFile(req, res, fieldName) {
       } else {
         result = await uploadToR2(req.file, 'videos', { metadata: parsedMetadata });
       }
-      console.log('[UPLOAD] ✅ Cloudinary video upload SUCCESS:', { url: result.url, public_id: result.public_id, videoType });
+      console.log('[UPLOAD] ✅ Video upload SUCCESS:', { url: result.url, key: result.key, storage: result.storage });
     }
 
     console.log('[UPLOAD] 📤 Sending success response to client');
@@ -446,10 +446,17 @@ async function sendUploadedFile(req, res, fieldName) {
 
   } catch (e) {
     console.error("[UPLOAD] ❌ Backend upload FAILED:", e);
+    console.error("[UPLOAD] Error details:", {
+      message: e.message,
+      code: e.code,
+      name: e.name,
+      stack: e.stack
+    });
 
     return res.status(500).json({
       ok: false,
-      error: e.message
+      error: e.message || 'Upload failed',
+      code: e.code || 'UPLOAD_ERROR'
     });
   }
 }

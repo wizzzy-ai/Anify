@@ -48,7 +48,11 @@
                         reject(new Error(data.error || `Upload failed (${xhr.status})`));
                     }
                 } catch (e) {
-                    reject(new Error('Invalid response from server.'));
+                    // Log the actual response for debugging
+                    console.error('[Upload Service] Server response:', xhr.responseText);
+                    console.error('[Upload Service] Status:', xhr.status);
+                    console.error('[Upload Service] Content-Type:', xhr.getResponseHeader('Content-Type'));
+                    reject(new Error(`Invalid response from server. Status: ${xhr.status}. Response: ${xhr.responseText.substring(0, 200)}`));
                 }
             });
 
