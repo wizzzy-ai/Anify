@@ -277,6 +277,26 @@ function normalizeAnime(anime) {
       ...(obj.movieMedia || {}),
       qualities: movieQualities,
     },
+    
+    // Ensure all other fields are included
+    title: obj.title,
+    titleJp: obj.titleJp,
+    desc: obj.desc,
+    year: obj.year,
+    studio: obj.studio,
+    genres: obj.genres,
+    status: obj.status,
+    premium: obj.premium,
+    featured: obj.featured,
+    rating: obj.rating,
+    trending: obj.trending,
+    newEpisode: obj.newEpisode,
+    bannerDisplay: obj.bannerDisplay,
+    trailer: obj.trailer,
+    introStart: obj.introStart,
+    introEnd: obj.introEnd,
+    outroStart: obj.outroStart,
+    outroEnd: obj.outroEnd,
   };
 }
 
@@ -871,14 +891,57 @@ app.put('/api/anime/:id/movieMedia', requireDb, requireActiveUser, async (req, r
 });
 
 app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
+  console.log('[Edit Anime API] PUT request received for anime ID:', req.params.id);
+  console.log('[Edit Anime API] Request payload keys:', Object.keys(req.body));
+  console.log('[Edit Anime API] Request payload:', JSON.stringify(req.body, null, 2));
 
   const query = /^\d+$/.test(req.params.id)
     ? { clientId: Number(req.params.id) }
     : { _id: req.params.id };
+  
+  console.log('[Edit Anime API] Query:', query);
+  
+  // Get the anime before update to see what we're changing
+  const animeBefore = await Anime.findOne(query);
+  if (!animeBefore) {
+    console.error('[Edit Anime API] Anime not found with query:', query);
+    return res.status(404).json({ ok: false, error: 'Anime not found.' });
+  }
+  
+  console.log('[Edit Anime API] Anime before update fields:', Object.keys(animeBefore.toObject()));
+  console.log('[Edit Anime API] Anime before update:', JSON.stringify(animeBefore.toObject(), null, 2));
+  
   const payload = { ...req.body };
-  if (Array.isArray(payload.genres)) payload.genres = normalizeGenreList(payload.genres);
+  
+  // Log each field being updated
+  Object.keys(payload).forEach(key => {
+    console.log(`[Edit Anime API] Field "${key}":`, payload[key]);
+  });
+  
+  if (Array.isArray(payload.genres)) {
+    console.log('[Edit Anime API] Normalizing genres:', payload.genres);
+    payload.genres = normalizeGenreList(payload.genres);
+    console.log('[Edit Anime API] Normalized genres:', payload.genres);
+  }
+  
+  console.log('[Edit Anime API] Final payload for update:', JSON.stringify(payload, null, 2));
+  
   const anime = await Anime.findOneAndUpdate(query, payload, { returnDocument: 'after', upsert: false });
-  if (!anime) return res.status(404).json({ ok: false, error: 'Anime not found.' });
+  
+  console.log('[Edit Anime API] Anime updated successfully:', anime.title);
+  console.log('[Edit Anime API] Updated document fields:', Object.keys(anime.toObject()));
+  console.log('[Edit Anime API] Updated document:', JSON.stringify(anime.toObject(), null, 2));
+  
+  // Compare before and after
+  const beforeFields = Object.keys(animeBefore.toObject());
+  const afterFields = Object.keys(anime.toObject());
+  const missingFields = beforeFields.filter(f => !afterFields.includes(f));
+  const newFields = afterFields.filter(f => !beforeFields.includes(f));
+  
+  console.log('[Edit Anime API] Field comparison:');
+  console.log('[Edit Anime API] Missing fields:', missingFields);
+  console.log('[Edit Anime API] New fields:', newFields);
+  
   await syncGenreCounts();
   res.json({ ok: true, anime: normalizeAnime(anime) });
 });

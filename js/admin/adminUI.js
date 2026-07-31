@@ -994,11 +994,13 @@
     }
 
     function getAdminAnimePayload() {
+        console.log('[Edit Anime] Gathering form data...');
+        
         const title = document.getElementById('admin-anime-title')?.value.trim() || '';
         const year = Number(document.getElementById('admin-anime-year')?.value || new Date().getFullYear());
         const selectedGenres = [...new Set([...document.querySelectorAll('[data-admin-genre]:checked')].map(g => g.value).filter(Boolean))];
-    
-        return {
+        
+        const payload = {
             title,
             titleJp: document.getElementById('admin-anime-title-jp')?.value.trim() || title,
             desc: document.getElementById('admin-anime-desc')?.value.trim() || 'No description yet.',
@@ -1010,17 +1012,15 @@
             featured: Boolean(document.getElementById('admin-anime-featured')?.checked),
             bannerDisplay: document.querySelector('input[name="admin-banner-display"]:checked')?.value || 'image',
             trailer: document.getElementById('admin-anime-trailer')?.value.trim() || '',
-            
-            // These are not in the create form but are needed for the data model
-            episodes: 1, 
-            introStart: 0,
-            introEnd: 90,
-            outroStart: 0,
-            outroEnd: 0,
         };
+        
+        console.log('[Edit Anime] Form data collected:', payload);
+        return payload;
     }
 
     async function uploadAdminMedia() {
+        console.log('[Edit Anime] Starting media upload...');
+        
         const posterInput = document.getElementById('admin-poster-image');
         const bannerInput = document.getElementById('admin-banner-image');
         const bannerVideoInput = document.getElementById('admin-banner-video');
@@ -1028,12 +1028,20 @@
         const posterFile = posterInput?.files?.[0] || null;
         const bannerFile = bannerInput?.files?.[0] || null;
         const bannerVideoFile = bannerVideoInput?.files?.[0] || null;
+        
+        console.log('[Edit Anime] Files to upload:', { 
+            poster: posterFile?.name, 
+            banner: bannerFile?.name, 
+            bannerVideo: bannerVideoFile?.name 
+        });
     
         const [uploadedPoster, uploadedBanner, uploadedBannerVideo] = await Promise.all([
             posterFile ? uploadService.uploadMedia(posterFile) : Promise.resolve(null),
             bannerFile ? uploadService.uploadMedia(bannerFile) : Promise.resolve(null),
             bannerVideoFile ? uploadService.uploadMedia(bannerVideoFile) : Promise.resolve(null),
         ]);
+        
+        console.log('[Edit Anime] Media upload completed:', { uploadedPoster, uploadedBanner, uploadedBannerVideo });
     
         return { uploadedPoster, uploadedBanner, uploadedBannerVideo };
     }
@@ -1184,24 +1192,63 @@
             }
     
             const payload = getAdminAnimePayload();
+            console.log('[Edit Anime] Form payload:', payload);
+            
             const { uploadedPoster, uploadedBanner, uploadedBannerVideo } = await uploadAdminMedia();
-    
-            const finalPayload = { ...payload, type: 'anime' };
+            console.log('[Edit Anime] Media upload results:', { uploadedPoster, uploadedBanner, uploadedBannerVideo });
     
             if (adminService.adminModalMode === 'edit' && existing) {
-                Object.assign(existing, finalPayload);
-                if (uploadedPoster) existing.image = uploadedPoster.url;
-                if (uploadedBanner) existing.banner = uploadedBanner.url;
-                if (uploadedBannerVideo) existing.bannerVideo = uploadedBannerVideo.url;
-                const savedAnime = await saveAnimeToApi(existing, true);
-                if (savedAnime) Object.assign(existing, savedAnime);
+                console.log('[Edit Anime] EDIT MODE - Updating existing anime:', existing.id);
+                console.log('[Edit Anime] Existing anime data before update:', JSON.parse(JSON.stringify(existing)));
+                
+                // Create update payload that only includes changed fields
+                const updatePayload = { ...payload };
+                
+                // Only update media URLs if new files were uploaded
+                if (uploadedPoster) updatePayload.image = uploadedPoster.url;
+                if (uploadedBanner) updatePayload.banner = uploadedBanner.url;
+                if (uploadedBannerVideo) updatePayload.bannerVideo = uploadedBannerVideo.url;
+                
+                // Preserve existing fields that aren't in the form
+                updatePayload.type = existing.type || 'anime';
+                updatePayload.episodes = existing.episodes || 1;
+                updatePayload.rating = existing.rating || 0;
+                updatePayload.trending = existing.trending || false;
+                updatePayload.newEpisode = existing.newEpisode || false;
+                
+                // Preserve timing fields if they exist
+                if (existing.introStart !== undefined) updatePayload.introStart = existing.introStart;
+                if (existing.introEnd !== undefined) updatePayload.introEnd = existing.introEnd;
+                if (existing.outroStart !== undefined) updatePayload.outroStart = existing.outroStart;
+                if (existing.outroEnd !== undefined) updatePayload.outroEnd = existing.outroEnd;
+                
+                // Preserve media arrays
+                if (existing.episodesMedia) updatePayload.episodesMedia = existing.episodesMedia;
+                if (existing.movieMedia) updatePayload.movieMedia = existing.movieMedia;
+                
+                console.log('[Edit Anime] Update payload being sent to API:', updatePayload);
+                console.log('[Edit Anime] Sending to API for save...');
+                
+                const savedAnime = await saveAnimeToApi({ ...existing, ...updatePayload }, true);
+                console.log('[Edit Anime] API response:', savedAnime);
+                
+                if (savedAnime) {
+                    Object.assign(existing, savedAnime);
+                    console.log('[Edit Anime] Anime updated successfully with ID:', savedAnime.id);
+                } else {
+                    console.error('[Edit Anime] Failed to save anime - no response from API');
+                }
                 
                 // Reload anime data from API to ensure UI shows the latest data
-                if (typeof loadAnimeFromApi === 'function') await loadAnimeFromApi();
+                if (typeof loadAnimeFromApi === 'function') {
+                    console.log('[Edit Anime] Reloading anime data from API...');
+                    await loadAnimeFromApi();
+                }
             } else {
                 const id = Math.max(0, ...animeData.map(a => a.id)) + 1;
                 const newAnime = {
-                    ...finalPayload,
+                    ...payload,
+                    type: 'anime',
                     id,
                     rating: 0,
                     image: uploadedPoster?.url || `http://static.photos/technology/640x360/${id}`,
@@ -1209,26 +1256,39 @@
                     bannerVideo: uploadedBannerVideo?.url || '',
                     trending: false,
                     newEpisode: false,
+                    episodes: 1,
+                    introStart: 0,
+                    introEnd: 90,
+                    outroStart: 0,
+                    outroEnd: 0,
                 };
                 const savedAnime = await saveAnimeToApi(newAnime, false);
                 if (typeof updateLocalAnimeData === 'function') updateLocalAnimeData(savedAnime || newAnime);
             }
     
             // Reload anime data from API to ensure UI shows the latest data
-            if (typeof loadAnimeFromApi === 'function') await loadAnimeFromApi();
+            if (typeof loadAnimeFromApi === 'function') {
+                console.log('[Edit Anime] Final reload of anime data from API...');
+                await loadAnimeFromApi();
+            }
             
             saveAdminAnimeData();
             hideUploadModal();
             switchAdminTab('anime');
             if (window.showToast) showToast('Anime saved successfully.');
+            console.log('[Edit Anime] ✅ SAVE CHANGES COMPLETE');
         } catch (e) {
-            console.error('[UPLOAD] ❌ UPLOAD FAILED:', e);
-            alert('Upload error: ' + (e?.message || e));
+            console.error('[Edit Anime] ❌ SAVE CHANGES FAILED:', e);
+            alert('Save error: ' + (e?.message || e));
         }
     }
 
     async function uploadAdminMovie() {
+        console.log('[Edit Movie] Starting movie upload/save...');
+        
         const payload = getAdminAnimePayload();
+        console.log('[Edit Movie] Form payload:', payload);
+        
         if (!payload.title) return alertGold('Please enter a movie title.');
     
         const forcedType = document.getElementById('admin-anime-type-forced')?.value;
@@ -1250,6 +1310,13 @@
     
             let movieId = adminService.editingAnimeId || adminService.uploadTargetAnimeId;
             const isMovieCreate = adminService.adminModalMode === 'movie-create';
+            const isMovieEdit = adminService.adminModalMode === 'movie-edit';
+            
+            console.log('[Edit Movie] Mode:', adminService.adminModalMode, 'Movie ID:', movieId);
+            
+            // Upload media first for both create and edit modes
+            const { uploadedPoster, uploadedBanner, uploadedBannerVideo } = await uploadAdminMedia();
+            console.log('[Edit Movie] Media upload completed:', { uploadedPoster, uploadedBanner, uploadedBannerVideo });
     
             if (isMovieCreate && !movieId) {
                 const nextId = Math.max(0, ...animeData.map(a => Number(a.id) || 0)) + 1;
@@ -1273,15 +1340,54 @@
             if (!movieId) return alertGold('Movie ID not found for upload.');
     
             const existing = animeData.find(a => Number(a.id) === Number(movieId)) || null;
+            console.log('[Edit Movie] Existing movie:', existing?.title);
+            
+            if (isMovieEdit && existing) {
+                console.log('[Edit Movie] EDIT MODE - Updating existing movie');
+                
+                // Create update payload that only includes changed fields
+                const updatePayload = { ...payload };
+                
+                // Only update media URLs if new files were uploaded
+                if (uploadedPoster) updatePayload.image = uploadedPoster.url;
+                if (uploadedBanner) updatePayload.banner = uploadedBanner.url;
+                if (uploadedBannerVideo) updatePayload.bannerVideo = uploadedBannerVideo.url;
+                
+                // Preserve existing fields that aren't in the form
+                updatePayload.type = existing.type || forcedType;
+                updatePayload.episodes = existing.episodes || 1;
+                updatePayload.rating = existing.rating || 0;
+                updatePayload.trending = existing.trending || false;
+                updatePayload.newEpisode = existing.newEpisode || false;
+                
+                // Preserve timing fields if they exist
+                if (existing.introStart !== undefined) updatePayload.introStart = existing.introStart;
+                if (existing.introEnd !== undefined) updatePayload.introEnd = existing.introEnd;
+                if (existing.outroStart !== undefined) updatePayload.outroStart = existing.outroStart;
+                if (existing.outroEnd !== undefined) updatePayload.outroEnd = existing.outroEnd;
+                
+                // Preserve media arrays
+                if (existing.episodesMedia) updatePayload.episodesMedia = existing.episodesMedia;
+                if (existing.movieMedia) updatePayload.movieMedia = existing.movieMedia;
+                
+                console.log('[Edit Movie] Update payload being sent to API:', updatePayload);
+                console.log('[Edit Movie] Sending movie metadata update to API...');
+                const savedAnime = await saveAnimeToApi({ ...existing, ...updatePayload }, true);
+                console.log('[Edit Movie] Movie metadata updated:', savedAnime?.title);
+                
+                if (savedAnime) {
+                    Object.assign(existing, savedAnime);
+                }
+            }
             
             alertGold('Uploading movie...');
     
-            const { uploadedPoster, uploadedBanner, uploadedBannerVideo } = await uploadAdminMedia();
-    
             let uploadedMovie = null;
             if (movieFile) {
+                console.log('[Edit Movie] Uploading movie video file...');
                 uploadedMovie = await uploadService.uploadVideo(movieFile);
                 if (!uploadedMovie?.url) throw new Error('Video upload failed to return a URL.');
+                console.log('[Edit Movie] Movie video uploaded:', uploadedMovie.url);
             }
     
             const qualities = { ...(existing?.movieMedia?.qualities || {}) };
@@ -1289,6 +1395,7 @@
                 qualities['1080p'] = uploadedMovie.url;
             }
     
+            console.log('[Edit Movie] Updating movie media qualities...');
             const res = await fetch(`/api/anime/${movieId}/movieMedia`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -1296,38 +1403,54 @@
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            console.log('[Edit Movie] Movie media updated');
     
-            const patch = {
-                ...payload, type: forcedType,
-                image: uploadedPoster?.url || existing?.image,
-                banner: uploadedBanner?.url || existing?.banner,
-                bannerVideo: bannerDisplay === 'video' ? (uploadedBannerVideo?.url || existing?.bannerVideo || '') : '',
-                movieMedia: { qualities },
-            };
-    
-            const updateRes = await fetch(`/api/anime/${movieId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify(patch),
-            });
-            const updateData = await updateRes.json().catch(() => ({}));
-            if (!updateRes.ok || !updateData.ok) throw new Error(updateData.error || `HTTP ${updateRes.status}`);
+            // For create mode, we need to set up the full movie data
+            if (!isMovieEdit) {
+                const patch = {
+                    ...payload, type: forcedType,
+                    image: uploadedPoster?.url || existing?.image,
+                    banner: uploadedBanner?.url || existing?.banner,
+                    bannerVideo: bannerDisplay === 'video' ? (uploadedBannerVideo?.url || existing?.bannerVideo || '') : '',
+                    movieMedia: { qualities },
+                };
+        
+                console.log('[Edit Movie] Sending final movie update to API...');
+                const updateRes = await fetch(`/api/anime/${movieId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify(patch),
+                });
+                const updateData = await updateRes.json().catch(() => ({}));
+                if (!updateRes.ok || !updateData.ok) throw new Error(updateData.error || `HTTP ${updateRes.status}`);
+                console.log('[Edit Movie] Movie updated successfully');
 
-            const savedUrl = updateData?.anime?.movieMedia?.qualities?.['1080p'];
-            if (uploadedMovie && savedUrl !== uploadedMovie.url) {
-                throw new Error('Movie upload completed, but MongoDB did not return the saved R2 playback URL.');
+                const savedUrl = updateData?.anime?.movieMedia?.qualities?.['1080p'];
+                if (uploadedMovie && savedUrl !== uploadedMovie.url) {
+                    throw new Error('Movie upload completed, but MongoDB did not return the saved R2 playback URL.');
+                }
+
+                if (typeof updateLocalAnimeData === 'function') updateLocalAnimeData(updateData.anime);
             }
 
-            if (typeof updateLocalAnimeData === 'function') updateLocalAnimeData(updateData.anime);
             // Refresh from MongoDB so the Movies UI always shows the newly
             // published title instead of relying on stale local data.
+            console.log('[Edit Movie] Reloading anime data from API...');
             if (typeof loadAnimeFromApi === 'function') await loadAnimeFromApi();
+            
             saveAdminAnimeData();
             hideUploadModal();
             switchAdminTab('movies');
-            alertGold('Movie published successfully.');
+            
+            if (isMovieEdit) {
+                alertGold('Movie updated successfully.');
+                console.log('[Edit Movie] ✅ MOVIE EDIT COMPLETE');
+            } else {
+                alertGold('Movie published successfully.');
+                console.log('[Edit Movie] ✅ MOVIE CREATE COMPLETE');
+            }
         } catch (e) {
-            console.error(e);
+            console.error('[Edit Movie] ❌ MOVIE SAVE FAILED:', e);
             alertGold('Movie upload error: ' + (e?.message || e));
         }
     }

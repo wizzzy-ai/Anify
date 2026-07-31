@@ -3617,7 +3617,7 @@ function handleSearch(query) {
         results.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">Start typing to search...</p>';
         return;
     }
-    const filtered = animeData.filter(a => a.title.toLowerCase().includes(query.toLowerCase()) || (Array.isArray(a.genres) && a.genres.some(g => g.toLowerCase().includes(query.toLowerCase()))));
+    const filtered = animeData.filter(a => (a.title && a.title.toLowerCase().includes(query.toLowerCase())) || (Array.isArray(a.genres) && a.genres.some(g => g && g.toLowerCase().includes(query.toLowerCase()))));
     if (filtered.length === 0) {
         results.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">No results found</p>';
         return;
@@ -4410,9 +4410,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.code === 'Space') {
             event.preventDefault();
             playerService.togglePlay();
-        } else if (event.key.toLowerCase() === 'm') {
+        } else if (event.key && event.key.toLowerCase() === 'm') {
             playerService.toggleMute();
-        } else if (event.key.toLowerCase() === 'f' && isMiniActive) {
+        } else if (event.key && event.key.toLowerCase() === 'f' && isMiniActive) {
             navigate('player', video.dataset.animeId);
         } else if (event.key === 'Escape') {
             if (isMiniActive) {
@@ -4426,19 +4426,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (stillWatching && !stillWatching.classList.contains('hidden')) {
                 confirmStillWatching(); // Default to continuing on Escape for safety
             }
-        } else if (event.key.toLowerCase() === 'n') {
+        } else if (event.key && event.key.toLowerCase() === 'n') {
             const overlay = document.getElementById('auto-next-overlay');
             if (overlay && !overlay.classList.contains('hidden')) {
                 playNextEpisodeImmediately();
             }
-        } else if (event.key.toLowerCase() === 'k') {
+        } else if (event.key && event.key.toLowerCase() === 'k') {
             const stillWatching = document.getElementById('still-watching-overlay');
             if (stillWatching && !stillWatching.classList.contains('hidden')) {
                 confirmStillWatching();
             }
         } else if (isPlayerPage) {
             // Full player only shortcuts
-            if (event.key.toLowerCase() === 'i' || event.key.toLowerCase() === 's') {
+            if (event.key && (event.key.toLowerCase() === 'i' || event.key.toLowerCase() === 's')) {
                 const introBtn = document.getElementById('skip-intro-btn');
                 const outroBtn = document.getElementById('skip-outro-btn');
                 if (introBtn && !introBtn.classList.contains('hidden')) {
@@ -4446,9 +4446,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (outroBtn && !outroBtn.classList.contains('hidden')) {
                     skipCredits();
                 }
-            } else if (event.key.toLowerCase() === 'f') {
+            } else if (event.key && event.key.toLowerCase() === 'f') {
                 playerService.toggleFullscreen();
-            } else if (event.ctrlKey && event.key.toLowerCase() === 'd') {
+            } else if (event.ctrlKey && event.key && event.key.toLowerCase() === 'd') {
                 event.preventDefault();
                 downloadCurrentVideo();
             }
