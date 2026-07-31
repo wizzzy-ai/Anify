@@ -566,19 +566,21 @@ function renderHeroMedia(anime) {
 }
 
 function renderHeroContent(anime) {
+    if (!anime) return '';
+    
     return `
         <div class="anim-slide-up anim-delay-1 flex items-center gap-2 mb-4">
             ${anime.newEpisode ? '<span class="badge-new">New Episode</span>' : ''}
             ${anime.premium ? '<span class="badge-premium">Premium</span>' : ''}
             <span class="text-xs text-gray-400 font-medium flex items-center gap-1">
-                <i data-lucide="star" class="w-3 h-3 fill-gold-400 text-gold-400"></i> ${anime.rating}
+                <i data-lucide="star" class="w-3 h-3 fill-gold-400 text-gold-400"></i> ${anime.rating || 0}
             </span>
         </div>
-        <h1 class="anim-slide-up anim-delay-2 text-4xl md:text-6xl lg:text-7xl font-black leading-tight mb-2">${anime.title}</h1>
-         <p class="anim-slide-up anim-delay-2 text-gold-400/80 text-sm mb-4">${anime.titleJp}</p>
-        <p class="anim-slide-up anim-delay-3 text-gray-300 text-sm md:text-base line-clamp-3 mb-6 max-w-lg">${anime.desc}</p>
+        <h1 class="anim-slide-up anim-delay-2 text-4xl md:text-6xl lg:text-7xl font-black leading-tight mb-2">${anime.title || 'Unknown'}</h1>
+         <p class="anim-slide-up anim-delay-2 text-gold-400/80 text-sm mb-4">${anime.titleJp || ''}</p>
+        <p class="anim-slide-up anim-delay-3 text-gray-300 text-sm md:text-base line-clamp-3 mb-6 max-w-lg">${anime.desc || ''}</p>
         <div class="anim-slide-up anim-delay-3 flex flex-wrap gap-2 mb-6">
-            ${anime.genres.map(g => `<span class="category-pill text-xs">${g}</span>`).join('')}
+            ${Array.isArray(anime.genres) ? anime.genres.map(g => `<span class="category-pill text-xs">${g}</span>`).join('') : ''}
         </div>
         <div class="anim-slide-up anim-delay-4 flex items-center gap-3">
             <button onclick="navigate('player', ${anime.id})" class="btn-primary flex items-center gap-2 text-base px-6 py-3">
@@ -821,7 +823,7 @@ function setupHeroLiveWallpapers() {
     const heroContent = document.getElementById('home-hero-content');
     if (!heroMedia || !heroContent) return;
 
-    const heroList = getHomeHeroAnimeList();
+    const heroList = getHomeHeroAnimeList().filter(anime => anime && typeof anime === 'object');
     if (heroList.length < 2) return;
 
     let active = 0;
@@ -834,6 +836,8 @@ function setupHeroLiveWallpapers() {
 
         active = (active + 1) % heroList.length;
         const anime = heroList[active];
+        if (!anime) return; // Skip undefined anime objects
+        
         heroMedia.innerHTML = renderHeroMedia(anime);
         heroContent.innerHTML = renderHeroContent(anime);
         lucide.createIcons();
@@ -942,12 +946,12 @@ function animateCWCards() {
 // ============ RENDER: HOME ============
 function renderHome() {
     const homeHeroList = getHomeHeroAnimeList();
-    const featured = homeHeroList.find(Boolean) || animeData[0] || null;
+    const featured = homeHeroList.find(anime => anime && typeof anime === 'object') || animeData.find(anime => anime && typeof anime === 'object') || null;
     const genreList = getVisibleGenres();
 
     const trending = animeData.filter(a => a && a.trending);
-    const recentlyAdded = animeData.slice(0, 8);
-    const popular = [...animeData].filter(Boolean).sort((a, b) => (b?.rating || 0) - (a?.rating || 0)).slice(0, 8);
+    const recentlyAdded = animeData.filter(a => a && typeof a === 'object').slice(0, 8);
+    const popular = [...animeData].filter(a => a && typeof a === 'object').sort((a, b) => (b?.rating || 0) - (a?.rating || 0)).slice(0, 8);
     const recentlyReleased = animeData.filter(a => a && a.newEpisode).slice(0, 8);
     const becauseWatched = getBecauseYouWatchedList(featured);
 
