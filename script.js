@@ -1171,7 +1171,7 @@ function renderAnimeCard(a) {
         </div>
         <div class="mt-2 px-1">
             <p class="font-semibold text-sm truncate">${a.title}</p>
-            <p class="text-xs text-gray-500 mt-0.5">${a.genres[0]} · ${a.episodes} eps</p>
+            <p class="text-xs text-gray-500 mt-0.5">${Array.isArray(a.genres) && a.genres.length > 0 ? a.genres[0] : 'Uncategorized'} · ${a.episodes || 0} eps</p>
         </div>
     </div>`;
 }
@@ -1497,7 +1497,7 @@ function renderBrowse(type, selectedGenre = null) {
                         </div>
                         <div class="mt-2 px-1">
                             <p class="font-semibold text-sm truncate">${a.title}</p>
-                            <p class="text-xs text-gray-500 mt-0.5">${a.genres[0]} · ${a.year}</p>
+                            <p class="text-xs text-gray-500 mt-0.5">${Array.isArray(a.genres) && a.genres.length > 0 ? a.genres[0] : 'Unknown'} · ${a.year || 'N/A'}</p>
                         </div>
                     </div>
                 `).join('')}
@@ -1542,7 +1542,7 @@ const listAnime = animeData.filter(a => isBookmarked(a.id));
                             </div>
                             <div class="mt-2 px-1">
                                 <p class="font-semibold text-sm truncate">${a.title}</p>
-                                <p class="text-xs text-gray-500 mt-0.5">${a.genres[0]} · ${a.episodes} eps</p>
+                                <p class="text-xs text-gray-500 mt-0.5">${Array.isArray(a.genres) && a.genres.length > 0 ? a.genres[0] : 'Unknown'} · ${a.episodes || 0} eps</p>
                             </div>
                         </div>
                     `).join('')}
@@ -1657,7 +1657,7 @@ function renderAnimeDetail(id) {
                             </div>
                             <div class="recommend-body">
                                 <div class="recommend-title">${s.title}</div>
-                                <div class="recommend-meta">${s.year} • ${s.episodes} eps</div>
+                                <div class="recommend-meta">${s.year || 'N/A'} • ${s.episodes || 0} eps</div>
                             </div>
                         </div>
                     `).join('')}
@@ -1695,7 +1695,7 @@ function renderAnimeDetail(id) {
                             <div class="hero-meta-strip">
                                 <span class="hero-rating-inline"><i data-lucide="star" class="w-4 h-4"></i> ${a.rating}<span>/10</span></span>
                                 <span class="hero-meta-inline"><i data-lucide="calendar-days" class="w-4 h-4"></i> ${a.year || 'N/A'}</span>
-                                <span class="hero-meta-inline"><i data-lucide="layers" class="w-4 h-4"></i> ${(a.type || 'anime') === 'anime' ? `${a.episodes} Episodes` : runtime}</span>
+                                <span class="hero-meta-inline"><i data-lucide="layers" class="w-4 h-4"></i> ${(a.type || 'anime') === 'anime' ? `${a.episodes || 0} Episodes` : runtime}</span>
                             </div>
 
                             <div class="hero-subtitle">
