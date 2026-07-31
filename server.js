@@ -29,6 +29,15 @@ const app = express();
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(__dirname));
 
+// Health check endpoint for Render
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    dbReady: dbReady,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Verification page route
 app.get('/verify-email.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'verify-email.html'));
