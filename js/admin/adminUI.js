@@ -999,6 +999,9 @@
                 if (uploadedBannerVideo) existing.bannerVideo = uploadedBannerVideo.url;
                 const savedAnime = await saveAnimeToApi(existing, true);
                 if (savedAnime) Object.assign(existing, savedAnime);
+                
+                // Reload anime data from API to ensure UI shows the latest data
+                if (typeof loadAnimeFromApi === 'function') await loadAnimeFromApi();
             } else {
                 const id = Math.max(0, ...animeData.map(a => a.id)) + 1;
                 const newAnime = {
@@ -1015,6 +1018,9 @@
                 if (typeof updateLocalAnimeData === 'function') updateLocalAnimeData(savedAnime || newAnime);
             }
     
+            // Reload anime data from API to ensure UI shows the latest data
+            if (typeof loadAnimeFromApi === 'function') await loadAnimeFromApi();
+            
             saveAdminAnimeData();
             hideUploadModal();
             switchAdminTab('anime');
