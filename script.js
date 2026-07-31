@@ -1559,6 +1559,15 @@ const listAnime = animeData.filter(a => isBookmarked(a.id));
 // ============ RENDER: ANIME DETAIL ============
 function renderAnimeDetail(id) {
     const a = animeData.find(a => a.id === id) || animeData[0];
+    if (!a || typeof a !== 'object') {
+        return `<div class="pt-24 pb-20 min-h-screen flex items-center justify-center">
+            <div class="text-center glass-card rounded-2xl p-8 max-w-md">
+                <h1 class="text-2xl font-black mb-2">Anime not found</h1>
+                <p class="text-gray-500 mb-6">The anime you're looking for doesn't exist.</p>
+                <button onclick="navigate('home')" class="btn-primary">Back to Home</button>
+            </div>
+        </div>`;
+    }
     const inWatchlist = isBookmarked(a.id);
 
     // Used by addComment() to know current anime
@@ -1567,8 +1576,8 @@ function renderAnimeDetail(id) {
         if (root) root.dataset.animeId = String(id);
     });
 
-    const allOtherTitles = animeData.filter(s => s.id !== a.id);
-    const genreMatches = allOtherTitles.filter(s => Array.isArray(s.genres) && s.genres.some(g => a.genres?.includes(g)));
+    const allOtherTitles = animeData.filter(s => s && s.id !== a.id);
+    const genreMatches = allOtherTitles.filter(s => Array.isArray(s.genres) && Array.isArray(a.genres) && s.genres.some(g => a.genres.includes(g)));
     const similar = [...genreMatches, ...allOtherTitles]
         .filter((title, index, list) => list.findIndex(item => item.id === title.id) === index)
         .slice(0, 12);
@@ -1578,7 +1587,7 @@ function renderAnimeDetail(id) {
     const language = a.type === 'anime' ? 'Japanese' : 'English';
 
     // (metaLine kept for future use; not rendered in current premium layout)
-    const metaLine = `${year} • ${runtime} • ${a.genres.join(' • ')} • ${a.studio} • ${language}`;
+    const metaLine = `${year} • ${runtime} • ${Array.isArray(a.genres) ? a.genres.join(' • ') : 'Unknown'} • ${a.studio || 'Unknown'} • ${language}`;
 
 
     const backdropMedia = shouldShowBannerVideo(a)
@@ -2853,7 +2862,7 @@ function renderAdminAnalytics() {
         <h3 class="font-bold mb-4">Genre Distribution</h3>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             ${categories.filter(c => c !== 'All').map((c, i) => {
-                const count = animeData.filter(a => a.genres.includes(c)).length;
+                const count = animeData.filter(a => Array.isArray(a.genres) && a.genres.includes(c)).length;
                 return `<div class="bg-white/3 rounded-xl p-3 text-center">
                     <p class="text-2xl font-black text-gold-400">${count}</p>
                     <p class="text-xs text-gray-500 mt-1">${c}</p>
@@ -3635,7 +3644,7 @@ function handleSearch(query) {
             </div>
 
             <p class="text-xs text-gray-500 truncate mt-1">
-                ${a.genres.join(', ')}
+                ${Array.isArray(a.genres) ? a.genres.join(', ') : 'Unknown'}
             </p>
         </div>
 
