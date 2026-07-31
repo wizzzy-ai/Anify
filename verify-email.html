@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email - Anify</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        // Apply theme from localStorage
+        const savedTheme = localStorage.getItem('anify-theme') === 'light' ? 'light' : 'dark';
+        document.documentElement.classList.toggle('light', savedTheme === 'light');
+        document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+    </script>
+</head>
+<body class="transition-colors duration-300">
+    <div class="verify-container">
+        <!-- Background Effects -->
+        <div class="verify-bg-effects">
+            <div class="verify-glow-1"></div>
+            <div class="verify-glow-2"></div>
+            <div class="verify-glow-3"></div>
+        </div>
+
+        <!-- Verification Card -->
+        <div class="verify-card">
+            <!-- Header -->
+            <div class="verify-header">
+                <div class="verify-logo">
+                    <span class="verify-logo-text">ANIFY</span>
+                    <span class="verify-logo-tagline">Premium Anime Streaming</span>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="verify-content">
+                <h1 class="verify-title">Verify Your Email</h1>
+                <p class="verify-subtitle">Enter Verification Code</p>
+                
+                <p class="verify-description">
+                    We've sent a 6-digit verification code to
+                </p>
+                
+                <p class="verify-email" id="verify-email-display">user@example.com</p>
+
+                <!-- OTP Input -->
+                <div class="verify-otp-container" id="otp-container">
+                    <input type="text" maxlength="1" class="verify-otp-input" data-index="0" autocomplete="off">
+                    <input type="text" maxlength="1" class="verify-otp-input" data-index="1" autocomplete="off">
+                    <input type="text" maxlength="1" class="verify-otp-input" data-index="2" autocomplete="off">
+                    <input type="text" maxlength="1" class="verify-otp-input" data-index="3" autocomplete="off">
+                    <input type="text" maxlength="1" class="verify-otp-input" data-index="4" autocomplete="off">
+                    <input type="text" maxlength="1" class="verify-otp-input" data-index="5" autocomplete="off">
+                </div>
+
+                <!-- Error Message -->
+                <div class="verify-error" id="verify-error"></div>
+
+                <!-- Timer -->
+                <div class="verify-timer" id="verify-timer">
+                    <span class="verify-timer-label">Code expires in</span>
+                    <span class="verify-timer-time" id="timer-display">10:00</span>
+                </div>
+
+                <!-- Resend Button -->
+                <button class="verify-resend-btn" id="resend-btn" style="display: none;">
+                    <i data-lucide="refresh-cw" class="verify-resend-icon"></i>
+                    <span class="verify-resend-text">Resend Code</span>
+                    <span class="verify-resend-countdown" id="resend-countdown" style="display: none;"></span>
+                </button>
+
+                <!-- Verify Button -->
+                <button class="verify-btn" id="verify-btn">
+                    <span class="verify-btn-text">Verify Email</span>
+                    <div class="verify-btn-loader" style="display: none;">
+                        <div class="verify-spinner"></div>
+                    </div>
+                </button>
+
+                <!-- Change Email Button -->
+                <button class="verify-change-email-btn" id="change-email-btn">
+                    Change Email
+                </button>
+
+                <!-- Back to Login -->
+                <p class="verify-back">
+                    <a href="#" class="verify-back-link" id="back-to-login">← Back to Login</a>
+                </p>
+            </div>
+
+            <!-- Success State -->
+            <div class="verify-success" id="verify-success" style="display: none;">
+                <div class="verify-success-icon">
+                    <i data-lucide="check-circle"></i>
+                </div>
+                <h2 class="verify-success-title">Email Verified Successfully!</h2>
+                <p class="verify-success-text">Redirecting to home page...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Ban Check - Run immediately on page load
+        (function checkBanStatus() {
+            const token = localStorage.getItem('authToken');
+            const userInfo = JSON.parse(localStorage.getItem('anify-user-profile') || '{}');
+
+            if (token && (userInfo.status === 'Banned' || userInfo.banInfo)) {
+                console.log('[Ban Check] User is banned, redirecting to banned page');
+                window.location.replace('/account-banned');
+            }
+        })();
+    </script>
+    <script src="js/storage/storageService.js"></script>
+    <script src="js/auth/authService.js"></script>
+    <script src="js/verifyEmail.js"></script>
+</body>
+</html>

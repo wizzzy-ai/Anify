@@ -1,0 +1,19 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Dependencies and deployment tools
+node_modules/
+.vercel/
+
+# Local runtime files and large media (videos belong in R2/Cloudinary)
+uploads/
+*.log
+migration-log.json
+storage/migration/*.json
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.vscode/

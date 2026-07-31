@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anify — Premium Anime Streaming</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230a0a1c'/%3E%3Ctext x='50' y='50' font-size='60' font-family='Outfit, sans-serif' font-weight='900' fill='%23FBBF24' text-anchor='middle' dy='.3em'%3EA%3C/text%3E%3C/svg%3E">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script>
+    // Tailwind CDN is OK for development, but not ideal for production.
+    // Keep this for now to avoid breaking the current build setup.
+    tailwind.config = {
+
+            darkMode: 'class',
+
+            theme: {
+                extend: {
+                    colors: {
+                        gold: {
+                            50: '#FFFBEB',
+                            100: '#FEF3C7',
+                            200: '#FDE68A',
+                            300: '#FCD34D',
+                            400: '#FBBF24',
+                            500: '#F59E0B',
+                            600: '#D97706',
+                            700: '#B45309',
+                            800: '#92400E',
+                            900: '#78350F',
+                        },
+                        dark: {
+                            50: '#1a1a2e',
+                            100: '#16162a',
+                            200: '#131328',
+                            300: '#0f0f24',
+                            400: '#0c0c20',
+                            500: '#0a0a1c',
+                            600: '#070718',
+                            700: '#050514',
+                            800: '#030310',
+                            900: '#01010c',
+                        }
+                    },
+                    fontFamily: {
+                        'outfit': ['Outfit', 'sans-serif'],
+                        'inter': ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="bg-dark-900 text-white font-outfit transition-colors duration-500">
+
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="fixed inset-0 z-[9999] bg-dark-900 flex items-center justify-center">
+        <div class="text-center">
+            <div class="anime-loader mb-6">
+                <div class="loader-ring"></div>
+                <div class="loader-ring"></div>
+                <div class="loader-ring"></div>
+                <div class="loader-logo">A</div>
+            </div>
+            <p class="text-gold-400 font-outfit text-xl font-bold tracking-widest">ANIFY</p>
+            <p class="text-gray-500 text-sm mt-1">Loading your anime experience...</p>
+        </div>
+    </div>
+
+    <!-- App Container -->
+    <div id="app" class="min-h-screen opacity-0 transition-opacity duration-700">
+
+        <!-- Navbar -->
+        <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-500">
+            <div class="nav-glass mx-2 mt-2 rounded-2xl px-4 md:px-8 py-3">
+                <div class="flex items-center">
+                    <!-- Left / Center-left group (premium spacing) -->
+                    <div class="flex items-center">
+                        <!-- Logo -->
+                        <div class="flex items-center gap-2 cursor-pointer" onclick="navigate('home')">
+                            <div class="w-9 h-9 bg-gradient-to-br from-gold-400 to-gold-600 rounded-xl flex items-center justify-center">
+                                <span class="text-black font-black text-lg">A</span>
+                            </div>
+                            <span class="text-xl font-bold bg-gradient-to-r from-gold-300 to-gold-500 bg-clip-text text-transparent">Anify</span>
+                        </div>
+
+                        <!-- Desktop Nav -->
+                        <div class="hidden md:flex items-center gap-8 ml-16">
+                            <button onclick="navigate('home')" class="nav-link active" data-nav="home">
+                                <i data-lucide="home" class="w-4 h-4 mr-1"></i> Home
+                            </button>
+                            <button onclick="navigate('browse')" class="nav-link" data-nav="browse">
+                                <i data-lucide="compass" class="w-4 h-4 mr-1"></i> Browse
+                            </button>
+                            <button onclick="navigate('movies')" class="nav-link" data-nav="movies">
+                                <i data-lucide="film" class="w-4 h-4 mr-1"></i> Movies
+                            </button>
+                            <button onclick="navigate('series')" class="nav-link" data-nav="series">
+                                <i data-lucide="tv" class="w-4 h-4 mr-1"></i> Series
+                            </button>
+                            <button onclick="navigate('mylist')" class="nav-link" data-nav="mylist">
+                                <i data-lucide="bookmark" class="w-4 h-4 mr-1"></i> My List
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right Side -->
+                    <div class="flex items-center gap-[12px] md:gap-[16px] ml-auto">
+                        <!-- Search -->
+                        <div class="relative">
+                            <button onclick="toggleSearch()" class="p-2 rounded-xl hover:bg-white/10 transition-all" aria-label="Search" title="Search">
+                                <i data-lucide="search" class="w-5 h-5"></i>
+                            </button>
+                            <div id="search-panel" class="hidden absolute right-0 top-12 w-72 md:w-96 search-glass rounded-2xl p-4 shadow-2xl">
+                                <div class="relative">
+                                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <input type="text" id="search-input" placeholder="Search anime..." 
+                                        class="w-full bg-white/10 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30 transition-all"
+                                        oninput="handleSearch(this.value)">
+                                </div>
+                                <div id="search-results" class="mt-3 max-h-64 overflow-y-auto space-y-2"></div>
+                                <div class="mt-4 pt-3 border-t border-white/5 text-center">
+                                    <button onclick="showDiscoveryHub()" class="text-[10px] font-black text-gold-400 uppercase tracking-widest hover:text-white transition-colors flex items-center justify-center gap-2 w-full">
+                                        <i data-lucide="dices" class="w-3.5 h-3.5"></i> Need a surprise? Start Discovery
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Discovery Hub -->
+                        <button onclick="showDiscoveryHub()" class="p-2 rounded-xl hover:bg-white/10 transition-all text-gold-400 hover:text-gold-300" title="Surprise Me">
+                            <i data-lucide="dices" class="w-5 h-5"></i>
+                        </button>
+
+                        <!-- Notifications -->
+                        <button onclick="toggleNotifications()" class="relative p-2 rounded-xl hover:bg-white/10 transition-all" aria-label="Notifications" title="Notifications">
+                            <i data-lucide="bell" class="w-5 h-5"></i>
+                            <span id="notification-badge" class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center font-bold">0</span>
+                        </button>
+
+
+                        <!-- Dark/Light Mode Toggle -->
+                        <button onclick="toggleTheme()" class="hidden md:inline-flex p-2 rounded-xl hover:bg-white/10 transition-all" title="Toggle theme" aria-label="Toggle theme">
+                            <i data-lucide="sun" class="w-5 h-5 theme-icon-sun hidden"></i>
+                            <i data-lucide="moon" class="w-5 h-5 theme-icon-moon"></i>
+                        </button>
+
+                        <!-- Auth actions (Sign In / Register Now or profile) -->
+                        <div id="auth-nav" class="hidden md:flex items-center gap-2 md:gap-3" aria-label="Authentication"></div>
+                        <div id="auth-nav-compact" class="md:hidden" aria-label="Profile menu"></div>
+
+                        <!-- Mobile Menu -->
+                        <button onclick="toggleMobileMenu()" class="hidden p-2 rounded-xl hover:bg-white/10 transition-all" aria-label="Open menu" title="Open menu">
+                            <i data-lucide="menu" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Menu -->
+            <div id="mobile-menu" class="hidden md:hidden nav-glass mx-2 mt-2 rounded-2xl p-4">
+                <div class="grid grid-cols-2 gap-2">
+
+                    <!-- Mobile Nav Links -->
+                    <button onclick="navigate('home'); toggleMobileMenu()" class="flex items-center gap-2 p-3 rounded-xl hover:bg-white/10 transition-all" aria-label="Go to Home" title="Go to Home">
+                        <i data-lucide="home" class="w-4 h-4"></i> Home
+                    </button>
+                    <button onclick="navigate('browse'); toggleMobileMenu()" class="flex items-center gap-2 p-3 rounded-xl hover:bg-white/10 transition-all" aria-label="Go to Browse" title="Go to Browse">
+                        <i data-lucide="compass" class="w-4 h-4"></i> Browse
+                    </button>
+                    <button onclick="navigate('movies'); toggleMobileMenu()" class="flex items-center gap-2 p-3 rounded-xl hover:bg-white/10 transition-all" aria-label="Go to Movies" title="Go to Movies">
+                        <i data-lucide="film" class="w-4 h-4"></i> Movies
+                    </button>
+                    <button onclick="navigate('series'); toggleMobileMenu()" class="flex items-center gap-2 p-3 rounded-xl hover:bg-white/10 transition-all" aria-label="Go to Series">
+                        <i data-lucide="tv" class="w-4 h-4"></i> Series
+                    </button>
+                    <button onclick="navigate('mylist'); toggleMobileMenu()" class="flex items-center gap-2 p-3 rounded-xl hover:bg-white/10 transition-all" aria-label="Go to My List">
+                        <i data-lucide="bookmark" class="w-4 h-4"></i> My List
+                    </button>
+                    <button onclick="showDiscoveryHub(); toggleMobileMenu()" class="flex items-center gap-2 p-3 rounded-xl bg-gold-400/10 text-gold-400 border border-gold-400/20" aria-label="Surprise Me">
+                        <i data-lucide="dices" class="w-4 h-4"></i> Surprise Me
+                    </button>
+
+                </div>
+
+                <!-- Mobile Auth -->
+                <div class="mt-3 pt-3 border-t border-white/10">
+            <div class="flex flex-col gap-2" id="auth-nav-mobile" aria-label="Authentication options" title="Authentication options"></div>
+            </div>
+        </div>
+    </nav>
+
+        <!-- Mobile Bottom Navigation -->
+        <nav id="mobile-bottom-nav" class="mobile-bottom-nav md:hidden" aria-label="Primary mobile navigation">
+            <button onclick="navigate('home')" class="mobile-bottom-link active" data-nav="home" aria-label="Home">
+                <i data-lucide="home" class="w-5 h-5"></i>
+                <span>Home</span>
+            </button>
+            <button onclick="navigate('browse')" class="mobile-bottom-link" data-nav="browse" aria-label="Browse">
+                <i data-lucide="compass" class="w-5 h-5"></i>
+                <span>Browse</span>
+            </button>
+            <button onclick="navigate('movies')" class="mobile-bottom-link" data-nav="movies" aria-label="Movies">
+                <i data-lucide="film" class="w-5 h-5"></i>
+                <span>Movies</span>
+            </button>
+            <button onclick="navigate('series')" class="mobile-bottom-link" data-nav="series" aria-label="Series">
+                <i data-lucide="tv" class="w-5 h-5"></i>
+                <span>Series</span>
+            </button>
+            <button onclick="navigate('mylist')" class="mobile-bottom-link" data-nav="mylist" aria-label="My List">
+                <i data-lucide="bookmark" class="w-5 h-5"></i>
+                <span>My List</span>
+            </button>
+        </nav>
+
+
+        <!-- Main Content -->
+        <!-- Notification Panel -->
+        <div id="notification-panel" class="fixed top-16 right-4 z-50 hidden w-80 search-glass rounded-2xl p-4 shadow-2xl">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <h3 class="font-bold flex items-center gap-2">
+                    <i data-lucide="bell" class="w-4 h-4 text-gold-400"></i> Notifications
+                </h3>
+                <button type="button" onclick="toggleNotifications(false)" class="p-2 rounded-xl hover:bg-white/10 transition-all" aria-label="Close notifications" title="Close">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Controls: Search + Actions -->
+            <div class="space-y-3 mb-3">
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="markAllAsRead()" class="btn-secondary px-3 py-1.5 text-xs flex items-center gap-2 flex-1 justify-center" aria-label="Mark all as read">
+                        <i data-lucide="check" class="w-3.5 h-3.5 text-gold-400"></i> Mark all as read
+                    </button>
+                    <button type="button" onclick="clearAllNotifications()" class="btn-secondary px-3 py-1.5 text-xs flex items-center gap-2" aria-label="Clear all notifications">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5 text-red-400"></i> Clear
+                    </button>
+                </div>
+
+                <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input id="notification-search" type="text" placeholder="Search notifications..." class="w-full bg-white/10 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30 transition-all" oninput="handleNotificationSearch(this.value)">
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="notif-filter-pill active" data-notif-filter="All" onclick="setNotificationFilter('All')">All</button>
+                    <button type="button" class="notif-filter-pill" data-notif-filter="Unread" onclick="setNotificationFilter('Unread')">Unread</button>
+                    <button type="button" class="notif-filter-pill" data-notif-filter="Read" onclick="setNotificationFilter('Read')">Read</button>
+                    <button type="button" class="notif-filter-pill" data-notif-filter="episode" onclick="setNotificationFilter('episode')">Episode</button>
+                    <button type="button" class="notif-filter-pill" data-notif-filter="movie" onclick="setNotificationFilter('movie')">Movies</button>
+                    <button type="button" class="notif-filter-pill" data-notif-filter="trending" onclick="setNotificationFilter('trending')">Trending</button>
+                    <button type="button" class="notif-filter-pill" data-notif-filter="promotion" onclick="setNotificationFilter('promotion')">Promotion</button>
+                    <button type="button" class="notif-filter-pill" data-notif-filter="watchlist" onclick="setNotificationFilter('watchlist')">Watchlist</button>
+                </div>
+            </div>
+
+            <!-- Notification list / empty state -->
+            <div id="notification-list" class="space-y-2 max-h-64 overflow-y-auto">
+                <!-- Rendered by script.js -->
+            </div>
+
+            <div id="notification-empty" class="hidden text-center py-8">
+                <div class="w-12 h-12 mx-auto rounded-2xl bg-white/5 flex items-center justify-center mb-3">
+                    <i data-lucide="bell" class="w-6 h-6 text-gray-300"></i>
+                </div>
+                <p class="text-base font-bold mb-1">No Notifications</p>
+                <p class="text-xs text-gray-400">You're all caught up!</p>
+                <p class="text-xs text-gold-400 mt-1">Check back later.</p>
+            </div>
+        </div>
+
+
+    <main id="main-content" class="min-h-screen">
+            <!-- Pages injected here -->
+        </main>
+
+        <!-- Discovery Hub Modal Mount Point -->
+        <div id="surprise-modal" class="hidden fixed inset-0 z-[10001] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"></div>
+
+        <!-- Persistent Player Container (Hidden by default, used for Mini Player) -->
+        <div id="persistent-player-wrapper" class="hidden"></div>
+
+        <!-- Admin Upload Modal Mount Point (required by script.js) -->
+        <div id="upload-modal" class="hidden fixed inset-0 z-[10000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"></div>
+
+        <!-- Guest Preview Limit Modal -->
+        <div id="guest-limit-modal" class="hidden fixed inset-0 z-[10002] bg-black/70 backdrop-blur-lg flex items-center justify-center p-4">
+            <div class="guest-modal-content relative w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <!-- Close Button -->
+                <button onclick="closeGuestLimitModal()" class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all" style="color: var(--text-primary);">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+
+                <!-- Modal Content -->
+                <div class="guest-modal-inner p-8 md:p-12">
+                    <!-- Celebration Icon -->
+                    <div class="flex justify-center mb-6">
+                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center animate-bounce">
+                            <span class="text-4xl">🎉</span>
+                        </div>
+                    </div>
+
+                    <!-- Title -->
+                    <h2 class="text-3xl md:text-4xl font-black text-center mb-3 bg-gradient-to-r from-gold-300 to-gold-500 bg-clip-text text-transparent">
+                        Free Preview Complete
+                    </h2>
+
+                    <!-- Subtitle -->
+                    <p class="text-center text-base md:text-lg mb-8 max-w-lg mx-auto" style="color: var(--text-secondary);">
+                        You've enjoyed your free preview of Anify. Create a FREE account to continue watching unlimited anime and movies.
+                    </p>
+
+                    <!-- Benefits Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+                        <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
+                            <i data-lucide="play-circle" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Continue Watching</span>
+                        </div>
+                        <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
+                            <i data-lucide="history" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Save Watch History</span>
+                        </div>
+                        <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
+                            <i data-lucide="bookmark" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Bookmarks & Favorites</span>
+                        </div>
+                        <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
+                            <i data-lucide="bell" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Episode Notifications</span>
+                        </div>
+                        <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
+                            <i data-lucide="sparkles" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Personalized Recommendations</span>
+                        </div>
+                        <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
+                            <i data-lucide="smartphone" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Sync Across Devices</span>
+                        </div>
+                        <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
+                            <i data-lucide="zap" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Faster Streaming</span>
+                        </div>
+                        <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
+                            <i data-lucide="crown" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Exclusive Features</span>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                        <button onclick="showRegisterModal()" class="btn-primary px-8 py-4 text-base font-bold flex items-center justify-center gap-2">
+                            <i data-lucide="user-plus" class="w-5 h-5"></i>
+                            Create Free Account
+                        </button>
+                        <button onclick="showLoginModal()" class="btn-secondary px-8 py-4 text-base font-bold flex items-center justify-center gap-2 border-2 border-purple-500/50 hover:border-purple-400">
+                            <i data-lucide="log-in" class="w-5 h-5"></i>
+                            Sign In
+                        </button>
+                    </div>
+
+                    <!-- Continue Browsing -->
+                    <div class="mt-6 text-center">
+                        <button onclick="closeGuestLimitModal()" class="text-sm transition-colors" style="color: var(--text-tertiary);" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-tertiary)'">
+                            Continue Browsing
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Discovery Button -->
+        <button onclick="showDiscoveryHub()" class="surprise-fab group" aria-label="Surprise Me">
+            <div class="surprise-fab-icon">
+                <i data-lucide="dices"></i>
+            </div>
+            <span class="surprise-fab-text">Surprise Me</span>
+        </button>
+
+    </div>
+
+    <script src="js/storage/storageService.js"></script>
+    <script src="js/auth/authService.js"></script>
+    <script src="js/genres/genreService.js"></script>
+    <script src="js/watch/continueWatchingService.js"></script>
+    <script src="js/watch/watchlistService.js"></script>
+    <script src="js/interactions/interactionService.js"></script>
+    <script src="js/interactions/surpriseService.js"></script>
+    <script src="js/notifications/notificationService.js"></script>
+    <script src="js/player/playerService.js"></script>
+    <script src="js/player/miniPlayer.js"></script>
+    <script src="js/guest/guestPreviewService.js"></script>
+    <script src="script.js"></script>
+    <script src="js/admin/adminService.js"></script>
+    <script src="js/admin/adminUtils.js"></script>
+    <script src="js/admin/uploadService.js"></script>
+    <script src="js/admin/categoryManagement.js"></script>
+    <script src="js/admin/animeManagement.js"></script>
+    <script src="js/admin/movieManagement.js"></script>
+    <script src="js/admin/dashboardService.js"></script>
+    <script src="js/admin/episodeManagement.js"></script>
+    <script src="js/admin/adminUI.js"></script>
+    <script src="public_bootstrap.js"></script>
+</body>
+</html>

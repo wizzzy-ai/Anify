@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Suspended - Anify</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="banned-body">
+    <div class="banned-container">
+        <!-- Background Effects -->
+        <div class="banned-bg-effects">
+            <div class="banned-glow-1"></div>
+            <div class="banned-glow-2"></div>
+            <div class="banned-glow-3"></div>
+        </div>
+
+        <!-- Main Card -->
+        <div class="banned-card">
+            <!-- Logo -->
+            <div class="banned-header">
+                <div class="banned-logo">
+                    <span class="banned-logo-text">ANIFY</span>
+                    <span class="banned-logo-tagline">Anime Streaming Platform</span>
+                </div>
+            </div>
+
+            <!-- Warning Icon -->
+            <div class="banned-icon-container">
+                <div class="banned-icon-wrapper">
+                    <i data-lucide="shield-alert" class="banned-icon"></i>
+                </div>
+            </div>
+
+            <!-- Title -->
+            <h1 class="banned-title">Account Suspended</h1>
+
+            <!-- Description -->
+            <p class="banned-description">
+                Your Anify account has been suspended. Access to streaming and community features has been temporarily restricted.
+            </p>
+
+            <p class="banned-support-text">
+                If you believe this was a mistake, you may contact the Anify Support Team.
+            </p>
+
+            <!-- Information Card -->
+            <div class="banned-info-card">
+                <div class="banned-info-row">
+                    <span class="banned-info-label">Reason</span>
+                    <span class="banned-info-value" id="ban-reason">Violation of Community Guidelines</span>
+                </div>
+                <div class="banned-info-divider"></div>
+                <div class="banned-info-row">
+                    <span class="banned-info-label">Ban Status</span>
+                    <span class="banned-info-value banned-status-badge" id="ban-status">Temporary</span>
+                </div>
+                <div class="banned-info-divider"></div>
+                <div class="banned-info-row">
+                    <span class="banned-info-label">Banned On</span>
+                    <span class="banned-info-value" id="ban-date">29 July 2026</span>
+                </div>
+                <div class="banned-info-divider"></div>
+                <div class="banned-info-row">
+                    <span class="banned-info-label">Ban Ends</span>
+                    <span class="banned-info-value" id="ban-ends">03 August 2026</span>
+                </div>
+            </div>
+
+            <!-- Rules Section -->
+            <div class="banned-rules-section">
+                <h2 class="banned-rules-title">Restricted Activities</h2>
+                <p class="banned-rules-subtitle">Suspended accounts cannot:</p>
+                
+                <div class="banned-rules-grid">
+                    <div class="banned-rule-item">
+                        <i data-lucide="x-circle" class="banned-rule-icon"></i>
+                        <span>Watch anime</span>
+                    </div>
+                    <div class="banned-rule-item">
+                        <i data-lucide="x-circle" class="banned-rule-icon"></i>
+                        <span>Watch movies</span>
+                    </div>
+                    <div class="banned-rule-item">
+                        <i data-lucide="x-circle" class="banned-rule-icon"></i>
+                        <span>Upload content</span>
+                    </div>
+                    <div class="banned-rule-item">
+                        <i data-lucide="x-circle" class="banned-rule-icon"></i>
+                        <span>Comment</span>
+                    </div>
+                    <div class="banned-rule-item">
+                        <i data-lucide="x-circle" class="banned-rule-icon"></i>
+                        <span>Rate anime</span>
+                    </div>
+                    <div class="banned-rule-item">
+                        <i data-lucide="x-circle" class="banned-rule-icon"></i>
+                        <span>Save bookmarks</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="banned-buttons">
+                <button class="banned-btn-primary" id="contact-support">
+                    <i data-lucide="mail" class="banned-btn-icon"></i>
+                    Contact Support
+                </button>
+                <button class="banned-btn-secondary" id="logout-btn">
+                    <i data-lucide="log-out" class="banned-btn-icon"></i>
+                    Log Out
+                </button>
+                <button class="banned-btn-tertiary" id="refresh-status" style="display: none;">
+                    <i data-lucide="refresh-cw" class="banned-btn-icon"></i>
+                    Refresh Status
+                </button>
+            </div>
+
+            <!-- Footer -->
+            <div class="banned-footer">
+                <p class="banned-footer-text">
+                    Need help? <a href="mailto:support@anify.com" class="banned-footer-link">support@anify.com</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/accountBanned.js"></script>
+</body>
+</html>

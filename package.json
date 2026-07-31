@@ -1,0 +1,25 @@
+{
+  "name": "anify-uploader",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "migrate-videos": "node migrate-videos-to-cloudinary.js",
+    "migrate-users": "node migrateUserSchema.js",
+    "migrate-otps": "node migrateOtpsToUsers.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1057.0",
+    "@aws-sdk/s3-request-presigner": "^3.1057.0",
+    "bcrypt": "^5.1.1",
+    "cloudinary": "^1.41.3",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.6.3",
+    "multer": "^1.4.5-lts.2",
+    "nodemailer": "^8.0.10",
+    "streamifier": "^0.1.1"
+  }
+}

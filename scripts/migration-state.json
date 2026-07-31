@@ -1,0 +1,42 @@
+{
+  "startTime": "2026-07-30T02:03:21.461Z",
+  "lastProcessedId": "6a2332e88ee18fecc8f5453c",
+  "lastProcessedType": "bannerVideo",
+  "processed": 1,
+  "skipped": 0,
+  "failed": 0,
+  "errors": [
+    {
+      "timestamp": "2026-07-30T02:03:21.460Z",
+      "level": "info",
+      "message": "Starting Anify local video to R2 migration..."
+    },
+    {
+      "timestamp": "2026-07-30T02:03:22.901Z",
+      "level": "info",
+      "message": "Connected to MongoDB"
+    },
+    {
+      "timestamp": "2026-07-30T02:03:23.985Z",
+      "level": "info",
+      "message": "Found 129 video files to migrate"
+    },
+    {
+      "timestamp": "2026-07-30T02:03:24.258Z",
+      "level": "info",
+      "message": "Processing anime: Blue Lock (6a2332e88ee18fecc8f5453c)"
+    },
+    {
+      "timestamp": "2026-07-30T02:03:24.260Z",
+      "level": "info",
+      "message": "Uploading video: ikki-niko-and-yoichi-isagi_3840x2160-1780691688518-233444703.mp4 (9.82 MB)"
+    },
+    {
+      "timestamp": "2026-07-30T02:03:30.786Z",
+      "level": "info",
+      "message": "✓ Uploaded: ikki-niko-and-yoichi-isagi_3840x2160-1780691688518-233444703.mp4"
+    }
+  ],
+  "totalItems": 129,
+  "currentItem": 1
+}
