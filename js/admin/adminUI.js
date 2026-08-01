@@ -1000,6 +1000,12 @@
         const year = Number(document.getElementById('admin-anime-year')?.value || new Date().getFullYear());
         const selectedGenres = [...new Set([...document.querySelectorAll('[data-admin-genre]:checked')].map(g => g.value).filter(Boolean))];
         
+        const statusInput = document.getElementById('admin-anime-status');
+        const statusValue = statusInput?.value || 'Airing';
+        
+        console.log('[Edit Anime] Status input value:', statusValue);
+        console.log('[Edit Anime] Status input element:', statusInput);
+        
         const payload = {
             title,
             titleJp: document.getElementById('admin-anime-title-jp')?.value.trim() || title,
@@ -1007,7 +1013,7 @@
             year: Number.isFinite(year) ? year : new Date().getFullYear(),
             studio: document.getElementById('admin-anime-studio')?.value.trim() || 'Unknown Studio',
             genres: selectedGenres.length ? selectedGenres : ['Action'],
-            status: document.getElementById('admin-anime-status')?.value || 'Airing',
+            status: statusValue,
             premium: Boolean(document.getElementById('admin-anime-premium')?.checked),
             featured: Boolean(document.getElementById('admin-anime-featured')?.checked),
             bannerDisplay: document.querySelector('input[name="admin-banner-display"]:checked')?.value || 'image',
@@ -1015,6 +1021,7 @@
         };
         
         console.log('[Edit Anime] Form data collected:', payload);
+        console.log('[Edit Anime] Status in payload:', payload.status);
         return payload;
     }
 
@@ -1226,10 +1233,40 @@
                 if (existing.episodesMedia) updatePayload.episodesMedia = existing.episodesMedia;
                 if (existing.movieMedia) updatePayload.movieMedia = existing.movieMedia;
                 
-                console.log('[Edit Anime] Update payload being sent to API:', updatePayload);
+                // Clean the payload to remove MongoDB internal fields
+                const cleanPayload = {
+                    title: updatePayload.title,
+                    titleJp: updatePayload.titleJp,
+                    desc: updatePayload.desc,
+                    year: updatePayload.year,
+                    studio: updatePayload.studio,
+                    genres: updatePayload.genres,
+                    status: updatePayload.status,
+                    premium: updatePayload.premium,
+                    featured: updatePayload.featured,
+                    rating: updatePayload.rating,
+                    trending: updatePayload.trending,
+                    newEpisode: updatePayload.newEpisode,
+                    bannerDisplay: updatePayload.bannerDisplay,
+                    trailer: updatePayload.trailer,
+                    introStart: updatePayload.introStart,
+                    introEnd: updatePayload.introEnd,
+                    outroStart: updatePayload.outroStart,
+                    outroEnd: updatePayload.outroEnd,
+                    type: updatePayload.type,
+                    image: updatePayload.image,
+                    banner: updatePayload.banner,
+                    bannerVideo: updatePayload.bannerVideo,
+                    episodes: updatePayload.episodes,
+                    episodesMedia: updatePayload.episodesMedia,
+                    movieMedia: updatePayload.movieMedia,
+                };
+                
+                console.log('[Edit Anime] Clean payload being sent to API:', cleanPayload);
+                console.log('[Edit Anime] Status in clean payload:', cleanPayload.status);
                 console.log('[Edit Anime] Sending to API for save...');
                 
-                const savedAnime = await saveAnimeToApi({ ...existing, ...updatePayload }, true);
+                const savedAnime = await saveAnimeToApi(cleanPayload, true);
                 console.log('[Edit Anime] API response:', savedAnime);
                 
                 if (savedAnime) {
@@ -1247,7 +1284,17 @@
             } else {
                 const id = Math.max(0, ...animeData.map(a => a.id)) + 1;
                 const newAnime = {
-                    ...payload,
+                    title: payload.title,
+                    titleJp: payload.titleJp,
+                    desc: payload.desc,
+                    year: payload.year,
+                    studio: payload.studio,
+                    genres: payload.genres,
+                    status: payload.status,
+                    premium: payload.premium,
+                    featured: payload.featured,
+                    bannerDisplay: payload.bannerDisplay,
+                    trailer: payload.trailer,
                     type: 'anime',
                     id,
                     rating: 0,
@@ -1262,6 +1309,7 @@
                     outroStart: 0,
                     outroEnd: 0,
                 };
+                console.log('[Edit Anime] New anime payload:', newAnime);
                 const savedAnime = await saveAnimeToApi(newAnime, false);
                 if (typeof updateLocalAnimeData === 'function') updateLocalAnimeData(savedAnime || newAnime);
             }
@@ -1370,9 +1418,39 @@
                 if (existing.episodesMedia) updatePayload.episodesMedia = existing.episodesMedia;
                 if (existing.movieMedia) updatePayload.movieMedia = existing.movieMedia;
                 
-                console.log('[Edit Movie] Update payload being sent to API:', updatePayload);
+                // Clean the payload to remove MongoDB internal fields
+                const cleanPayload = {
+                    title: updatePayload.title,
+                    titleJp: updatePayload.titleJp,
+                    desc: updatePayload.desc,
+                    year: updatePayload.year,
+                    studio: updatePayload.studio,
+                    genres: updatePayload.genres,
+                    status: updatePayload.status,
+                    premium: updatePayload.premium,
+                    featured: updatePayload.featured,
+                    rating: updatePayload.rating,
+                    trending: updatePayload.trending,
+                    newEpisode: updatePayload.newEpisode,
+                    bannerDisplay: updatePayload.bannerDisplay,
+                    trailer: updatePayload.trailer,
+                    introStart: updatePayload.introStart,
+                    introEnd: updatePayload.introEnd,
+                    outroStart: updatePayload.outroStart,
+                    outroEnd: updatePayload.outroEnd,
+                    type: updatePayload.type,
+                    image: updatePayload.image,
+                    banner: updatePayload.banner,
+                    bannerVideo: updatePayload.bannerVideo,
+                    episodes: updatePayload.episodes,
+                    episodesMedia: updatePayload.episodesMedia,
+                    movieMedia: updatePayload.movieMedia,
+                };
+                
+                console.log('[Edit Movie] Clean payload being sent to API:', cleanPayload);
+                console.log('[Edit Movie] Status in clean payload:', cleanPayload.status);
                 console.log('[Edit Movie] Sending movie metadata update to API...');
-                const savedAnime = await saveAnimeToApi({ ...existing, ...updatePayload }, true);
+                const savedAnime = await saveAnimeToApi(cleanPayload, true);
                 console.log('[Edit Movie] Movie metadata updated:', savedAnime?.title);
                 
                 if (savedAnime) {
@@ -1408,14 +1486,26 @@
             // For create mode, we need to set up the full movie data
             if (!isMovieEdit) {
                 const patch = {
-                    ...payload, type: forcedType,
+                    title: payload.title,
+                    titleJp: payload.titleJp,
+                    desc: payload.desc,
+                    year: payload.year,
+                    studio: payload.studio,
+                    genres: payload.genres,
+                    status: payload.status,
+                    premium: payload.premium,
+                    featured: payload.featured,
+                    bannerDisplay: payload.bannerDisplay,
+                    trailer: payload.trailer,
+                    type: forcedType,
                     image: uploadedPoster?.url || existing?.image,
                     banner: uploadedBanner?.url || existing?.banner,
                     bannerVideo: bannerDisplay === 'video' ? (uploadedBannerVideo?.url || existing?.bannerVideo || '') : '',
                     movieMedia: { qualities },
                 };
         
-                console.log('[Edit Movie] Sending final movie update to API...');
+                console.log('[Edit Movie] Final movie create payload:', patch);
+                console.log('[Edit Movie] Status in movie create payload:', patch.status);
                 const updateRes = await fetch(`/api/anime/${movieId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -1423,7 +1513,7 @@
                 });
                 const updateData = await updateRes.json().catch(() => ({}));
                 if (!updateRes.ok || !updateData.ok) throw new Error(updateData.error || `HTTP ${updateRes.status}`);
-                console.log('[Edit Movie] Movie updated successfully');
+                console.log('[Edit Movie] Movie created successfully');
 
                 const savedUrl = updateData?.anime?.movieMedia?.qualities?.['1080p'];
                 if (uploadedMovie && savedUrl !== uploadedMovie.url) {

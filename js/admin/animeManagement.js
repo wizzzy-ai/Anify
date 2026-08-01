@@ -2,15 +2,24 @@
     'use strict';
 
     async function loadAnimeFromApi() {
+        console.log('[Anime Management] Loading anime data from API...');
         try {
             const res = await fetch('/api/anime');
             const data = await res.json().catch(() => ({}));
+            console.log('[Anime Management] API response:', data);
+            
             if (res.ok && data.ok && Array.isArray(data.anime)) {
+                console.log('[Anime Management] Updating animeData with', data.anime.length, 'items');
+                console.log('[Anime Management] Sample anime status:', data.anime[0]?.status);
+                
                 global.animeData.splice(0, global.animeData.length, ...data.anime);
+                console.log('[Anime Management] Anime data updated successfully');
                 return true;
+            } else {
+                console.error('[Anime Management] API response not ok or invalid data:', data);
             }
         } catch (e) {
-            console.warn('Using local anime data:', e.message);
+            console.warn('[Anime Management] Using local anime data:', e.message);
         }
         return false;
     }
@@ -26,15 +35,20 @@
         }
 
         try {
+            console.log('[Anime Management] Sending anime to API:', anime.title);
+            console.log('[Anime Management] Anime payload status:', anime.status);
+            console.log('[Anime Management] Anime payload keys:', Object.keys(anime));
+            
             const res = await fetch(isEdit ? `/api/anime/${anime.id}` : '/api/anime', {
                 method: isEdit ? 'PUT' : 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ ...anime, clientId: Number(anime.id) || undefined }),
+                body: JSON.stringify(anime),
             });
             const data = await res.json().catch(() => ({}));
+            console.log('[Anime Management] API response:', data);
             if (!res.ok || !data.ok) throw new Error(data.error || 'Database save failed.');
             return data.anime;
         } catch (e) {

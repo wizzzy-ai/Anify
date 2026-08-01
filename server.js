@@ -926,10 +926,15 @@ app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
   
   console.log('[Edit Anime API] Final payload for update:', JSON.stringify(payload, null, 2));
   
+  // Specifically log the status field
+  console.log('[Edit Anime API] Status field in payload:', payload.status);
+  console.log('[Edit Anime API] Status field type:', typeof payload.status);
+  
   const anime = await Anime.findOneAndUpdate(query, payload, { returnDocument: 'after', upsert: false });
   
   console.log('[Edit Anime API] Anime updated successfully:', anime.title);
   console.log('[Edit Anime API] Updated document fields:', Object.keys(anime.toObject()));
+  console.log('[Edit Anime API] Status field after update:', anime.status);
   console.log('[Edit Anime API] Updated document:', JSON.stringify(anime.toObject(), null, 2));
   
   // Compare before and after
