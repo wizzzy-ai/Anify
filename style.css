@@ -1405,6 +1405,28 @@ html { scroll-behavior: smooth; }
     }
 }
 
+/* ============ RATING STARS ============ */
+.rating-star {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.rating-star:hover {
+    transform: scale(1.2);
+}
+
+.rating-star svg {
+    color: #4B5563;
+}
+
+.rating-star svg.text-gold-400 {
+    color: #FBBF24;
+}
+
+.rating-star svg.text-gray-600 {
+    color: #4B5563;
+}
+
 /* ============ CHAT BUBBLE (Comments) ============ */
 .comment-bubble {
     background: rgba(255, 255, 255, 0.03);

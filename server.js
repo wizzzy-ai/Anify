@@ -125,6 +125,8 @@ const animeSchema = new mongoose.Schema({
   title: { type: String, required: true },
   titleJp: String,
   rating: { type: Number, default: 0 },
+  averageRating: { type: Number, default: 0 },
+  ratingCount: { type: Number, default: 0 },
   year: Number,
 
   // kept as a numeric hint/display value
@@ -185,6 +187,7 @@ const commentSchema = new mongoose.Schema({
   animeId: { type: String, required: true, index: true },
   userId: { type: String, required: true, index: true },
   text: { type: String, required: true, trim: true },
+  rating: { type: Number, min: 1, max: 5, default: null },
   likes: { type: Number, default: 0 },
 }, { timestamps: true });
 
@@ -1692,21 +1695,44 @@ app.get('/api/anime/:id/comments', async (req, res) => {
 
 app.post('/api/comments', requireDb, requireActiveUser, async (req, res) => {
   try {
-    const { animeId, text } = req.body || {};
+    const { animeId, text, rating } = req.body || {};
     if (!animeId || !text) return res.status(400).json({ ok: false, error: 'animeId and text are required.' });
 
     const comment = await Comment.create({
       animeId: String(animeId),
       userId: String(req.auth.userId),
       text: String(text),
+      rating: rating ? Number(rating) : null,
       likes: 0,
     });
+
+    // Update anime average rating
+    if (rating) {
+      await updateAnimeRating(String(animeId));
+    }
 
     res.status(201).json({ ok: true, comment });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e?.message || e) });
   }
 });
+
+async function updateAnimeRating(animeId) {
+  try {
+    const comments = await Comment.find({ animeId, rating: { $ne: null } }).lean();
+    if (comments.length === 0) return;
+
+    const totalRating = comments.reduce((sum, c) => sum + c.rating, 0);
+    const averageRating = totalRating / comments.length;
+
+    await Anime.findOneAndUpdate(
+      { clientId: Number(animeId) },
+      { averageRating: Math.round(averageRating * 10) / 10, ratingCount: comments.length }
+    );
+  } catch (e) {
+    console.error('Error updating anime rating:', e);
+  }
+}
 
 // --------------- Watch progress ---------------
 app.get('/api/watch-progress/:userId', requireDb, async (req, res) => {

@@ -261,13 +261,14 @@ async function loadCommentsForAnime(animeId) {
         if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to load comments');
 
         // Normalize Mongo comments to the UI shape used in renderAnimeDetail
-        // comment: { animeId, userId, text, likes, createdAt }
+        // comment: { animeId, userId, text, rating, likes, createdAt }
         comments.length = 0;
         for (const c of data.comments || []) {
             comments.push({
                 user: c.userId,
                 avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(c.userId)}`,
                 text: c.text,
+                rating: c.rating || null,
                 time: timeAgo(c.createdAt),
                 likes: c.likes || 0,
             });
@@ -280,17 +281,20 @@ async function loadCommentsForAnime(animeId) {
 async function addComment() {
     const input = document.getElementById('comment-input');
     const text = input?.value?.trim();
-if (!text) return alertGold('Write a comment first.');
+    const ratingInput = document.getElementById('comment-rating');
+    const rating = ratingInput ? Number(ratingInput.value) : 0;
+
+    if (!text) return alertGold('Write a comment first.');
 
     // current anime id is held by the anime detail render call argument
 
     // we infer it from the player back link / current navigation state isn't reliable,
     // so we keep it on the DOM when rendering.
     const animeId = Number(document.getElementById('anime-detail-root')?.dataset?.animeId);
-if (!animeId) return alertGold('Anime id not found.');
+    if (!animeId) return alertGold('Anime id not found.');
 
     const token = getAuthToken();
-if (!token) return alertGold('Please login first to post comments.');
+    if (!token) return alertGold('Please login first to post comments.');
 
     const res = await fetch('/api/comments', {
         method: 'POST',
@@ -298,7 +302,7 @@ if (!token) return alertGold('Please login first to post comments.');
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ animeId: String(animeId), text }),
+        body: JSON.stringify({ animeId: String(animeId), text, rating: rating > 0 ? rating : null }),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -306,9 +310,44 @@ if (!token) return alertGold('Please login first to post comments.');
     }
 
     input.value = '';
+    ratingInput.value = '0';
+    resetRatingStars();
     await loadCommentsForAnime(animeId);
     // Refresh comments UI by re-rendering the anime detail page
     navigate('anime', animeId);
+}
+
+function setRating(rating) {
+    const ratingInput = document.getElementById('comment-rating');
+    if (ratingInput) {
+        ratingInput.value = rating;
+    }
+    updateRatingStars(rating);
+}
+
+function updateRatingStars(selectedRating) {
+    const stars = document.querySelectorAll('.rating-star');
+    stars.forEach((star, index) => {
+        const starRating = index + 1;
+        const svg = star.querySelector('svg');
+        if (svg) {
+            if (starRating <= selectedRating) {
+                svg.classList.remove('text-gray-600');
+                svg.classList.add('text-gold-400');
+            } else {
+                svg.classList.remove('text-gold-400');
+                svg.classList.add('text-gray-600');
+            }
+        }
+    });
+}
+
+function resetRatingStars() {
+    updateRatingStars(0);
+    const ratingInput = document.getElementById('comment-rating');
+    if (ratingInput) {
+        ratingInput.value = '0';
+    }
 }
 
 
@@ -1491,7 +1530,7 @@ function renderBrowse(type, selectedGenre = null) {
                             </div>
                             <div class="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 rounded-lg px-2 py-0.5">
                                 <i data-lucide="star" class="w-3 h-3 fill-gold-400 text-gold-400"></i>
-                                <span class="text-xs font-bold">${a.rating}</span>
+                                <span class="text-xs font-bold">${a.averageRating || a.rating || 'N/A'}</span>
                             </div>
                             <div class="card-actions">
                                 <button class="w-full btn-primary flex items-center justify-center gap-2 py-2 rounded-xl text-xs">
@@ -1671,6 +1710,10 @@ function renderAnimeDetail(id) {
                             <div class="recommend-body">
                                 <div class="recommend-title">${s.title}</div>
                                 <div class="recommend-meta">${s.year || 'N/A'} • ${s.episodes || 0} eps</div>
+                                <div class="recommend-rating">
+                                    <i data-lucide="star" class="w-3 h-3 fill-gold-400 text-gold-400"></i>
+                                    <span class="text-xs">${s.averageRating || s.rating || 'N/A'}</span>
+                                </div>
                             </div>
                         </div>
                     `).join('')}
@@ -1706,7 +1749,7 @@ function renderAnimeDetail(id) {
                             <h1 class="hero-title">${a.title}</h1>
                             <div class="hero-native-title">${a.titleJp || ''}</div>
                             <div class="hero-meta-strip">
-                                <span class="hero-rating-inline"><i data-lucide="star" class="w-4 h-4"></i> ${a.rating}<span>/10</span></span>
+                                <span class="hero-rating-inline"><i data-lucide="star" class="w-4 h-4"></i> ${a.averageRating || a.rating || 'N/A'}<span>${a.averageRating ? '/5' : '/10'}</span></span>
                                 <span class="hero-meta-inline"><i data-lucide="calendar-days" class="w-4 h-4"></i> ${a.year || 'N/A'}</span>
                                 <span class="hero-meta-inline"><i data-lucide="layers" class="w-4 h-4"></i> ${(a.type || 'anime') === 'anime' ? `${a.episodes || 0} Episodes` : runtime}</span>
                             </div>
@@ -1842,9 +1885,23 @@ function renderAnimeDetail(id) {
                     <div class="flex items-start gap-3">
                         <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Me" class="w-8 h-8 rounded-lg flex-shrink-0" alt="me">
                         <div class="flex-1">
+                            <!-- Rating Selector -->
+                            <div class="mb-3">
+                                <label class="text-xs text-gray-400 mb-1 block">Your Rating (Optional)</label>
+                                <div class="flex gap-1" id="rating-selector">
+                                    ${[1, 2, 3, 4, 5].map(star => `
+                                        <button type="button" class="rating-star text-2xl transition-all hover:scale-110 focus:outline-none" data-rating="${star}" onclick="setRating(${star})">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                            </svg>
+                                        </button>
+                                    `).join('')}
+                                </div>
+                                <input type="hidden" id="comment-rating" value="0">
+                            </div>
                             <textarea id="comment-input" placeholder="Share your thoughts..." class="w-full bg-transparent border-none outline-none resize-none text-sm" rows="2"></textarea>
                             <div class="flex justify-end mt-2">
-                                <button onclick="addComment()" class="btn-primary px-4 py-1.5 text-xs">Post</button>
+                                <button onclick="addComment()" class="btn-primary px-4 py-1.5 text-xs">Post Review</button>
                             </div>
                         </div>
                     </div>
@@ -1858,6 +1915,15 @@ function renderAnimeDetail(id) {
                                     <div class="flex items-center gap-2">
                                         <span class="font-semibold text-sm">${c.user}</span>
                                         <span class="text-xs text-gray-500">${c.time}</span>
+                                        ${c.rating ? `
+                                            <div class="flex items-center gap-1 ml-2">
+                                                ${[1, 2, 3, 4, 5].map(star => `
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 ${star <= c.rating ? 'text-gold-400' : 'text-gray-600'}" fill="currentColor" viewBox="0 0 24 24">
+                                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                                    </svg>
+                                                `).join('')}
+                                            </div>
+                                        ` : ''}
                                     </div>
                                     <p class="text-sm text-gray-300 mt-1">${c.text}</p>
                                     <div class="flex items-center gap-4 mt-2">
