@@ -17,7 +17,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import mongoose from 'mongoose';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import User from './User.js'; // Import the centralized User model
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';

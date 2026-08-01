@@ -26,7 +26,7 @@ async function main() {
     if (!user) {
       console.log(`No user found with email: ${adminEmail}. Creating new admin user...`);
       
-      const bcrypt = await import('bcrypt');
+      const bcrypt = await import('bcryptjs');
       const passwordHash = await bcrypt.hash('Anify@12345', 10);
       const adminUsername = normalizedEmail.split('@')[0];
 
