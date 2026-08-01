@@ -175,6 +175,51 @@ html { scroll-behavior: smooth; }
     box-shadow: 0 10px 20px rgba(251, 191, 36, 0.1);
 }
 
+/* Mobile Responsive Styles for Guest Modal */
+@media (max-width: 640px) {
+    #guest-limit-modal .guest-modal-content {
+        border-radius: 20px;
+        max-width: 100%;
+        max-height: 95vh;
+    }
+
+    #guest-limit-modal .guest-modal-inner {
+        padding: 1.5rem 1.25rem;
+        border-radius: 16px;
+    }
+
+    .benefit-card {
+        padding: 0.75rem;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        padding: 0.875rem 1.25rem;
+        font-size: 0.875rem;
+    }
+}
+
+@media (max-width: 400px) {
+    #guest-limit-modal .guest-modal-content {
+        border-radius: 16px;
+    }
+
+    #guest-limit-modal .guest-modal-inner {
+        padding: 1.25rem 1rem;
+    }
+
+    .benefit-card {
+        padding: 0.625rem;
+        font-size: 0.8125rem;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        padding: 0.75rem 1rem;
+        font-size: 0.8125rem;
+    }
+}
+
 /* Purple accent for sign-in button */
 .btn-secondary.border-purple-500\/50 {
     background: linear-gradient(135deg, rgba(108, 59, 255, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
@@ -1312,6 +1357,52 @@ html { scroll-behavior: smooth; }
 .btn-secondary:hover {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(251, 191, 36, 0.3);
+}
+
+/* Mobile Responsive Styles for Auth Pages */
+@media (max-width: 640px) {
+    .auth-container {
+        padding: 16px;
+    }
+
+    .auth-card {
+        padding: 2rem 1.5rem;
+        border-radius: 1.25rem;
+        max-width: 100%;
+    }
+
+    .input-field {
+        padding: 0.875rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        padding: 0.875rem 1.25rem;
+        font-size: 0.875rem;
+    }
+
+    .floating-orb {
+        display: none;
+    }
+}
+
+@media (max-width: 400px) {
+    .auth-card {
+        padding: 1.5rem 1.25rem;
+        border-radius: 1rem;
+    }
+
+    .input-field {
+        padding: 0.75rem 0.875rem;
+        font-size: 0.8125rem;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        padding: 0.75rem 1rem;
+        font-size: 0.8125rem;
+    }
 }
 
 /* ============ CHAT BUBBLE (Comments) ============ */
@@ -4446,17 +4537,40 @@ html { scroll-behavior: smooth; }
 
 /* Responsive */
 @media (max-width: 600px) {
+    .verify-container {
+        padding: 16px;
+    }
+
     .verify-card {
         padding: 32px 24px;
         border-radius: 20px;
+        max-width: 100%;
     }
 
     .verify-logo-text {
         font-size: 28px;
+        letter-spacing: 2px;
+    }
+
+    .verify-logo-tagline {
+        font-size: 10px;
     }
 
     .verify-title {
         font-size: 24px;
+    }
+
+    .verify-subtitle {
+        font-size: 12px;
+    }
+
+    .verify-description {
+        font-size: 13px;
+    }
+
+    .verify-email {
+        font-size: 14px;
+        margin-bottom: 24px;
     }
 
     .verify-otp-input {
@@ -4467,6 +4581,73 @@ html { scroll-behavior: smooth; }
 
     .verify-otp-container {
         gap: 8px;
+    }
+
+    .verify-btn {
+        padding: 14px 20px;
+        font-size: 15px;
+    }
+
+    .verify-resend-btn {
+        padding: 12px 20px;
+        font-size: 13px;
+    }
+
+    .verify-change-email-btn {
+        padding: 10px 20px;
+        font-size: 13px;
+    }
+
+    .verify-timer-label {
+        font-size: 12px;
+    }
+
+    .verify-timer-time {
+        font-size: 14px;
+    }
+
+    .verify-success-icon {
+        width: 60px;
+        height: 60px;
+    }
+
+    .verify-success-title {
+        font-size: 20px;
+    }
+
+    .verify-success-text {
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 400px) {
+    .verify-card {
+        padding: 24px 20px;
+        border-radius: 16px;
+    }
+
+    .verify-logo-text {
+        font-size: 24px;
+    }
+
+    .verify-title {
+        font-size: 20px;
+    }
+
+    .verify-otp-input {
+        width: 36px;
+        height: 44px;
+        font-size: 18px;
+    }
+
+    .verify-otp-container {
+        gap: 6px;
+    }
+
+    .verify-glow-1,
+    .verify-glow-2,
+    .verify-glow-3 {
+        display: none;
     }
 }
 

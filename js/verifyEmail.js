@@ -1,5 +1,7 @@
 /*  */// Verification Page JavaScript
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[OTP] Page loaded at:', new Date().toISOString());
+    
     // Initialize Lucide icons
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
@@ -9,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const email = urlParams.get('email') || authService?.getRegisterEmail() || localStorage.getItem('registerEmail');
     
+    console.log('[OTP] Email extracted:', email);
+    
     if (email) {
         document.getElementById('verify-email-display').textContent = email;
         localStorage.setItem('registerEmail', email);
@@ -17,9 +21,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     } else {
         // No email provided, redirect to register
+        console.log('[OTP] No email found, redirecting to register');
         window.location.href = '/anify.html#register';
         return;
     }
+
+    console.log('[OTP] Initialization complete at:', new Date().toISOString());
+    
+    // Hide loading state and show main content
+    const loadingState = document.getElementById('otp-loading-state');
+    const verifyContainer = document.querySelector('.verify-container');
+    
+    if (loadingState) {
+        loadingState.style.display = 'none';
+    }
+    
+    if (verifyContainer) {
+        verifyContainer.style.display = 'flex';
+    }
+    
+    console.log('[OTP] Page ready for user interaction at:', new Date().toISOString());
 
     // OTP Input Elements
     const otpInputs = document.querySelectorAll('.verify-otp-input');

@@ -14,7 +14,15 @@
     </script>
 </head>
 <body class="transition-colors duration-300">
-    <div class="verify-container">
+    <!-- Initial Loading State -->
+    <div id="otp-loading-state" class="fixed inset-0 z-50 flex items-center justify-center" style="background: linear-gradient(135deg, #0B0B12 0%, #1a1a2e 50%, #0B0B12 100%);">
+        <div class="text-center">
+            <div class="animate-spin w-12 h-12 border-4 border-gold-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p class="text-white text-lg font-medium">Loading verification page...</p>
+        </div>
+    </div>
+
+    <div class="verify-container" style="display: none;">
         <!-- Background Effects -->
         <div class="verify-bg-effects">
             <div class="verify-glow-1"></div>
