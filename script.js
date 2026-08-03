@@ -4088,9 +4088,17 @@ function handleMiniPlayerTransition(newPage) {
  * Handles clicks on the persistent video element itself.
  * In mini mode: restores the full player (unless the click was actually a drag).
  * In full mode: toggles play/pause, matching prior behavior.
+ * On mobile, checks if this was a double-tap and skips play/pause if so.
  */
 function handlePlayerVideoClick(event) {
     event.stopPropagation();
+    
+    // On mobile, don't handle click if it was a double-tap
+    if (preventClick) {
+        preventClick = false;
+        return;
+    }
+    
     if (window.__miniPlayerJustDragged) {
         window.__miniPlayerJustDragged = false;
         return;
@@ -4102,6 +4110,150 @@ function handlePlayerVideoClick(event) {
         return;
     }
     togglePlay();
+}
+
+/**
+ * Handles double-clicks on the video for seeking.
+ * Double-click on left third: skip backward 5 seconds.
+ * Double-click on right third: skip forward 5 seconds.
+ * Center third: normal play/pause (no seeking).
+ */
+function handlePlayerVideoDoubleClick(event) {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    const video = playerService.getVideoElement();
+    if (!video) return;
+
+    const player = document.getElementById('anify-persistent-player');
+    if (player && player.classList.contains('mini-player')) {
+        // In mini mode, double-click restores full player
+        navigate('player', video?.dataset?.animeId);
+        return;
+    }
+
+    // Get click position relative to video width
+    const rect = video.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const videoWidth = rect.width;
+    const clickRatio = clickX / videoWidth;
+
+    // Three zones: left third (< 33%), center third (33-66%), right third (> 66%)
+    if (clickRatio < 0.33) {
+        // Left third - skip backward with accumulation
+        playerService.skipBackward(5);
+        showSeekFeedback('backward', 5, true);
+    } else if (clickRatio > 0.66) {
+        // Right third - skip forward with accumulation
+        playerService.skipForward(5);
+        showSeekFeedback('forward', 5, true);
+    } else {
+        // Center third - normal play/pause, no seeking
+        togglePlay();
+    }
+}
+
+/**
+ * Handles double-tap on mobile devices for seeking.
+ * Double-tap on left third: skip backward 5 seconds.
+ * Double-tap on right third: skip forward 5 seconds.
+ * Center third: normal player interaction (no seeking).
+ */
+let lastTapTime = 0;
+let lastTapX = 0;
+let tapTimeout = null;
+let hasShownDoubleTapHint = false;
+let preventClick = false;
+
+function handlePlayerVideoTouchEnd(event) {
+    const currentTime = new Date().getTime();
+    const tapInterval = currentTime - lastTapTime;
+    
+    // Get touch position
+    const touch = event.changedTouches[0];
+    const tapX = touch.clientX;
+    
+    const video = playerService.getVideoElement();
+    if (!video) return;
+
+    const player = document.getElementById('anify-persistent-player');
+    if (player && player.classList.contains('mini-player')) {
+        // In mini mode, double-tap restores full player
+        if (tapInterval < 300 && Math.abs(tapX - lastTapX) < 50) {
+            navigate('player', video?.dataset?.animeId);
+            event.preventDefault();
+            preventClick = true;
+        }
+        lastTapTime = currentTime;
+        lastTapX = tapX;
+        return;
+    }
+
+    // Show double-tap hint on first interaction (if on touch device)
+    if (!hasShownDoubleTapHint && 'ontouchstart' in window) {
+        video.classList.add('double-tap-hint');
+        hasShownDoubleTapHint = true;
+        
+        // Hide hint after 2 seconds
+        setTimeout(() => {
+            video.classList.remove('double-tap-hint');
+        }, 2000);
+    }
+
+    // Check if this is a double-tap (within 300ms and close to previous tap)
+    if (tapInterval < 300 && Math.abs(tapX - lastTapX) < 50) {
+        // Clear any pending single-tap timeout
+        if (tapTimeout) {
+            clearTimeout(tapTimeout);
+            tapTimeout = null;
+        }
+
+        // Get tap position relative to video width
+        const rect = video.getBoundingClientRect();
+        const tapRatio = (tapX - rect.left) / rect.width;
+
+        // Three zones: left third (< 33%), center third (33-66%), right third (> 66%)
+        if (tapRatio < 0.33) {
+            // Left third - skip backward with accumulation
+            playerService.skipBackward(5);
+            showSeekFeedback('backward', 5, true);
+            event.preventDefault();
+            event.stopPropagation();
+            preventClick = true;
+        } else if (tapRatio > 0.66) {
+            // Right third - skip forward with accumulation
+            playerService.skipForward(5);
+            showSeekFeedback('forward', 5, true);
+            event.preventDefault();
+            event.stopPropagation();
+            preventClick = true;
+        } else {
+            // Center third - normal play/pause, no seeking
+            preventClick = false;
+        }
+        
+        // Reset to prevent triple-tap
+        lastTapTime = 0;
+        lastTapX = 0;
+    } else {
+        // This might be a single tap, wait to see if another tap comes
+        lastTapTime = currentTime;
+        lastTapX = tapX;
+        preventClick = false;
+        
+        // Clear previous timeout if exists
+        if (tapTimeout) {
+            clearTimeout(tapTimeout);
+        }
+        
+        // Set timeout to reset preventClick flag
+        tapTimeout = setTimeout(() => {
+            preventClick = false;
+            lastTapTime = 0;
+            lastTapX = 0;
+            tapTimeout = null;
+        }, 300);
+    }
 }
 
 /**
@@ -4382,6 +4534,76 @@ function toggleMiniPlayerSize() {
     window.miniPlayer.resize(next);
 }
 
+// Track accumulated seek amount for multiple taps
+let seekAccumulator = { left: 0, right: 0 };
+let seekFeedbackTimeout = null;
+
+function showSeekFeedback(direction, seconds = 5, accumulate = false) {
+    const feedbackId = direction === 'backward' ? 'seek-feedback-left' : 'seek-feedback-right';
+    const textId = direction === 'backward' ? 'seek-feedback-text-left' : 'seek-feedback-text-right';
+    const feedback = document.getElementById(feedbackId);
+    const text = document.getElementById(textId);
+    
+    if (!feedback || !text) return;
+
+    const key = direction === 'backward' ? 'left' : 'right';
+    
+    if (accumulate) {
+        // Accumulate seek amount for multiple taps
+        seekAccumulator[key] += seconds;
+        
+        // Reset opposite side accumulator
+        const oppositeKey = direction === 'backward' ? 'right' : 'left';
+        seekAccumulator[oppositeKey] = 0;
+        
+        // Update text with accumulated amount
+        text.textContent = `${seekAccumulator[key]} seconds`;
+    } else {
+        // Show single skip amount (for keyboard shortcuts and buttons)
+        text.textContent = `${seconds} seconds`;
+    }
+
+    // Re-create icons
+    if (window.lucide && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+    }
+
+    // Hide opposite feedback if showing
+    const oppositeFeedbackId = direction === 'backward' ? 'seek-feedback-right' : 'seek-feedback-left';
+    const oppositeFeedback = document.getElementById(oppositeFeedbackId);
+    if (oppositeFeedback) {
+        oppositeFeedback.classList.add('hidden');
+    }
+
+    // Show feedback
+    feedback.classList.remove('hidden');
+    
+    // Clear existing timeout if any
+    if (seekFeedbackTimeout) {
+        clearTimeout(seekFeedbackTimeout);
+    }
+    
+    // Auto-hide after 800ms and reset accumulator
+    seekFeedbackTimeout = setTimeout(() => {
+        feedback.classList.add('hidden');
+        if (accumulate) {
+            seekAccumulator[key] = 0;
+        }
+        seekFeedbackTimeout = null;
+    }, 800);
+}
+
+// Wrapper functions for skip buttons with feedback
+function skipBackwardWithFeedback() {
+    playerService.skipBackward(5);
+    showSeekFeedback('backward', 5, false);
+}
+
+function skipForwardWithFeedback() {
+    playerService.skipForward(5);
+    showSeekFeedback('forward', 5, false);
+}
+
 function setupCustomPlayer() {
     const mount = document.getElementById('persistent-player-mount');
     if (!mount) return;
@@ -4476,7 +4698,7 @@ function createPersistentPlayer() {
     div.id = 'anify-persistent-player';
     div.className = 'w-full h-full relative group';
     div.innerHTML = `
-        <video id="anify-video" class="w-full h-full object-cover" poster="" preload="metadata" onclick="handlePlayerVideoClick(event)"></video>
+        <video id="anify-video" class="w-full h-full object-cover" poster="" preload="metadata" onclick="handlePlayerVideoClick(event)" ondblclick="handlePlayerVideoDoubleClick(event)" ontouchend="handlePlayerVideoTouchEnd(event)"></video>
 
         <!-- Video Loading Overlay -->
         <div id="video-loading-overlay" class="video-loading-overlay hidden">
@@ -4494,6 +4716,26 @@ function createPersistentPlayer() {
         <button id="skip-outro-btn" class="skip-cue-btn skip-outro-btn hidden" onclick="event.stopPropagation(); skipCredits();">
             <i data-lucide="skip-forward" class="w-5 h-5"></i> Skip Credits [S]
         </button>
+
+        <!-- Seek Feedback Overlay - Left Side -->
+        <div id="seek-feedback-left" class="seek-feedback seek-feedback-left hidden">
+            <div class="seek-feedback-content">
+                <div class="seek-feedback-circle">
+                    <i data-lucide="rotate-ccw" class="w-6 h-6"></i>
+                </div>
+                <span class="seek-feedback-text" id="seek-feedback-text-left">5 seconds</span>
+            </div>
+        </div>
+
+        <!-- Seek Feedback Overlay - Right Side -->
+        <div id="seek-feedback-right" class="seek-feedback seek-feedback-right hidden">
+            <div class="seek-feedback-content">
+                <div class="seek-feedback-circle">
+                    <i data-lucide="rotate-cw" class="w-6 h-6"></i>
+                </div>
+                <span class="seek-feedback-text" id="seek-feedback-text-right">5 seconds</span>
+            </div>
+        </div>
 
         <!-- Cinematic Auto-Next Overlay -->
         <div id="auto-next-overlay" class="auto-next-overlay hidden" onclick="event.stopPropagation();">
@@ -4574,9 +4816,10 @@ function createPersistentPlayer() {
             </div>
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
+                    <button class="player-control-btn" onclick="skipBackwardWithFeedback()" title="Skip Backward 5 Seconds"><i data-lucide="skip-back" class="w-5 h-5"></i></button>
                     <button class="player-control-btn" onclick="togglePlay()"><i data-lucide="play" class="w-5 h-5" id="player-play-icon"></i></button>
                     <button class="player-control-btn mini-only hidden" onclick="playNextEpisode()" title="Next Episode"><i data-lucide="skip-forward" class="w-4 h-4"></i></button>
-                    <button class="player-control-btn" onclick="skipPlayer(10)"><i data-lucide="skip-forward" class="w-5 h-5"></i></button>
+                    <button class="player-control-btn" onclick="skipForwardWithFeedback()" title="Skip Forward 5 Seconds"><i data-lucide="skip-forward" class="w-5 h-5"></i></button>
                     <button class="player-control-btn" onclick="togglePlayerMute()"><i data-lucide="volume-2" class="w-5 h-5" id="player-volume-icon"></i></button>
                     <span class="text-xs text-gray-400" id="player-time">0:00 / 0:00</span>
                 </div>
@@ -4627,13 +4870,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!isPlayerPage && !isMiniActive) return;
 
+        // Check if user is typing in an input field - if so, don't trigger video shortcuts
+        const activeElement = document.activeElement;
+        const isInputFocused = activeElement && (
+            activeElement.tagName === 'INPUT' ||
+            activeElement.tagName === 'TEXTAREA' ||
+            activeElement.tagName === 'SELECT' ||
+            activeElement.isContentEditable ||
+            activeElement.getAttribute('contenteditable') === 'true'
+        );
+
+        if (isInputFocused) return;
+
         if (event.code === 'Space') {
             event.preventDefault();
             playerService.togglePlay();
+        } else if (event.key && event.key.toLowerCase() === 'k') {
+            event.preventDefault();
+            playerService.togglePlay();
         } else if (event.key && event.key.toLowerCase() === 'm') {
+            event.preventDefault();
             playerService.toggleMute();
-        } else if (event.key && event.key.toLowerCase() === 'f' && isMiniActive) {
-            navigate('player', video.dataset.animeId);
+        } else if (event.key && event.key.toLowerCase() === 'f') {
+            event.preventDefault();
+            if (isMiniActive) {
+                navigate('player', video.dataset.animeId);
+            } else {
+                playerService.toggleFullscreen();
+            }
+        } else if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            playerService.skipBackward(5);
+            showSeekFeedback('backward', 5, true);
+        } else if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            playerService.skipForward(5);
+            showSeekFeedback('forward', 5, true);
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            const video = playerService.getVideoElement();
+            if (video) {
+                video.volume = Math.min(1, video.volume + 0.1);
+                playerService.syncState();
+            }
+        } else if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            const video = playerService.getVideoElement();
+            if (video) {
+                video.volume = Math.max(0, video.volume - 0.1);
+                playerService.syncState();
+            }
         } else if (event.key === 'Escape') {
             if (isMiniActive) {
                 hideMiniPlayer();
@@ -4651,11 +4937,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (overlay && !overlay.classList.contains('hidden')) {
                 playNextEpisodeImmediately();
             }
-        } else if (event.key && event.key.toLowerCase() === 'k') {
-            const stillWatching = document.getElementById('still-watching-overlay');
-            if (stillWatching && !stillWatching.classList.contains('hidden')) {
-                confirmStillWatching();
-            }
         } else if (isPlayerPage) {
             // Full player only shortcuts
             if (event.key && (event.key.toLowerCase() === 'i' || event.key.toLowerCase() === 's')) {
@@ -4666,8 +4947,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (outroBtn && !outroBtn.classList.contains('hidden')) {
                     skipCredits();
                 }
-            } else if (event.key && event.key.toLowerCase() === 'f') {
-                playerService.toggleFullscreen();
             } else if (event.ctrlKey && event.key && event.key.toLowerCase() === 'd') {
                 event.preventDefault();
                 downloadCurrentVideo();

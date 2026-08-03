@@ -246,6 +246,22 @@
             return true;
         },
 
+        skipForward(seconds = 5) {
+            const video = this.getVideoElement();
+            if (!video || !Number.isFinite(video.duration)) return false;
+            video.currentTime = Math.min(video.duration, video.currentTime + seconds);
+            this.syncState();
+            return true;
+        },
+
+        skipBackward(seconds = 5) {
+            const video = this.getVideoElement();
+            if (!video) return false;
+            video.currentTime = Math.max(0, video.currentTime - seconds);
+            this.syncState();
+            return true;
+        },
+
         seekToRatio(ratio) {
             const video = this.getVideoElement();
             if (!video || !video.duration) return false;
