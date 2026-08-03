@@ -4175,6 +4175,16 @@ function restoreMiniPlayerFromRefresh() {
     playerService.attachEvents();
     playerService.syncState();
 
+    // Re-render episode list to update active state when restoring from mini player refresh
+    const list = document.getElementById('episode-list');
+    if (anime && list && anime.type === 'anime') {
+        const language = lastEntry.language || 'sub';
+        list.innerHTML = renderEpisodeList(anime, language);
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+            lucide.createIcons();
+        }
+    }
+
     window.miniPlayer?.updateNowPlaying?.();
     document.getElementById('mini-player-dock')?.classList.remove('hidden');
     updatePlayerUI();

@@ -395,6 +395,14 @@
             } else {
                 this.setPlayerSource(language, chosenQuality);
             }
+            
+            // Re-render episode list to update active state
+            const list = document.getElementById('episode-list');
+            if (anime && list) {
+                list.innerHTML = global.renderEpisodeList?.(anime, language) || '';
+                if (global.lucide?.createIcons) global.lucide.createIcons();
+            }
+            
             return true;
         },
 
@@ -588,6 +596,15 @@
                     this.setActiveEpisodeLanguage(resume.language);
                 }
             }
+            
+            // Re-render episode list to update active state when resuming
+            const list = document.getElementById('episode-list');
+            if (anime && list && !isMovie) {
+                const language = resume?.language || 'sub';
+                list.innerHTML = global.renderEpisodeList?.(anime, language) || '';
+                if (global.lucide?.createIcons) global.lucide.createIcons();
+            }
+            
             return Boolean(resume);
         },
 
