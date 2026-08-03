@@ -3889,6 +3889,11 @@ html { scroll-behavior: smooth; }
     box-shadow: 0 18px 44px rgba(120,53,15,0.06);
 }
 
+.light #anime-detail-root .hero-status-badge,
+.light #anime-detail-root .hero-studio-badge {
+    color: rgba(17,24,39,0.8);
+}
+
 .light #anime-detail-root .hero-native-title,
 .light #anime-detail-root .hero-meta-strip,
 .light #anime-detail-root .hero-tag,
