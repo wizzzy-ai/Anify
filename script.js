@@ -247,14 +247,31 @@ function getAuthToken() {
 }
 
 function timeAgo(ts) {
-    if (!ts) return '';
-    const diffMs = Date.now() - Number(ts);
+    if (!ts) return 'Just now';
+    
+    const date = new Date(ts);
+    if (isNaN(date.getTime())) return 'Just now';
+    
+    const diffMs = Date.now() - date.getTime();
     const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 60) return `${Math.max(1, diffMin)}m ago`;
+    
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    
     const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 48) return `${diffHr}h ago`;
+    if (diffHr < 24) return `${diffHr}h ago`;
+    
     const diffDay = Math.floor(diffHr / 24);
-    return `${diffDay}d ago`;
+    if (diffDay === 1) return 'Yesterday';
+    if (diffDay < 7) return `${diffDay} days ago`;
+    
+    const diffWeek = Math.floor(diffDay / 7);
+    if (diffWeek === 1) return '1 week ago';
+    if (diffWeek < 4) return `${diffWeek} weeks ago`;
+    
+    const diffMonth = Math.floor(diffDay / 30);
+    if (diffMonth === 1) return '1 month ago';
+    return `${diffMonth} months ago`;
 }
 
 async function loadCommentsForAnime(animeId) {
@@ -267,21 +284,63 @@ async function loadCommentsForAnime(animeId) {
         if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to load comments');
 
         // Normalize Mongo comments to the UI shape used in renderAnimeDetail
-        // comment: { animeId, userId, text, rating, likes, createdAt }
+        // comment: { animeId, userId, text, rating, likes, createdAt, username }
         comments.length = 0;
         for (const c of data.comments || []) {
             comments.push({
-                user: c.userId,
-                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(c.userId)}`,
+                user: c.username || c.userId, // Use username from API, fallback to userId
+                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(c.username || c.userId)}`,
                 text: c.text,
                 rating: c.rating || null,
                 time: timeAgo(c.createdAt),
                 likes: c.likes || 0,
             });
         }
+        
+        // Re-render comments section
+        updateCommentsSection();
     } catch (e) {
         console.warn('Using mock comments:', e.message);
     }
+}
+
+function updateCommentsSection() {
+    const commentsContainer = document.querySelector('.space-y-3');
+    if (!commentsContainer) return;
+    
+    commentsContainer.innerHTML = comments.map(c => `
+        <div class="comment-bubble">
+            <div class="flex items-start gap-3">
+                <img src="${c.avatar}" class="w-8 h-8 rounded-lg flex-shrink-0" alt="${c.user}">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="font-semibold text-sm">${c.user}</span>
+                        <span class="text-xs text-gray-500">${c.time}</span>
+                        ${c.rating ? `
+                            <div class="flex items-center gap-1 ml-2">
+                                ${[1, 2, 3, 4, 5].map(star => `
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 ${star <= c.rating ? 'text-gold-400' : 'text-gray-600'}" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                    </svg>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <p class="text-sm text-gray-300 mt-1">${c.text}</p>
+                    <div class="flex items-center gap-4 mt-2">
+                        <button class="flex items-center gap-1 text-xs text-gray-500 hover:text-gold-400 transition-colors">
+                            <i data-lucide="heart" class="w-3 h-3"></i> ${c.likes}
+                        </button>
+                        <button class="flex items-center gap-1 text-xs text-gray-500 hover:text-gold-400 transition-colors">
+                            <i data-lucide="message-circle" class="w-3 h-3"></i> Reply
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    lucide.createIcons();
 }
 
 async function addComment() {
@@ -323,8 +382,6 @@ async function addComment() {
     ratingInput.value = '0';
     resetRatingStars();
     await loadCommentsForAnime(animeId);
-    // Refresh comments UI by re-rendering the anime detail page
-    navigate('anime', animeId);
 }
 
 function setRating(rating) {
@@ -512,9 +569,15 @@ async function deleteAnimeFromApi(id) {
 
 async function saveWatchProgressToApi(entry) {
     try {
+        const token = getAuthToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) {
+            headers.Authorization = `Bearer ${token}`;
+        }
+        
         await fetch('/api/watch-progress', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: headers,
             body: JSON.stringify({
                 ...entry,
                 userId: authService.getCurrentUserId() || 'guest',
@@ -945,7 +1008,10 @@ function handleRouteChange() {
         case 'movies': content.innerHTML = renderBrowse('Movie'); break;
         case 'series': content.innerHTML = renderBrowse('Series'); break;
         case 'mylist': content.innerHTML = renderMyList(); break;
-        case 'anime': content.innerHTML = renderAnimeDetail(Number(data)); break;
+        case 'anime': 
+            content.innerHTML = renderAnimeDetail(Number(data));
+            loadCommentsForAnime(Number(data));
+            break;
         case 'player': content.innerHTML = renderPlayer(Number(data)); break;
         case 'login': content.innerHTML = renderLogin(); break;
         case 'register': content.innerHTML = renderRegister(); break;
@@ -4401,6 +4467,15 @@ function createPersistentPlayer() {
     div.className = 'w-full h-full relative group';
     div.innerHTML = `
         <video id="anify-video" class="w-full h-full object-cover" poster="" preload="metadata" onclick="handlePlayerVideoClick(event)"></video>
+
+        <!-- Video Loading Overlay -->
+        <div id="video-loading-overlay" class="video-loading-overlay hidden">
+            <div class="video-loading-spinner">
+                <div class="video-spinner-ring"></div>
+                <div class="video-spinner-ring"></div>
+                <div class="video-spinner-ring"></div>
+            </div>
+        </div>
 
         <!-- Premium Skip Buttons -->
         <button id="skip-intro-btn" class="skip-cue-btn skip-intro-btn hidden" onclick="event.stopPropagation(); skipIntro();">

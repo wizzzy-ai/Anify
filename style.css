@@ -97,6 +97,73 @@ html { scroll-behavior: smooth; }
     50% { transform: scale(1.1); }
 }
 
+/* ============ VIDEO LOADING SPINNER ============ */
+.video-loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 20;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.light .video-loading-overlay {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.video-loading-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.video-loading-spinner {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-spinner-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    animation: videoSpinnerSpin 1.2s linear infinite;
+}
+
+.video-spinner-ring:nth-child(1) {
+    width: 60px;
+    height: 60px;
+    border-top-color: #FBBF24;
+    animation-duration: 1.2s;
+}
+
+.video-spinner-ring:nth-child(2) {
+    width: 45px;
+    height: 45px;
+    border-right-color: #F59E0B;
+    animation-duration: 0.9s;
+    animation-direction: reverse;
+}
+
+.video-spinner-ring:nth-child(3) {
+    width: 30px;
+    height: 30px;
+    border-bottom-color: #D97706;
+    animation-duration: 0.6s;
+}
+
+@keyframes videoSpinnerSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 /* ============ GLASS MORPHISM ============ */
 .nav-glass {
     background: rgba(10, 10, 28, 0.7);

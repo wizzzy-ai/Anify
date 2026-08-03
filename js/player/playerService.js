@@ -407,6 +407,7 @@
                 this._handlePlay = () => {
                     this.state.isPlaying = true;
                     this.syncState();
+                    this.hideLoader();
                 };
                 this._handlePause = () => {
                     this.state.isPlaying = false;
@@ -415,8 +416,12 @@
                 this._handleEnded = () => {
                     this.state.isPlaying = false;
                     this.syncState();
+                    this.hideLoader();
                 };
-                this._handleSeeking = () => this.syncState();
+                this._handleSeeking = () => {
+                    this.syncState();
+                    this.showLoader();
+                };
                 this._handleTimeUpdate = () => {
                     this.syncState();
                     this.saveProgress();
@@ -428,6 +433,13 @@
                         video.currentTime = resume.time;
                     }
                 };
+                // Loading state handlers
+                this._handleLoadStart = () => this.showLoader();
+                this._handleWaiting = () => this.showLoader();
+                this._handleStalled = () => this.showLoader();
+                this._handleCanPlay = () => this.hideLoader();
+                this._handleSeeked = () => this.hideLoader();
+                this._handleError = () => this.hideLoader();
             }
 
             video.addEventListener('play', this._handlePlay);
@@ -436,6 +448,27 @@
             video.addEventListener('seeking', this._handleSeeking);
             video.addEventListener('timeupdate', this._handleTimeUpdate);
             video.addEventListener('loadedmetadata', this._handleLoadedMetadata);
+            // Loading state events
+            video.addEventListener('loadstart', this._handleLoadStart);
+            video.addEventListener('waiting', this._handleWaiting);
+            video.addEventListener('stalled', this._handleStalled);
+            video.addEventListener('canplay', this._handleCanPlay);
+            video.addEventListener('seeked', this._handleSeeked);
+            video.addEventListener('error', this._handleError);
+        },
+
+        showLoader() {
+            const loader = document.getElementById('video-loading-overlay');
+            if (loader) {
+                loader.classList.remove('hidden');
+            }
+        },
+
+        hideLoader() {
+            const loader = document.getElementById('video-loading-overlay');
+            if (loader) {
+                loader.classList.add('hidden');
+            }
         },
 
         saveProgress() {
@@ -580,14 +613,21 @@
         destroy() {
             const video = this.getVideoElement();
             if (!video) return false;
-            
+
             if (this._handlePlay) video.removeEventListener('play', this._handlePlay);
             if (this._handlePause) video.removeEventListener('pause', this._handlePause);
             if (this._handleEnded) video.removeEventListener('ended', this._handleEnded);
             if (this._handleSeeking) video.removeEventListener('seeking', this._handleSeeking);
             if (this._handleTimeUpdate) video.removeEventListener('timeupdate', this._handleTimeUpdate);
             if (this._handleLoadedMetadata) video.removeEventListener('loadedmetadata', this._handleLoadedMetadata);
-            
+            // Remove loading state event listeners
+            if (this._handleLoadStart) video.removeEventListener('loadstart', this._handleLoadStart);
+            if (this._handleWaiting) video.removeEventListener('waiting', this._handleWaiting);
+            if (this._handleStalled) video.removeEventListener('stalled', this._handleStalled);
+            if (this._handleCanPlay) video.removeEventListener('canplay', this._handleCanPlay);
+            if (this._handleSeeked) video.removeEventListener('seeked', this._handleSeeked);
+            if (this._handleError) video.removeEventListener('error', this._handleError);
+
             this.state.currentVideo = null;
             return true;
         },

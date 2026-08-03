@@ -1704,7 +1704,16 @@ app.get('/api/anime/:id/comments', async (req, res) => {
     .sort({ createdAt: -1 })
     .lean();
 
-  res.json({ ok: true, comments });
+  // Populate username for each comment
+  const commentsWithUsernames = await Promise.all(comments.map(async (comment) => {
+    const user = await User.findOne({ _id: comment.userId }).lean();
+    return {
+      ...comment,
+      username: user?.username || user?.name || 'Unknown User',
+    };
+  }));
+
+  res.json({ ok: true, comments: commentsWithUsernames });
 });
 
 app.post('/api/comments', requireDb, requireActiveUser, async (req, res) => {
