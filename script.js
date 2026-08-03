@@ -3819,6 +3819,11 @@ function updatePlayerUI() {
         if (playIcon) playIcon.setAttribute('data-lucide', state.isPlaying ? 'pause' : 'play');
         if (overlay) overlay.classList.toggle('hidden', state.isPlaying);
         if (volumeIcon) volumeIcon.setAttribute('data-lucide', video.muted ? 'volume-x' : 'volume-2');
+        
+        // Re-render lucide icons to show the updated play/pause and volume icons
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+            lucide.createIcons();
+        }
 
         const introBtn = document.getElementById('skip-intro-btn');
         const outroBtn = document.getElementById('skip-outro-btn');
@@ -4342,6 +4347,7 @@ function setupCustomPlayer() {
             // Use addEventListener to avoid clobbering playerService internal state listeners.
             // Browser deduplicates these as long as we pass the same function reference.
             video.addEventListener('play', updatePlayerUI);
+            video.addEventListener('playing', updatePlayerUI);
             video.addEventListener('pause', updatePlayerUI);
             video.addEventListener('ended', updatePlayerUI);
             video.addEventListener('timeupdate', updatePlayerUI);
