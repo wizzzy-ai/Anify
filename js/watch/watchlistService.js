@@ -1,6 +1,12 @@
 (function (global) {
     'use strict';
 
+    // URL utility to convert HTTP to HTTPS
+    function ensureHttps(url) {
+        if (!url || typeof url !== 'string') return url;
+        return url.replace(/^http:/, 'https:');
+    }
+
     const STORAGE_KEY_PREFIX = 'watchlist';
     const LEGACY_KEY_PREFIX = 'watchlist_';
 
@@ -46,7 +52,7 @@
         return {
             id: animeId,
             title: entry.title || entry.name || null,
-            image: entry.image || entry.poster || null,
+            image: ensureHttps(entry.image || entry.poster || null),
             type: entry.type || 'anime',
             episodes: entry.episodes || null,
             rating: entry.rating || null,

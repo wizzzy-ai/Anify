@@ -1,6 +1,12 @@
 (function (global) {
     'use strict';
 
+    // URL utility to convert HTTP to HTTPS
+    function ensureHttps(url) {
+        if (!url || typeof url !== 'string') return url;
+        return url.replace(/^http:/, 'https:');
+    }
+
     const playerService = {
         state: {
             currentVideo: null,
@@ -87,7 +93,7 @@
             const epObj = global.getEpisodeObject?.(anime, epNum);
             
             // Priority: Episode Thumbnail -> Anime Banner -> Anime Image
-            const posterUrl = epObj?.thumbnail || anime.banner || anime.image || '';
+            const posterUrl = ensureHttps(epObj?.thumbnail || anime.banner || anime.image || '');
             if (posterUrl) {
                 video.setAttribute('poster', posterUrl);
             }

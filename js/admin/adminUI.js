@@ -1,6 +1,12 @@
 (function (global) {
     'use strict';
 
+    // URL utility to convert HTTP to HTTPS
+    function ensureHttps(url) {
+        if (!url || typeof url !== 'string') return url;
+        return url.replace(/^http:/, 'https:');
+    }
+
     function ensureAdminOrRedirect() {
         if (global.adminService && typeof global.adminService.ensureAdminOrRedirect === 'function') {
             return global.adminService.ensureAdminOrRedirect();
@@ -201,7 +207,7 @@
                 ${animeData.filter(a => a.trending).slice(0, 5).map((a, i) => `
                     <div class="flex items-center gap-3">
                         <span class="text-xs font-bold w-5 text-gold-400">#${i + 1}</span>
-                        <img src="${a.image}" class="w-10 h-14 rounded-lg object-cover" alt="${a.title}">
+                        <img src="${ensureHttps(a.image)}" class="w-10 h-14 rounded-lg object-cover" alt="${a.title}">
                         <div class="flex-1 min-w-0">
                             <p class="font-semibold text-sm truncate">${a.title}</p>
                             <p class="text-xs text-gray-500">${(Math.random() * 500 + 100).toFixed(0)}K views</p>
@@ -469,7 +475,7 @@
             <!-- Hub Header -->
             <div class="p-6 border-b border-white/10 flex items-center justify-between bg-white/3 dark:bg-white/5">
                 <div class="flex items-center gap-4">
-                    <img src="${anime.image}" class="w-12 h-16 rounded-lg object-cover shadow-lg border border-white/10" alt="">
+                    <img src="${ensureHttps(anime.image)}" class="w-12 h-16 rounded-lg object-cover shadow-lg border border-white/10" alt="">
                     <div>
                         <h2 class="text-xl font-black text-black dark:text-white leading-tight">${anime.title}</h2>
                         <div class="flex items-center gap-2 mt-0.5">
@@ -1093,12 +1099,12 @@
             };
     
             const [uploadedVideo, uploadedDub, uploadedSub720, uploadedDub720] = await Promise.all([
-                file ? uploadService.uploadVideo(file, (p) => trackProgress('sub1080', p)) : Promise.resolve(null),
-                dubFile ? uploadService.uploadVideo(dubFile, (p) => trackProgress('dub1080', p)) : Promise.resolve(null),
-                sub720File ? uploadService.uploadVideo(sub720File, (p) => trackProgress('sub720', p)) : Promise.resolve(null),
-                dub720File ? uploadService.uploadVideo(dub720File, (p) => trackProgress('dub720', p)) : Promise.resolve(null),
+                file ? uploadService.uploadVideo(file, (p) => trackProgress('sub1080', p), 'content', {}, 600000) : Promise.resolve(null),
+                dubFile ? uploadService.uploadVideo(dubFile, (p) => trackProgress('dub1080', p), 'content', {}, 600000) : Promise.resolve(null),
+                sub720File ? uploadService.uploadVideo(sub720File, (p) => trackProgress('sub720', p), 'content', {}, 600000) : Promise.resolve(null),
+                dub720File ? uploadService.uploadVideo(dub720File, (p) => trackProgress('dub720', p), 'content', {}, 600000) : Promise.resolve(null),
             ]);
-    
+
             console.log('[UPLOAD] ✅ R2 uploads SUCCESS:', { uploadedVideo, uploadedDub, uploadedSub720, uploadedDub720 });
     
             const existing = animeData.find(a => a.id === adminService.editingAnimeId || a.id === adminService.uploadTargetAnimeId);
@@ -1463,7 +1469,22 @@
             let uploadedMovie = null;
             if (movieFile) {
                 console.log('[Edit Movie] Uploading movie video file...');
-                uploadedMovie = await uploadService.uploadVideo(movieFile);
+                console.log('[Edit Movie] File size:', (movieFile.size / 1024 / 1024).toFixed(2), 'MB');
+                
+                // Use 10 minute timeout for movie uploads (larger files) with progress tracking
+                uploadedMovie = await uploadService.uploadVideo(
+                    movieFile, 
+                    (progress) => {
+                        console.log(`[Edit Movie] Upload progress: ${progress.toFixed(1)}%`);
+                        if (window.updateHubProgress) {
+                            window.updateHubProgress(progress, `Uploading movie ${Math.round(progress)}%...`);
+                        }
+                    }, 
+                    'content', 
+                    {}, 
+                    600000
+                );
+                
                 if (!uploadedMovie?.url) throw new Error('Video upload failed to return a URL.');
                 console.log('[Edit Movie] Movie video uploaded:', uploadedMovie.url);
             }
@@ -1506,6 +1527,12 @@
         
                 console.log('[Edit Movie] Final movie create payload:', patch);
                 console.log('[Edit Movie] Status in movie create payload:', patch.status);
+                console.log('[Edit Movie] Movie ID for update:', movieId);
+                
+                if (!movieId) {
+                    throw new Error('Movie ID is missing for update operation');
+                }
+                
                 const updateRes = await fetch(`/api/anime/${movieId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -1665,7 +1692,7 @@ function editAdminAnime(id) {
                         <tr class="border-b border-white/5 hover:bg-white/3 transition-colors">
                             <td class="p-4">
                                 <div class="flex items-center gap-3">
-                                    <img src="${a.image}" class="w-10 h-14 rounded-lg object-cover" alt="${a.title}">
+                                    <img src="${ensureHttps(a.image)}" class="w-10 h-14 rounded-lg object-cover" alt="${a.title}">
                                     <div>
                                         <p class="font-semibold text-sm">${a.title}</p>
                                         <p class="text-xs text-gray-500">${a.studio || 'Unknown'} · ${a.year || ''}</p>
@@ -1796,7 +1823,7 @@ function editAdminAnime(id) {
                         <tr class="border-b border-white/5 hover:bg-white/3 transition-colors">
                             <td class="p-4">
                                 <div class="flex items-center gap-3">
-                                    <img src="${a?.image || ''}" class="w-10 h-14 rounded-lg object-cover" alt="${a?.title || ''}">
+                                    <img src="${ensureHttps(a?.image || '')}" class="w-10 h-14 rounded-lg object-cover" alt="${a?.title || ''}">
                                     <div class="min-w-0">
                                         <p class="font-semibold text-sm truncate">${a?.title || 'Untitled'}</p>
                                         <p class="text-xs text-gray-500 truncate">${(a?.studio || 'Unknown Studio')} · ${(a?.year || '')}</p>

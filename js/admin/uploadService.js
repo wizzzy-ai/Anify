@@ -18,6 +18,7 @@
 
         const endpoint = options.endpoint || UPLOAD_ENDPOINT;
         const fieldName = options.fieldName || 'media';
+        const timeout = options.timeout || 300000; // 5 minutes default timeout
 
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
@@ -58,8 +59,13 @@
 
             xhr.addEventListener('error', () => reject(new Error('Network error during upload.')));
             xhr.addEventListener('abort', () => reject(new Error('Upload aborted.')));
+            
+            xhr.addEventListener('timeout', () => {
+                reject(new Error('Upload timeout. Please try again with a smaller file or better connection.'));
+            });
 
             xhr.open('POST', endpoint);
+            xhr.timeout = timeout;
             
             // Add Auth header if available
             if (global.getAuthToken && typeof global.getAuthToken === 'function') {
@@ -73,12 +79,13 @@
 
     // Episode and movie files are playback content, so the server stores them
     // in Cloudflare R2. Banner videos use uploadMedia directly.
-    async function uploadVideo(file, onProgress = null, videoType = 'content', metadata = {}) {
+    async function uploadVideo(file, onProgress = null, videoType = 'content', metadata = {}, timeout = 300000) {
         return uploadMedia(file, onProgress, {
             videoType,
             metadata,
             endpoint: '/api/upload-video',
             fieldName: 'video',
+            timeout,
         });
     }
 

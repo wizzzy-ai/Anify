@@ -38,8 +38,16 @@
             console.log('[Anime Management] Sending anime to API:', anime.title);
             console.log('[Anime Management] Anime payload status:', anime.status);
             console.log('[Anime Management] Anime payload keys:', Object.keys(anime));
+            console.log('[Anime Management] Anime ID:', anime.id, 'Client ID:', anime.clientId);
             
-            const res = await fetch(isEdit ? `/api/anime/${anime.id}` : '/api/anime', {
+            // Use clientId if id is not available for edit operations
+            const animeId = anime.id || anime.clientId;
+            if (isEdit && !animeId) {
+                console.error('[Anime Management] Cannot edit anime: missing ID');
+                throw new Error('Anime ID is required for edit operations');
+            }
+            
+            const res = await fetch(isEdit ? `/api/anime/${animeId}` : '/api/anime', {
                 method: isEdit ? 'PUT' : 'POST',
                 headers: { 
                     'Content-Type': 'application/json',

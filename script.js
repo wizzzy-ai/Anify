@@ -1,5 +1,11 @@
 // ============ ANIFY - Main Application Script ============
 
+// ============ URL UTILITY - Convert HTTP to HTTPS ============
+function ensureHttps(url) {
+    if (!url || typeof url !== 'string') return url;
+    return url.replace(/^http:/, 'https:');
+}
+
 // ============ BAN CHECK - Run immediately on page load ============
 (async function checkBanStatus() {
     const token = localStorage.getItem('anify-token');
@@ -307,6 +313,10 @@ async function addComment() {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) {
+        if (data.error) {
+            alertGold(data.error);
+        }
+        return;
     }
 
     input.value = '';
@@ -596,12 +606,12 @@ function renderHeroMedia(anime) {
 
     if (shouldShowBannerVideo(anime)) {
         return `
-            <video class="is-active" muted autoplay loop playsinline preload="metadata" poster="${anime.banner || anime.image || ''}">
-                <source src="${anime.bannerVideo || ''}" type="video/mp4">
+            <video class="is-active" muted autoplay loop playsinline preload="metadata" poster="${ensureHttps(anime.banner || anime.image || '')}">
+                <source src="${ensureHttps(anime.bannerVideo || '')}" type="video/mp4">
             </video>`;
     }
 
-    return `<img src="${anime.banner || anime.image || ''}" class="is-active" alt="${anime.title || ''}" />`;
+    return `<img src="${ensureHttps(anime.banner || anime.image || '')}" class="is-active" alt="${anime.title || ''}" />`;
 }
 
 function renderHeroContent(anime) {
@@ -1059,7 +1069,7 @@ function renderHome() {
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 ${animeData.filter(a => a && a.status === 'Airing').slice(0, 6).map((a, i) => `
                     <button onclick="navigate('anime', ${a.id})" class="glass-card glass-card-hover flex items-center gap-4 p-3 rounded-2xl text-left">
-                        <img src="${a.image}" class="w-16 h-20 rounded-xl object-cover flex-shrink-0" alt="${a.title}">
+                        <img src="${ensureHttps(a.image)}" class="w-16 h-20 rounded-xl object-cover flex-shrink-0" alt="${a.title}">
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-2">
                                 <span class="text-gold-400 font-black text-xs">#${i + 1}</span>
@@ -1191,7 +1201,7 @@ function renderAnimeCard(a) {
     return `
     <div onclick="navigate('anime', ${a.id})" class="anime-card flex-shrink-0 w-44 md:w-52">
         <div class="relative aspect-[3/4] rounded-2xl overflow-hidden bg-dark-700">
-            <img src="${a.image}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy">
+            <img src="${ensureHttps(a.image)}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy">
             <div class="card-overlay"></div>
             <div class="absolute top-2 left-2 flex flex-col gap-1">
                 ${a.premium ? '<span class="badge-premium">Premium</span>' : ''}
@@ -1279,7 +1289,7 @@ function renderContinueWatching() {
 
                     return `
                     <div class="cw-card group" id="cw-card-${cw.id}">
-                        <img src="${a.image}" class="cw-card-image" alt="${a.title}" loading="lazy">
+                        <img src="${ensureHttps(a.image)}" class="cw-card-image" alt="${a.title}" loading="lazy">
                         <div class="cw-card-overlay"></div>
                         
                         <div class="cw-card-content">
@@ -1399,7 +1409,7 @@ function renderWideFeatureRow(title, description, items, icon = 'sparkles') {
         <div class="wide-feature-row">
             ${safeItems.map(a => `
                 <button onclick="navigate('anime', ${a.id})" class="wide-feature-card glass-card glass-card-hover">
-                    <img src="${a.banner || a.image}" alt="${a.title}" loading="lazy">
+                    <img src="${ensureHttps(a.banner || a.image)}" alt="${a.title}" loading="lazy">
                     <span class="wide-feature-shade"></span>
                     <span class="wide-feature-copy">
                         <span class="wide-feature-title">${a.title}</span>
@@ -1421,7 +1431,7 @@ function renderComingSoon() {
         <div class="coming-grid">
             ${soon.length ? soon.map(a => `
                 <button onclick="navigate('anime', ${a.id})" class="coming-card glass-card glass-card-hover">
-                    <img src="${a.banner || a.image}" alt="${a.title}" loading="lazy">
+                    <img src="${ensureHttps(a.banner || a.image)}" alt="${a.title}" loading="lazy">
                     <span class="coming-card-shade"></span>
                     <span class="coming-count">${(a.type === 'animated-movie' || a.type === 'live-movie') ? 'Movie' : 'Anime'}</span>
                     <h3>${a.title}</h3>
@@ -1518,7 +1528,7 @@ function renderBrowse(type, selectedGenre = null) {
                 ${list.map(a => `
                     <div onclick="navigate('anime', ${a.id})" class="anime-card anim-fade-in">
                         <div class="relative aspect-[3/4] rounded-2xl overflow-hidden bg-dark-700">
-                            <img src="${a.image}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy">
+                            <img src="${ensureHttps(a.image)}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy">
                             <div class="card-overlay"></div>
                             <div class="absolute top-2 left-2 flex flex-col gap-1">
                                 ${a.premium ? '<span class="badge-premium">Premium</span>' : ''}
@@ -1575,7 +1585,7 @@ const listAnime = animeData.filter(a => isBookmarked(a.id));
                     ${listAnime.map(a => `
                         <div onclick="navigate('anime', ${a.id})" class="anime-card anim-fade-in">
                             <div class="relative aspect-[3/4] rounded-2xl overflow-hidden bg-dark-700">
-                                <img src="${a.image}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy">
+                                <img src="${ensureHttps(a.image)}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy">
                                 <div class="card-overlay"></div>
                                 <div class="card-actions">
                                     <button onclick="event.stopPropagation(); toggleWatchlist(${a.id})" class="w-full btn-secondary flex items-center justify-center gap-2 py-2 rounded-xl text-xs">
@@ -1630,10 +1640,10 @@ function renderAnimeDetail(id) {
 
 
     const backdropMedia = shouldShowBannerVideo(a)
-        ? `<video class="hero-backdrop-media" muted autoplay loop playsinline poster="${a.banner || a.image}">
-                <source src="${a.bannerVideo || ''}" type="video/mp4">
+        ? `<video class="hero-backdrop-media" muted autoplay loop playsinline poster="${ensureHttps(a.banner || a.image)}">
+                <source src="${ensureHttps(a.bannerVideo || '')}" type="video/mp4">
            </video>`
-        : `<img class="hero-backdrop-media" src="${a.banner || a.image}" alt="${a.title} backdrop">`;
+        : `<img class="hero-backdrop-media" src="${ensureHttps(a.banner || a.image)}" alt="${a.title} backdrop">`;
 
     // Movie section header/actions
     const typeLabel = (a.type || 'anime') === 'anime' ? 'Anime Series' : 'Movie';
@@ -1700,7 +1710,7 @@ function renderAnimeDetail(id) {
                     ${similar.map(s => `
                         <div onclick="navigate('anime', ${s.id})" class="recommend-card">
                             <div class="recommend-poster">
-                                <img src="${s.image}" alt="${s.title}" loading="lazy" class="recommend-poster-img" />
+                                <img src="${ensureHttps(s.image)}" alt="${s.title}" loading="lazy" class="recommend-poster-img" />
                                 <div class="recommend-poster-gradient"></div>
                                 <div class="recommend-badges">
                                     <span class="badge-premium"><i data-lucide="${(s.type === 'animated-movie' || s.type === 'live-movie') ? 'film' : 'calendar'}" class="w-3 h-3"></i> ${(s.type === 'animated-movie' || s.type === 'live-movie') ? 'Movie' : 'Anime'}</span>
@@ -1734,7 +1744,7 @@ function renderAnimeDetail(id) {
                     <div class="hero-stream-grid">
                         <!-- Left: Poster -->
                         <aside class="hero-poster-col">
-                            <img src="${a.image}" alt="${a.title} poster" loading="lazy" class="hero-poster-img" />
+                            <img src="${ensureHttps(a.image)}" alt="${a.title} poster" loading="lazy" class="hero-poster-img" />
                         </aside>
 
                         <!-- Center: Information -->
@@ -1881,6 +1891,7 @@ function renderAnimeDetail(id) {
                 <h2 class="text-2xl font-black mb-4 flex items-center gap-2">
                     <i data-lucide="message-circle" class="w-5 h-5 text-gold-400"></i> Reviews & Comments
                 </h2>
+                ${getAuthToken() ? `
                 <div class="glass-card rounded-2xl p-4 mb-4">
                     <div class="flex items-start gap-3">
                         <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Me" class="w-8 h-8 rounded-lg flex-shrink-0" alt="me">
@@ -1906,6 +1917,16 @@ function renderAnimeDetail(id) {
                         </div>
                     </div>
                 </div>
+                ` : `
+                <div class="glass-card rounded-2xl p-6 mb-4 text-center">
+                    <div class="flex flex-col items-center gap-3">
+                        <i data-lucide="lock" class="w-8 h-8 text-gold-400"></i>
+                        <h3 class="font-semibold text-lg">Sign in to review</h3>
+                        <p class="text-gray-400 text-sm">You need to be signed in to post reviews and comments.</p>
+                        <button onclick="navigate('login')" class="btn-primary px-6 py-2 text-sm">Sign In</button>
+                    </div>
+                </div>
+                `}
                 <div class="space-y-3">
                     ${comments.map(c => `
                         <div class="comment-bubble">
@@ -2190,7 +2211,7 @@ function renderProfile() {
                     <div class="space-y-3 max-h-64 overflow-y-auto">
                         ${watchHistoryItems.length ? watchHistoryItems.map(({ anime, timeLabel }) => `
                             <button onclick="navigate('anime', ${anime.id})" class="flex items-center gap-3 w-full text-left p-2 rounded-xl hover:bg-white/5 transition-all">
-                                <img src="${anime.image}" class="w-10 h-14 rounded-lg object-cover" alt="${anime.title}">
+                                <img src="${ensureHttps(anime.image)}" class="w-10 h-14 rounded-lg object-cover" alt="${anime.title}">
                                 <div class="min-w-0 flex-1">
                                     <p class="font-medium text-sm truncate">${anime.title}</p>
                                     <p class="text-xs text-gray-500">${timeLabel ? `Last watched ${timeLabel}` : 'Last watched'}</p>
@@ -2390,7 +2411,7 @@ function renderAdminDashboard() {
                 ${animeData.filter(a => a.trending).slice(0, 5).map((a, i) => `
                     <div class="flex items-center gap-3">
                         <span class="text-xs font-bold w-5 text-gold-400">#${i + 1}</span>
-                        <img src="${a.image}" class="w-10 h-14 rounded-lg object-cover" alt="${a.title}">
+                        <img src="${ensureHttps(a.image)}" class="w-10 h-14 rounded-lg object-cover" alt="${a.title}">
                         <div class="flex-1 min-w-0">
                             <p class="font-semibold text-sm truncate">${a.title}</p>
                             <p class="text-xs text-gray-500">${(Math.random() * 500 + 100).toFixed(0)}K views</p>
@@ -4156,7 +4177,7 @@ function triggerAutoNext() {
     const title = document.getElementById('auto-next-title');
     const info = document.getElementById('auto-next-ep-info');
     
-    if (poster) poster.src = anime.banner || anime.image;
+    if (poster) poster.src = ensureHttps(anime.banner || anime.image);
     if (title) title.textContent = anime.title;
     if (info) info.textContent = `Episode ${nextEpNum} • ${nextEpObj?.title || 'Next Episode'}`;
 
@@ -4763,7 +4784,7 @@ function triggerDiscovery(mode) {
     modal.innerHTML = `
         <div class="text-center flex flex-col items-center justify-center min-h-[500px] anim-fade-in" id="shuffle-view">
             <div class="shuffle-container mb-10">
-                <img src="${anime.image}" class="shuffle-poster animate-shuffle" id="shuffle-poster">
+                <img src="${ensureHttps(anime.image)}" class="shuffle-poster animate-shuffle" id="shuffle-poster">
             </div>
             <div class="space-y-4">
                 <p class="text-gold-400 font-black uppercase tracking-[0.6em] text-xs">Finding something amazing...</p>
@@ -4803,12 +4824,12 @@ function doDiscoveryReveal(anime) {
     
     modal.innerHTML = `
     <div class="discovery-modal relative overflow-hidden p-0 max-w-5xl shadow-[0_0_100px_rgba(0,0,0,0.8)]" id="reveal-content" onclick="event.stopPropagation()">
-        <img src="${anime.banner}" class="reveal-banner" alt="">
+        <img src="${ensureHttps(anime.banner)}" class="reveal-banner" alt="">
         <div class="reveal-overlay"></div>
         
         <div class="relative z-10 p-8 md:p-16 flex flex-col md:flex-row gap-12 items-center">
             <div class="relative group anim-slide-up">
-                <img src="${anime.image}" class="w-64 h-96 rounded-2xl object-cover shadow-2xl border border-white/10 group-hover:scale-105 transition-transform duration-500" alt="">
+                <img src="${ensureHttps(anime.image)}" class="w-64 h-96 rounded-2xl object-cover shadow-2xl border border-white/10 group-hover:scale-105 transition-transform duration-500" alt="">
                 <div class="absolute -inset-4 bg-gold-400/20 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity -z-10"></div>
             </div>
             

@@ -24,7 +24,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 export async function uploadToR2(file, folder = "videos", options = {}) {
   console.log('[R2 Upload] Starting upload...', { filename: file.originalname, size: file.size, mimetype: file.mimetype, folder });
   
-  const { chunkSize = 100 * 1024 * 1024, timeout = 300000 } = options; // 100MB default threshold, 5 min timeout
+  const { chunkSize = 100 * 1024 * 1024, timeout = 900000 } = options; // 100MB default threshold, 15 min timeout
   
   // Validate R2_PUBLIC_URL is set
   if (!process.env.R2_PUBLIC_URL || process.env.R2_PUBLIC_URL.trim() === '') {

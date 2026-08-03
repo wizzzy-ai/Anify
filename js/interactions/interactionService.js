@@ -189,7 +189,9 @@
             if (!Number.isFinite(id) || !Number.isFinite(rating) || rating < 0 || rating > 10) {
                 return false;
             }
+            // Only authenticated users can set ratings
             if (!global.authService || typeof global.authService.isAuthenticated !== 'function' || !global.authService.isAuthenticated()) {
+                console.warn('User must be signed in to set ratings.');
                 return false;
             }
             if (!isUserActive()) {

@@ -29,6 +29,17 @@ const app = express();
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(__dirname));
 
+// Increase server timeout for large file uploads
+app.use((req, res, next) => {
+  res.setTimeout(600000, () => {
+    console.log('[Server] Request timeout for:', req.url);
+    if (!res.headersSent) {
+      res.status(408).json({ ok: false, error: 'Request timeout. Please try again.' });
+    }
+  });
+  next();
+});
+
 // Health check endpoint for Render
 app.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -208,6 +219,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 1024 * 1024 * 1024, // 1 GB
+    fieldSize: 1024 * 1024 * 1024, // 1 GB
   },
 });
 
@@ -454,7 +466,9 @@ async function sendUploadedFile(req, res, fieldName) {
       if (isBannerVideo) {
         result = await uploadVideo(req.file, 'banner', parsedMetadata);
       } else {
-        result = await uploadToR2(req.file, 'videos', { metadata: parsedMetadata });
+        // Use extended timeout for large video files (15 minutes)
+        const fileTimeout = req.file.size > 100 * 1024 * 1024 ? 900000 : 300000; // 15 min for >100MB, 5 min otherwise
+        result = await uploadToR2(req.file, 'videos', { metadata: parsedMetadata, timeout: fileTimeout });
       }
       console.log('[UPLOAD] ✅ Video upload SUCCESS:', { url: result.url, key: result.key, storage: result.storage });
     }
