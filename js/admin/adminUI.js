@@ -407,10 +407,6 @@
 
                 <div class="grid grid-cols-2 gap-4" data-admin-metadata>
                     <div>
-                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Rating (0-10)</label>
-                        <input id="admin-anime-rating" type="number" class="input-field" placeholder="0" min="0" max="10" step="0.1">
-                    </div>
-                    <div>
                         <label class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Status</label>
                         <select id="admin-anime-status" class="input-field">
                             <option value="Airing">Airing</option>
@@ -450,8 +446,6 @@
         if (trendingIn) trendingIn.checked = Boolean(anime?.trending);
         const newEpisodeIn = document.getElementById('admin-anime-new-episode');
         if (newEpisodeIn) newEpisodeIn.checked = Boolean(anime?.newEpisode);
-        const ratingIn = document.getElementById('admin-anime-rating');
-        if (ratingIn) ratingIn.value = anime?.rating || 0;
         const typeIn = document.getElementById('admin-anime-type');
         if (typeIn) typeIn.value = anime?.type || 'anime';
         
@@ -1045,9 +1039,6 @@
         console.log('[Edit Anime] Status input value:', statusValue);
         console.log('[Edit Anime] Status input element:', statusInput);
         
-        const ratingInput = document.getElementById('admin-anime-rating');
-        const ratingValue = Number(ratingInput?.value) || 0;
-        
         const typeInput = document.getElementById('admin-anime-type');
         const typeValue = typeInput?.value || 'anime';
         
@@ -1063,7 +1054,6 @@
             featured: Boolean(document.getElementById('admin-anime-featured')?.checked),
             trending: Boolean(document.getElementById('admin-anime-trending')?.checked),
             newEpisode: Boolean(document.getElementById('admin-anime-new-episode')?.checked),
-            rating: Math.min(10, Math.max(0, ratingValue)),
             bannerDisplay: document.querySelector('input[name="admin-banner-display"]:checked')?.value || 'image',
             trailer: document.getElementById('admin-anime-trailer')?.value.trim() || '',
             type: typeValue,
@@ -1071,7 +1061,6 @@
         
         console.log('[Edit Anime] Form data collected:', payload);
         console.log('[Edit Anime] Status in payload:', payload.status);
-        console.log('[Edit Anime] Rating in payload:', payload.rating);
         console.log('[Edit Anime] Trending in payload:', payload.trending);
         console.log('[Edit Anime] New Episode in payload:', payload.newEpisode);
         console.log('[Edit Anime] Type in payload:', payload.type);

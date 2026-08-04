@@ -103,6 +103,24 @@ const animeSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
+// Method to recalculate average rating and count from individual user ratings
+animeSchema.methods.recalculateRatings = async function() {
+  const Rating = mongoose.model('Rating');
+  const ratings = await Rating.find({ animeId: this._id.toString() });
+  
+  this.ratingCount = ratings.length;
+  
+  if (ratings.length === 0) {
+    this.averageRating = 0;
+  } else {
+    const sum = ratings.reduce((acc, r) => acc + r.rating, 0);
+    this.averageRating = Math.round((sum / ratings.length) * 10) / 10; // Round to 1 decimal place
+  }
+  
+  await this.save();
+  return { averageRating: this.averageRating, ratingCount: this.ratingCount };
+};
+
 // Create and export the model
 const Anime = mongoose.models.Anime || mongoose.model('Anime', animeSchema);
 

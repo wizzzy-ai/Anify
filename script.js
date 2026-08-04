@@ -384,6 +384,81 @@ async function addComment() {
     await loadCommentsForAnime(animeId);
 }
 
+// ============ USER RATING SYSTEM ============
+
+// Update the displayed rating value when slider moves
+function updateUserRatingDisplay(value) {
+    const display = document.getElementById('user-rating-value');
+    if (display) {
+        display.textContent = value;
+    }
+}
+
+// Load the current user's rating for an anime
+async function loadUserRating(animeId) {
+    const token = getAuthToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    try {
+        const res = await fetch(`/api/anime/${animeId}/rating`, {
+            headers
+        });
+        const data = await res.json().catch(() => ({}));
+        
+        if (res.ok && data.ok && data.authenticated && data.rating !== null) {
+            const slider = document.getElementById('user-rating-slider');
+            const display = document.getElementById('user-rating-value');
+            if (slider && display) {
+                slider.value = data.rating;
+                display.textContent = data.rating;
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to load user rating:', e);
+    }
+}
+
+// Submit/update user's rating
+async function submitUserRating(animeId, rating) {
+    const token = getAuthToken();
+    if (!token) {
+        alertGold('Please login to rate anime.');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/anime/${animeId}/rating`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ rating: Number(rating) }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        
+        if (!res.ok || !data.ok) {
+            alertGold(data.error || 'Failed to submit rating');
+            return;
+        }
+
+        // Update the displayed rating count and average
+        const ratingDisplay = document.querySelector('.hero-rating-inline');
+        if (ratingDisplay && data.averageRating !== undefined) {
+            ratingDisplay.innerHTML = `<i data-lucide="star" class="w-4 h-4"></i> ${data.averageRating}<span>/10</span><span class="text-xs text-gray-400 ml-1">(${data.ratingCount} ratings)</span>`;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        if (window.showToast) {
+            showToast(`Rating submitted: ${rating}/10`);
+        }
+    } catch (e) {
+        console.error('Failed to submit rating:', e);
+        alertGold('Failed to submit rating');
+    }
+}
+
 function setRating(rating) {
     const ratingInput = document.getElementById('comment-rating');
     if (ratingInput) {
@@ -663,7 +738,7 @@ function getHomeHeroAnimeList() {
         newest,
         ...animeData.filter(a => a.featured),
         ...animeData.filter(a => a.trending),
-        ...[...animeData].sort((a, b) => b.rating - a.rating)
+        ...[...animeData].sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0))
     ].filter(Boolean);
 
     return recommended.filter((anime, index, list) => list.findIndex(item => item.id === anime.id) === index);
@@ -692,7 +767,7 @@ function renderHeroContent(anime) {
             ${anime.newEpisode ? '<span class="badge-new">New Episode</span>' : ''}
             ${anime.premium ? '<span class="badge-premium">Premium</span>' : ''}
             <span class="text-xs text-gray-400 font-medium flex items-center gap-1">
-                <i data-lucide="star" class="w-3 h-3 fill-gold-400 text-gold-400"></i> ${anime.rating || 0}
+                <i data-lucide="star" class="w-3 h-3 fill-gold-400 text-gold-400"></i> ${anime.averageRating || 'N/A'}
             </span>
         </div>
         <h1 class="anim-slide-up anim-delay-2 text-4xl md:text-6xl lg:text-7xl font-black leading-tight mb-2">${anime.title || 'Unknown'}</h1>
@@ -1018,6 +1093,7 @@ function handleRouteChange() {
         case 'anime': 
             content.innerHTML = renderAnimeDetail(Number(data));
             loadCommentsForAnime(Number(data));
+            loadUserRating(Number(data));
             break;
         case 'player': content.innerHTML = renderPlayer(Number(data)); break;
         case 'login': content.innerHTML = renderLogin(); break;
@@ -1073,7 +1149,7 @@ function renderHome() {
 
     const trending = animeData.filter(a => a && a.trending);
     const recentlyAdded = animeData.filter(a => a && typeof a === 'object').slice(0, 8);
-    const popular = [...animeData].filter(a => a && typeof a === 'object').sort((a, b) => (b?.rating || 0) - (a?.rating || 0)).slice(0, 8);
+    const popular = [...animeData].filter(a => a && typeof a === 'object').sort((a, b) => (b?.averageRating || 0) - (a?.averageRating || 0)).slice(0, 8);
     const recentlyReleased = animeData.filter(a => a && a.newEpisode).slice(0, 8);
     const becauseWatched = getBecauseYouWatchedList(featured);
 
@@ -1152,7 +1228,7 @@ function renderHome() {
                             <p class="text-xs text-gray-500">${a.genres?.[0] || 'Unknown'} · Ep ${a.episodes}</p>
                             <div class="flex items-center gap-1 mt-1">
                                 <i data-lucide="star" class="w-3 h-3 fill-gold-400 text-gold-400"></i>
-                                <span class="text-xs font-medium">${a.rating}</span>
+                                <span class="text-xs font-medium">${a.averageRating || 'N/A'}</span>
                             </div>
                         </div>
                     </button>
@@ -1287,7 +1363,7 @@ function renderAnimeCard(a) {
             </div>
             <div class="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 rounded-lg px-2 py-0.5">
                 <i data-lucide="star" class="w-3 h-3 fill-gold-400 text-gold-400"></i>
-                <span class="text-xs font-bold">${a.rating}</span>
+                <span class="text-xs font-bold">${a.averageRating || 'N/A'}</span>
             </div>
             <div class="card-actions">
                 <button class="w-full btn-primary flex items-center justify-center gap-2 py-2 rounded-xl text-xs">
@@ -1613,7 +1689,7 @@ function renderBrowse(type, selectedGenre = null) {
                             </div>
                             <div class="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 rounded-lg px-2 py-0.5">
                                 <i data-lucide="star" class="w-3 h-3 fill-gold-400 text-gold-400"></i>
-                                <span class="text-xs font-bold">${a.averageRating || a.rating || 'N/A'}</span>
+                                <span class="text-xs font-bold">${a.averageRating || 'N/A'}</span>
                             </div>
                             <div class="card-actions">
                                 <button class="w-full btn-primary flex items-center justify-center gap-2 py-2 rounded-xl text-xs">
@@ -1787,7 +1863,7 @@ function renderAnimeDetail(id) {
                                 <div class="recommend-poster-gradient"></div>
                                 <div class="recommend-badges">
                                     <span class="badge-premium"><i data-lucide="${(s.type === 'animated-movie' || s.type === 'live-movie') ? 'film' : 'calendar'}" class="w-3 h-3"></i> ${(s.type === 'animated-movie' || s.type === 'live-movie') ? 'Movie' : 'Anime'}</span>
-                                    <span class="recommend-imdb-badge">${s.rating}</span>
+                                    <span class="recommend-imdb-badge">${s.averageRating || s.rating || 'N/A'}</span>
                                 </div>
                             </div>
                             <div class="recommend-body">
@@ -1795,7 +1871,8 @@ function renderAnimeDetail(id) {
                                 <div class="recommend-meta">${s.year || 'N/A'} • ${s.episodes || 0} eps</div>
                                 <div class="recommend-rating">
                                     <i data-lucide="star" class="w-3 h-3 fill-gold-400 text-gold-400"></i>
-                                    <span class="text-xs">${s.averageRating || s.rating || 'N/A'}</span>
+                                    <span class="text-xs">${s.averageRating || 'N/A'}</span>
+                                    <span class="text-xs text-gray-400 ml-1">(${s.ratingCount || 0})</span>
                                 </div>
                             </div>
                         </div>
@@ -1832,7 +1909,7 @@ function renderAnimeDetail(id) {
                             <h1 class="hero-title">${a.title}</h1>
                             <div class="hero-native-title">${a.titleJp || ''}</div>
                             <div class="hero-meta-strip">
-                                <span class="hero-rating-inline"><i data-lucide="star" class="w-4 h-4"></i> ${a.averageRating || a.rating || 'N/A'}<span>${a.averageRating ? '/5' : '/10'}</span></span>
+                                <span class="hero-rating-inline"><i data-lucide="star" class="w-4 h-4"></i> ${a.averageRating || 'N/A'}<span>/10</span><span class="text-xs text-gray-400 ml-1">(${a.ratingCount || 0} ratings)</span></span>
                                 <span class="hero-meta-inline"><i data-lucide="calendar-days" class="w-4 h-4"></i> ${a.year || 'N/A'}</span>
                                 <span class="hero-meta-inline"><i data-lucide="layers" class="w-4 h-4"></i> ${(a.type || 'anime') === 'anime' ? `${a.episodes || 0} Episodes` : runtime}</span>
                             </div>
@@ -1850,9 +1927,21 @@ function renderAnimeDetail(id) {
                             <p class="hero-desc">${a.desc}</p>
 
                             <div class="hero-rating-row">
-                                <span class="pill-rate">⭐ ${a.rating}/10</span>
-                                <span class="pill-rate">IMDb ${(a.rating - 0.3).toFixed(1)}</span>
-                                <span class="pill-rate">🍅 ${Math.min(99, Math.max(0, Math.round(75 + (a.rating - 8) * 3)))}%</span>
+                                <span class="pill-rate">⭐ ${a.averageRating || 'N/A'}/10</span>
+                                <span class="pill-rate text-xs text-gray-400">(${a.ratingCount || 0} ratings)</span>
+                            </div>
+                            
+                            <!-- User Rating Control -->
+                            <div class="hero-user-rating" id="user-rating-container">
+                                <div class="text-xs text-gray-400 mb-2">Your Rating</div>
+                                <div class="flex items-center gap-2">
+                                    <input type="range" id="user-rating-slider" min="0" max="10" step="0.5" value="0" 
+                                        class="w-32 accent-gold-400 cursor-pointer" 
+                                        oninput="updateUserRatingDisplay(this.value)"
+                                        onchange="submitUserRating(${a.id}, this.value)">
+                                    <span id="user-rating-value" class="text-gold-400 font-bold w-8">0</span>
+                                    <span class="text-xs text-gray-400">/10</span>
+                                </div>
                             </div>
 
                             <div class="hero-actions">

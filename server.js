@@ -20,6 +20,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import User from './User.js'; // Import the centralized User model
 import Anime from './models/Anime.js'; // Import the canonical Anime model
+import Rating from './models/Rating.js'; // Import the Rating model
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 
@@ -581,6 +582,158 @@ app.get('/api/admin/storage/health', requireDb, requireAdmin, async (req, res) =
   }
 });
 
+// --------------- Ratings ---------------
+// Get current user's rating for an anime
+app.get('/api/anime/:animeId/rating', requireDb, async (req, res) => {
+  console.log('[Rating GET] Route hit for animeId:', req.params.animeId);
+  try {
+    const { animeId } = req.params;
+    
+    // Check if user is authenticated
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    
+    if (!token) {
+      console.log('[Rating GET] No token provided');
+      return res.json({ ok: true, rating: null, authenticated: false });
+    }
+    
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.userId;
+      
+      const rating = await Rating.findOne({ animeId: String(animeId), userId: String(userId) });
+      
+      if (!rating) {
+        console.log('[Rating GET] No rating found for user');
+        return res.json({ ok: true, rating: null, authenticated: true });
+      }
+      
+      console.log('[Rating GET] Rating found:', rating.rating);
+      res.json({ ok: true, rating: rating.rating, authenticated: true });
+    } catch (jwtError) {
+      // Token invalid, return unauthenticated
+      console.log('[Rating GET] Invalid token');
+      return res.json({ ok: true, rating: null, authenticated: false });
+    }
+  } catch (e) {
+    console.error('[Rating GET Error]', e);
+    res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+
+// Submit or update a user's rating for an anime
+app.post('/api/anime/:animeId/rating', async (req, res) => {
+  console.log('[Rating POST] Route hit for animeId:', req.params.animeId);
+  try {
+    const { animeId } = req.params;
+    const { rating } = req.body;
+    
+    // Check authentication
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    
+    if (!token) {
+      return res.status(401).json({ ok: false, error: 'Authentication required' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId;
+    
+    // Validate rating
+    if (typeof rating !== 'number' || rating < 0 || rating > 10) {
+      return res.status(400).json({ ok: false, error: 'Rating must be a number between 0 and 10' });
+    }
+    
+    // Find the anime
+    const query = /^\d+$/.test(animeId)
+      ? { clientId: Number(animeId) }
+      : { _id: animeId };
+    
+    const anime = await Anime.findOne(query);
+    if (!anime) {
+      return res.status(404).json({ ok: false, error: 'Anime not found' });
+    }
+    
+    // Use the anime's _id for the rating
+    const animeIdForRating = anime._id.toString();
+    
+    // Upsert the rating (create or update)
+    const updatedRating = await Rating.findOneAndUpdate(
+      { animeId: animeIdForRating, userId: String(userId) },
+      { rating: Number(rating) },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    
+    // Recalculate the anime's average rating
+    const { averageRating, ratingCount } = await anime.recalculateRatings();
+    
+    console.log('[Rating POST] Rating submitted successfully:', updatedRating.rating);
+    res.json({ 
+      ok: true, 
+      rating: updatedRating.rating,
+      averageRating,
+      ratingCount
+    });
+  } catch (e) {
+    console.error('[Rating POST Error]', e);
+    if (e.name === 'JsonWebTokenError') {
+      return res.status(401).json({ ok: false, error: 'Invalid token' });
+    }
+    res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+
+// Delete a user's rating for an anime
+app.delete('/api/anime/:animeId/rating', async (req, res) => {
+  console.log('[Rating DELETE] Route hit for animeId:', req.params.animeId);
+  try {
+    const { animeId } = req.params;
+    
+    // Check authentication
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    
+    if (!token) {
+      return res.status(401).json({ ok: false, error: 'Authentication required' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId;
+    
+    // Find the anime
+    const query = /^\d+$/.test(animeId)
+      ? { clientId: Number(animeId) }
+      : { _id: animeId };
+    
+    const anime = await Anime.findOne(query);
+    if (!anime) {
+      return res.status(404).json({ ok: false, error: 'Anime not found' });
+    }
+    
+    const animeIdForRating = anime._id.toString();
+    
+    // Delete the rating
+    await Rating.findOneAndDelete({ animeId: animeIdForRating, userId: String(userId) });
+    
+    // Recalculate the anime's average rating
+    const { averageRating, ratingCount } = await anime.recalculateRatings();
+    
+    console.log('[Rating DELETE] Rating deleted successfully');
+    res.json({ 
+      ok: true, 
+      averageRating,
+      ratingCount
+    });
+  } catch (e) {
+    console.error('[Rating DELETE Error]', e);
+    if (e.name === 'JsonWebTokenError') {
+      return res.status(401).json({ ok: false, error: 'Invalid token' });
+    }
+    res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+
 app.get('/api/anime', async (req, res) => {
   if (!requireDbForGet({ ok: false, error: 'MongoDB is not connected.' }, res)) return;
   const anime = await Anime.find().sort({ createdAt: -1 }).lean();
@@ -1093,6 +1246,158 @@ app.delete('/api/anime/:id', requireDb, requireAdmin, async (req, res) => {
 
   await syncGenreCounts();
   res.json({ ok: true });
+});
+
+// --------------- Ratings ---------------
+// Get current user's rating for an anime
+app.get('/api/anime/:animeId/rating', requireDb, async (req, res) => {
+  console.log('[Rating GET] Route hit for animeId:', req.params.animeId);
+  try {
+    const { animeId } = req.params;
+    
+    // Check if user is authenticated
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    
+    if (!token) {
+      console.log('[Rating GET] No token provided');
+      return res.json({ ok: true, rating: null, authenticated: false });
+    }
+    
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = decoded.userId;
+      
+      const rating = await Rating.findOne({ animeId: String(animeId), userId: String(userId) });
+      
+      if (!rating) {
+        console.log('[Rating GET] No rating found for user');
+        return res.json({ ok: true, rating: null, authenticated: true });
+      }
+      
+      console.log('[Rating GET] Rating found:', rating.rating);
+      res.json({ ok: true, rating: rating.rating, authenticated: true });
+    } catch (jwtError) {
+      // Token invalid, return unauthenticated
+      console.log('[Rating GET] Invalid token');
+      return res.json({ ok: true, rating: null, authenticated: false });
+    }
+  } catch (e) {
+    console.error('[Rating GET Error]', e);
+    res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+
+// Submit or update a user's rating for an anime
+app.post('/api/anime/:animeId/rating', async (req, res) => {
+  console.log('[Rating POST] Route hit for animeId:', req.params.animeId);
+  try {
+    const { animeId } = req.params;
+    const { rating } = req.body;
+    
+    // Check authentication
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    
+    if (!token) {
+      return res.status(401).json({ ok: false, error: 'Authentication required' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId;
+    
+    // Validate rating
+    if (typeof rating !== 'number' || rating < 0 || rating > 10) {
+      return res.status(400).json({ ok: false, error: 'Rating must be a number between 0 and 10' });
+    }
+    
+    // Find the anime
+    const query = /^\d+$/.test(animeId)
+      ? { clientId: Number(animeId) }
+      : { _id: animeId };
+    
+    const anime = await Anime.findOne(query);
+    if (!anime) {
+      return res.status(404).json({ ok: false, error: 'Anime not found' });
+    }
+    
+    // Use the anime's _id for the rating
+    const animeIdForRating = anime._id.toString();
+    
+    // Upsert the rating (create or update)
+    const updatedRating = await Rating.findOneAndUpdate(
+      { animeId: animeIdForRating, userId: String(userId) },
+      { rating: Number(rating) },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    
+    // Recalculate the anime's average rating
+    const { averageRating, ratingCount } = await anime.recalculateRatings();
+    
+    console.log('[Rating POST] Rating submitted successfully:', updatedRating.rating);
+    res.json({ 
+      ok: true, 
+      rating: updatedRating.rating,
+      averageRating,
+      ratingCount
+    });
+  } catch (e) {
+    console.error('[Rating POST Error]', e);
+    if (e.name === 'JsonWebTokenError') {
+      return res.status(401).json({ ok: false, error: 'Invalid token' });
+    }
+    res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+
+// Delete a user's rating for an anime
+app.delete('/api/anime/:animeId/rating', async (req, res) => {
+  console.log('[Rating DELETE] Route hit for animeId:', req.params.animeId);
+  try {
+    const { animeId } = req.params;
+    
+    // Check authentication
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    
+    if (!token) {
+      return res.status(401).json({ ok: false, error: 'Authentication required' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId;
+    
+    // Find the anime
+    const query = /^\d+$/.test(animeId)
+      ? { clientId: Number(animeId) }
+      : { _id: animeId };
+    
+    const anime = await Anime.findOne(query);
+    if (!anime) {
+      return res.status(404).json({ ok: false, error: 'Anime not found' });
+    }
+    
+    const animeIdForRating = anime._id.toString();
+    
+    // Delete the rating
+    await Rating.findOneAndDelete({ animeId: animeIdForRating, userId: String(userId) });
+    
+    // Recalculate the anime's average rating
+    const { averageRating, ratingCount } = await anime.recalculateRatings();
+    
+    console.log('[Rating DELETE] Rating deleted successfully');
+    res.json({ 
+      ok: true, 
+      averageRating,
+      ratingCount
+    });
+  } catch (e) {
+    console.error('[Rating DELETE Error]', e);
+    if (e.name === 'JsonWebTokenError') {
+      return res.status(401).json({ ok: false, error: 'Invalid token' });
+    }
+    res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
 });
 
 app.get('/api/users', requireDb, async (req, res) => {
