@@ -28,6 +28,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import User from './User.js';
+import Anime from './models/Anime.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -65,63 +66,6 @@ let migrationState = {
     errors: [],
     progress: 0,
 };
-
-// MongoDB Schemas (copied from server.js)
-const videoMetadataSchema = new mongoose.Schema({
-    storageProvider: { type: String, enum: ['r2', 'cloudinary'], default: 'r2' },
-    storageKey: String,
-    publicId: String,
-    fileSize: Number,
-    duration: Number,
-    resolution: String,
-    mimeType: String,
-    uploadedAt: { type: Date, default: Date.now },
-}, { _id: false });
-
-const imageMetadataSchema = new mongoose.Schema({
-    storageProvider: { type: String, enum: ['cloudinary'], default: 'cloudinary' },
-    publicId: String,
-    width: Number,
-    height: Number,
-    format: String,
-    bytes: Number,
-    uploadedAt: { type: Date, default: Date.now },
-}, { _id: false });
-
-const movieMediaSchema = new mongoose.Schema({
-    quality: String,
-    url: String,
-    metadata: { type: videoMetadataSchema, default: null },
-});
-
-const animeSchema = new mongoose.Schema({
-    title: String,
-    image: String,
-    imageMetadata: { type: imageMetadataSchema, default: null },
-    banner: String,
-    bannerMetadata: { type: imageMetadataSchema, default: null },
-    bannerVideo: String,
-    bannerVideoMetadata: { type: videoMetadataSchema, default: null },
-    bannerDisplay: { type: String, default: 'image' },
-    desc: String,
-    featured: Boolean,
-    trending: Boolean,
-    premium: Boolean,
-    newEpisode: Boolean,
-    trailer: String,
-    trailerMetadata: { type: videoMetadataSchema, default: null },
-    genres: [String],
-    rating: Number,
-    year: Number,
-    status: String,
-    totalEpisodes: Number,
-    episodes: [movieMediaSchema],
-    movies: [movieMediaSchema],
-    likes: { type: Number, default: 0 },
-}, { timestamps: true });
-
-// Initialize models
-const Anime = mongoose.models.Anime || mongoose.model('Anime', animeSchema);
 
 // Logging utilities
 function log(message, level = 'info') {

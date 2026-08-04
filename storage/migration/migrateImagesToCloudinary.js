@@ -32,6 +32,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import User from '../../User.js';
+import Anime from '../../models/Anime.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,41 +59,6 @@ let migrationState = {
   totalItems: 0,
   currentItem: 0,
 };
-
-// MongoDB Schemas (matching server.js)
-const imageMetadataSchema = new mongoose.Schema({
-  storageProvider: { type: String, enum: ['cloudinary'], default: 'cloudinary' },
-  publicId: String,
-  width: Number,
-  height: Number,
-  format: String,
-  bytes: Number,
-  uploadedAt: { type: Date, default: Date.now },
-}, { _id: false });
-
-const animeSchema = new mongoose.Schema({
-  clientId: { type: Number, index: true },
-  type: { type: String, enum: ['anime', 'animated-movie', 'live-movie'], default: 'anime', index: true },
-  title: { type: String, required: true },
-  image: String,
-  imageMetadata: { type: imageMetadataSchema, default: null },
-  banner: String,
-  bannerMetadata: { type: imageMetadataSchema, default: null },
-}, { timestamps: true });
-
-const episodeSchema = new mongoose.Schema({
-  episodeNumber: { type: Number, required: true, index: true },
-  thumbnail: { type: String, default: '' },
-  thumbnailMetadata: { type: imageMetadataSchema, default: null },
-}, { timestamps: true, _id: false });
-
-const animeWithEpisodesSchema = new mongoose.Schema({
-  clientId: { type: Number, index: true },
-  title: { type: String, required: true },
-  episodesMedia: { type: [episodeSchema], default: [] },
-}, { timestamps: true });
-
-const Anime = mongoose.models.Anime || mongoose.model('Anime', animeSchema);
 
 // Logging utilities
 function log(message, level = 'info') {

@@ -508,7 +508,8 @@ function saveAdminAnimeData() {
     }
 }
 
-restoreAdminAnimeData();
+// REMOVED: restoreAdminAnimeData() - This was causing stale localStorage data to overwrite fresh API data
+// localStorage should only be used as fallback when API fails, not to automatically restore on page load
 
 async function loadAnimeFromApi() {
     if (window.animeManagement && typeof animeManagement.loadAnimeFromApi === 'function') {
@@ -522,7 +523,13 @@ async function loadAnimeFromApi() {
             return true;
         }
     } catch (e) {
-        console.warn('Using local anime data:', e.message);
+        console.warn('API fetch failed, using localStorage fallback:', e.message);
+    }
+    // Fallback to localStorage only if API fails
+    if (window.animeManagement && typeof animeManagement.restoreAdminAnimeData === 'function') {
+        try { animeManagement.restoreAdminAnimeData(); } catch (e) { console.warn('animeManagement.restoreAdminAnimeData failed:', e); }
+    } else {
+        restoreAdminAnimeData();
     }
     return false;
 }
@@ -3860,7 +3867,6 @@ function updatePlayerUI() {
         const progress = document.getElementById('progress-bar');
         const time = document.getElementById('player-time');
         const playIcon = document.getElementById('player-play-icon');
-        const volumeIcon = document.getElementById('player-volume-icon');
         const overlay = document.getElementById('play-overlay');
 
         if (!video) return;
@@ -3884,12 +3890,9 @@ function updatePlayerUI() {
 
         if (playIcon) playIcon.setAttribute('data-lucide', state.isPlaying ? 'pause' : 'play');
         if (overlay) overlay.classList.toggle('hidden', state.isPlaying);
-        if (volumeIcon) volumeIcon.setAttribute('data-lucide', video.muted ? 'volume-x' : 'volume-2');
         
-        // Re-render lucide icons to show the updated play/pause and volume icons
-        if (window.lucide && typeof lucide.createIcons === 'function') {
-            lucide.createIcons();
-        }
+        // Sync volume UI with actual video state
+        syncVolumeUI();
 
         const introBtn = document.getElementById('skip-intro-btn');
         const outroBtn = document.getElementById('skip-outro-btn');
@@ -4020,7 +4023,40 @@ function selectEpisodeLanguage(language, episodeNumber = 1) {
 }
 
 function togglePlayerMute() {
-    return playerService.toggleMute();
+    const result = playerService.toggleMute();
+    syncVolumeUI();
+    return result;
+}
+
+function syncVolumeUI() {
+    const video = playerService.getVideoElement();
+    if (!video) return;
+
+    const volumeIcon = document.getElementById('player-volume-icon');
+    if (!volumeIcon) return;
+
+    const volume = video.volume;
+    const muted = video.muted;
+
+    console.log('[Player] Volume changed:', volume, 'Muted:', muted, 'Volume UI synchronized');
+
+    // Determine the appropriate icon based on volume and mute state
+    let iconName = 'volume-2'; // Default to medium/high volume
+
+    if (muted || volume === 0) {
+        iconName = 'volume-x'; // Muted or zero volume
+    } else if (volume < 0.5) {
+        iconName = 'volume-1'; // Low volume
+    } else {
+        iconName = 'volume-2'; // Medium/high volume
+    }
+
+    volumeIcon.setAttribute('data-lucide', iconName);
+
+    // Re-render lucide icons to show the updated volume icon
+    if (window.lucide && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+    }
 }
 
 function setPlayerSpeed(value) {
@@ -4650,6 +4686,7 @@ function setupCustomPlayer() {
             video.addEventListener('ended', updatePlayerUI);
             video.addEventListener('timeupdate', updatePlayerUI);
             video.addEventListener('loadedmetadata', updatePlayerUI);
+            video.addEventListener('volumechange', syncVolumeUI);
             
             // Custom logic for auto-next should also be a stable listener
             if (!window._handleAutoNext) {
@@ -4685,6 +4722,7 @@ function setupCustomPlayer() {
 
             // Force an immediate UI sync so it doesn't wait for the first event
             updatePlayerUI();
+            syncVolumeUI();
         }
     }
     

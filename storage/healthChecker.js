@@ -17,61 +17,7 @@ import cloudinary from '../config/cloudinary.js';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
 import r2Client from '../config/r2.js';
 import User from '../User.js';
-
-// MongoDB Schemas (matching server.js)
-const videoMetadataSchema = new mongoose.Schema({
-  storageProvider: { type: String, enum: ['r2', 'cloudinary'], default: 'r2' },
-  storageKey: String,
-  publicId: String,
-  fileSize: Number,
-  duration: Number,
-  resolution: String,
-  mimeType: String,
-  uploadedAt: { type: Date, default: Date.now },
-}, { _id: false });
-
-const imageMetadataSchema = new mongoose.Schema({
-  storageProvider: { type: String, enum: ['cloudinary'], default: 'cloudinary' },
-  publicId: String,
-  width: Number,
-  height: Number,
-  format: String,
-  bytes: Number,
-  uploadedAt: { type: Date, default: Date.now },
-}, { _id: false });
-
-const episodeSourceSchema = new mongoose.Schema({
-  qualities: { type: Map, of: String, default: {} },
-}, { _id: false });
-
-const episodeSchema = new mongoose.Schema({
-  episodeNumber: { type: Number, required: true, index: true },
-  thumbnail: { type: String, default: '' },
-  thumbnailMetadata: { type: imageMetadataSchema, default: null },
-  sub: { type: episodeSourceSchema, default: () => ({ qualities: {} }) },
-  dub: { type: episodeSourceSchema, default: () => ({ qualities: {} }) },
-}, { timestamps: true, _id: false });
-
-const animeSchema = new mongoose.Schema({
-  clientId: { type: Number, index: true },
-  type: { type: String, enum: ['anime', 'animated-movie', 'live-movie'], default: 'anime', index: true },
-  title: { type: String, required: true },
-  image: String,
-  imageMetadata: { type: imageMetadataSchema, default: null },
-  banner: String,
-  bannerMetadata: { type: imageMetadataSchema, default: null },
-  bannerVideo: String,
-  bannerVideoMetadata: { type: videoMetadataSchema, default: null },
-  trailer: String,
-  trailerMetadata: { type: videoMetadataSchema, default: null },
-  episodesMedia: { type: [episodeSchema], default: [] },
-  movieMedia: {
-    qualities: { type: Map, of: String, default: {} },
-    metadata: { type: videoMetadataSchema, default: null },
-  },
-}, { timestamps: true });
-
-const Anime = mongoose.models.Anime || mongoose.model('Anime', animeSchema);
+import Anime from '../models/Anime.js';
 
 /**
  * Get comprehensive storage health report

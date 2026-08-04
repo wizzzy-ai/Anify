@@ -215,6 +215,22 @@
             if (!video) return false;
             video.muted = !video.muted;
             this.syncState();
+            // Trigger UI sync
+            if (typeof syncVolumeUI === 'function') {
+                syncVolumeUI();
+            }
+            return true;
+        },
+
+        setVolume(value) {
+            const video = this.getVideoElement();
+            if (!video) return false;
+            video.volume = Math.max(0, Math.min(1, Number(value) || 1));
+            this.syncState();
+            // Trigger UI sync
+            if (typeof syncVolumeUI === 'function') {
+                syncVolumeUI();
+            }
             return true;
         },
 

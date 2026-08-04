@@ -9,6 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { uploadVideo } from "./utils/cloudinaryUpload.js";
 import mongoose from 'mongoose';
+import Anime from './models/Anime.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,27 +19,6 @@ if (!process.env.MONGODB_URI) {
   console.error('MONGODB_URI not found in .env file');
   process.exit(1);
 }
-
-// Define schemas (simplified version for migration)
-const videoMetadataSchema = new mongoose.Schema({
-  storageProvider: { type: String, enum: ['r2', 'cloudinary'], default: 'r2' },
-  storageKey: String,
-  publicId: String,
-  fileSize: Number,
-  duration: Number,
-  resolution: String,
-  mimeType: String,
-  uploadedAt: { type: Date, default: Date.now },
-}, { _id: false });
-
-const animeSchema = new mongoose.Schema({
-  title: String,
-  bannerVideo: String,
-  bannerVideoMetadata: { type: videoMetadataSchema, default: null },
-  bannerDisplay: { type: String, default: 'image' },
-}, { timestamps: true });
-
-const Anime = mongoose.model('Anime', animeSchema);
 
 // Upload directory
 const uploadsDir = path.join(__dirname, 'uploads');

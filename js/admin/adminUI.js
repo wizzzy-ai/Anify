@@ -316,12 +316,20 @@
                         <input id="admin-anime-studio" type="text" class="input-field" placeholder="e.g. MAPPA">
                     </div>
                     <div>
-                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Status</label>
-                        <select id="admin-anime-status" class="input-field">
-                            <option>Airing</option>
-                            <option>Coming Soon</option>
-                            <option>Completed</option>
-                        </select>
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Content Type</label>
+                        ${isMovieMode ? `
+                            <select id="admin-anime-type" class="input-field" disabled>
+                                <option value="animated-movie" ${forcedMovieType === 'animated-movie' ? 'selected' : ''}>Animated Movie</option>
+                                <option value="live-movie" ${forcedMovieType === 'live-movie' ? 'selected' : ''}>Live Movie</option>
+                            </select>
+                            <input type="hidden" id="admin-anime-type-forced" value="${forcedMovieType || 'animated-movie'}" />
+                        ` : `
+                            <select id="admin-anime-type" class="input-field">
+                                <option value="anime">Anime Series</option>
+                                <option value="animated-movie">Animated Movie</option>
+                                <option value="live-movie">Live Movie</option>
+                            </select>
+                        `}
                     </div>
                 </div>
 
@@ -386,12 +394,29 @@
                     <div class="flex items-center gap-4">
                         <label class="flex items-center gap-2 text-sm cursor-pointer group"><input id="admin-anime-premium" type="checkbox" class="accent-gold-400 rounded"><span class="group-hover:text-gold-400 transition-colors text-xs font-bold uppercase">Premium Only</span></label>
                         <label class="flex items-center gap-2 text-sm cursor-pointer group"><input id="admin-anime-featured" type="checkbox" class="accent-gold-400 rounded"><span class="group-hover:text-gold-400 transition-colors text-xs font-bold uppercase">Featured</span></label>
+                        <label class="flex items-center gap-2 text-sm cursor-pointer group"><input id="admin-anime-trending" type="checkbox" class="accent-gold-400 rounded"><span class="group-hover:text-gold-400 transition-colors text-xs font-bold uppercase">Trending</span></label>
+                        <label class="flex items-center gap-2 text-sm cursor-pointer group"><input id="admin-anime-new-episode" type="checkbox" class="accent-gold-400 rounded"><span class="group-hover:text-gold-400 transition-colors text-xs font-bold uppercase">New Episode</span></label>
                     </div>
                     <div class="admin-banner-toggle scale-75 origin-right">
                         <input id="admin-banner-display-image" type="radio" name="admin-banner-display" value="image" checked>
                         <label for="admin-banner-display-image" title="Show Image"><i data-lucide="image" class="w-4 h-4"></i></label>
                         <input id="admin-banner-display-video" type="radio" name="admin-banner-display" value="video">
                         <label for="admin-banner-display-video" title="Show Video"><i data-lucide="film" class="w-4 h-4"></i></label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4" data-admin-metadata>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Rating (0-10)</label>
+                        <input id="admin-anime-rating" type="number" class="input-field" placeholder="0" min="0" max="10" step="0.1">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Status</label>
+                        <select id="admin-anime-status" class="input-field">
+                            <option value="Airing">Airing</option>
+                            <option value="Coming Soon">Coming Soon</option>
+                            <option value="Completed">Completed</option>
+                        </select>
                     </div>
                 </div>
 
@@ -421,6 +446,14 @@
         if (premIn) premIn.checked = Boolean(anime?.premium);
         const featIn = document.getElementById('admin-anime-featured');
         if (featIn) featIn.checked = Boolean(anime?.featured);
+        const trendingIn = document.getElementById('admin-anime-trending');
+        if (trendingIn) trendingIn.checked = Boolean(anime?.trending);
+        const newEpisodeIn = document.getElementById('admin-anime-new-episode');
+        if (newEpisodeIn) newEpisodeIn.checked = Boolean(anime?.newEpisode);
+        const ratingIn = document.getElementById('admin-anime-rating');
+        if (ratingIn) ratingIn.value = anime?.rating || 0;
+        const typeIn = document.getElementById('admin-anime-type');
+        if (typeIn) typeIn.value = anime?.type || 'anime';
         
         if (isMovieMode) {
             const iStart = document.getElementById('admin-intro-start');
@@ -1012,6 +1045,12 @@
         console.log('[Edit Anime] Status input value:', statusValue);
         console.log('[Edit Anime] Status input element:', statusInput);
         
+        const ratingInput = document.getElementById('admin-anime-rating');
+        const ratingValue = Number(ratingInput?.value) || 0;
+        
+        const typeInput = document.getElementById('admin-anime-type');
+        const typeValue = typeInput?.value || 'anime';
+        
         const payload = {
             title,
             titleJp: document.getElementById('admin-anime-title-jp')?.value.trim() || title,
@@ -1022,12 +1061,20 @@
             status: statusValue,
             premium: Boolean(document.getElementById('admin-anime-premium')?.checked),
             featured: Boolean(document.getElementById('admin-anime-featured')?.checked),
+            trending: Boolean(document.getElementById('admin-anime-trending')?.checked),
+            newEpisode: Boolean(document.getElementById('admin-anime-new-episode')?.checked),
+            rating: Math.min(10, Math.max(0, ratingValue)),
             bannerDisplay: document.querySelector('input[name="admin-banner-display"]:checked')?.value || 'image',
             trailer: document.getElementById('admin-anime-trailer')?.value.trim() || '',
+            type: typeValue,
         };
         
         console.log('[Edit Anime] Form data collected:', payload);
         console.log('[Edit Anime] Status in payload:', payload.status);
+        console.log('[Edit Anime] Rating in payload:', payload.rating);
+        console.log('[Edit Anime] Trending in payload:', payload.trending);
+        console.log('[Edit Anime] New Episode in payload:', payload.newEpisode);
+        console.log('[Edit Anime] Type in payload:', payload.type);
         return payload;
     }
 
@@ -1060,7 +1107,9 @@
     }
 
     async function uploadAdminVideo() {
-        console.log('[Frontend Upload] Starting video upload...');
+        console.log('[EDIT FLOW] ========== STARTING EDIT ANIME SAVE ==========');
+        console.log('[EDIT FLOW] Mode:', adminService.adminModalMode);
+        console.log('[EDIT FLOW] Editing ID:', adminService.editingAnimeId);
         
         if (adminService.adminModalMode === 'movie-create' || adminService.adminModalMode === 'movie-edit') {
             return uploadAdminMovie();
@@ -1205,29 +1254,34 @@
             }
     
             const payload = getAdminAnimePayload();
-            console.log('[Edit Anime] Form payload:', payload);
+            console.log('[EDIT FLOW] BEFORE SAVE - Form payload status:', payload.status);
+            console.log('[EDIT FLOW] BEFORE SAVE - Form payload rating:', payload.rating);
+            console.log('[EDIT FLOW] BEFORE SAVE - Form payload trending:', payload.trending);
+            console.log('[EDIT FLOW] BEFORE SAVE - Form payload newEpisode:', payload.newEpisode);
             
             const { uploadedPoster, uploadedBanner, uploadedBannerVideo } = await uploadAdminMedia();
             console.log('[Edit Anime] Media upload results:', { uploadedPoster, uploadedBanner, uploadedBannerVideo });
     
             if (adminService.adminModalMode === 'edit' && existing) {
-                console.log('[Edit Anime] EDIT MODE - Updating existing anime:', existing.id);
-                console.log('[Edit Anime] Existing anime data before update:', JSON.parse(JSON.stringify(existing)));
+                console.log('[EDIT FLOW] EDIT MODE - Updating existing anime:', existing.id);
+                console.log('[EDIT FLOW] BEFORE UPDATE - Existing anime status:', existing.status);
+                console.log('[EDIT FLOW] BEFORE UPDATE - Existing anime rating:', existing.rating);
                 
                 // Create update payload that only includes changed fields
                 const updatePayload = { ...payload };
                 
                 // Only update media URLs if new files were uploaded
                 if (uploadedPoster) updatePayload.image = uploadedPoster.url;
+                else if (existing.image) updatePayload.image = existing.image;
+                
                 if (uploadedBanner) updatePayload.banner = uploadedBanner.url;
+                else if (existing.banner) updatePayload.banner = existing.banner;
+                
                 if (uploadedBannerVideo) updatePayload.bannerVideo = uploadedBannerVideo.url;
+                else if (existing.bannerVideo) updatePayload.bannerVideo = existing.bannerVideo;
                 
                 // Preserve existing fields that aren't in the form
-                updatePayload.type = existing.type || 'anime';
                 updatePayload.episodes = existing.episodes || 1;
-                updatePayload.rating = existing.rating || 0;
-                updatePayload.trending = existing.trending || false;
-                updatePayload.newEpisode = existing.newEpisode || false;
                 
                 // Preserve timing fields if they exist
                 if (existing.introStart !== undefined) updatePayload.introStart = existing.introStart;
@@ -1241,6 +1295,8 @@
                 
                 // Clean the payload to remove MongoDB internal fields
                 const cleanPayload = {
+                    id: existing.id || existing.clientId,
+                    clientId: existing.clientId || existing.id,
                     title: updatePayload.title,
                     titleJp: updatePayload.titleJp,
                     desc: updatePayload.desc,
@@ -1268,27 +1324,32 @@
                     movieMedia: updatePayload.movieMedia,
                 };
                 
-                console.log('[Edit Anime] Clean payload being sent to API:', cleanPayload);
-                console.log('[Edit Anime] Status in clean payload:', cleanPayload.status);
-                console.log('[Edit Anime] Sending to API for save...');
+                console.log('[EDIT FLOW] PUT REQUEST - Clean payload being sent to API:', cleanPayload);
+                console.log('[EDIT FLOW] PUT REQUEST - Status in payload:', cleanPayload.status);
+                console.log('[EDIT FLOW] PUT REQUEST - Sending to API for save...');
                 
                 const savedAnime = await saveAnimeToApi(cleanPayload, true);
-                console.log('[Edit Anime] API response:', savedAnime);
+                console.log('[EDIT FLOW] API RESPONSE - Received from API:', savedAnime);
+                console.log('[EDIT FLOW] API RESPONSE - Status:', savedAnime?.status);
+                console.log('[EDIT FLOW] API RESPONSE - Rating:', savedAnime?.rating);
+                console.log('[EDIT FLOW] API RESPONSE - Trending:', savedAnime?.trending);
+                console.log('[EDIT FLOW] API RESPONSE - New Episode:', savedAnime?.newEpisode);
                 
                 if (savedAnime) {
+                    console.log('[EDIT FLOW] LOCAL UPDATE - Before Object.assign - existing status:', existing.status);
                     Object.assign(existing, savedAnime);
-                    console.log('[Edit Anime] Anime updated successfully with ID:', savedAnime.id);
+                    console.log('[EDIT FLOW] LOCAL UPDATE - After Object.assign - existing status:', existing.status);
+                    console.log('[EDIT FLOW] LOCAL UPDATE - Anime updated successfully with ID:', savedAnime.id);
                 } else {
-                    console.error('[Edit Anime] Failed to save anime - no response from API');
-                }
-                
-                // Reload anime data from API to ensure UI shows the latest data
-                if (typeof loadAnimeFromApi === 'function') {
-                    console.log('[Edit Anime] Reloading anime data from API...');
-                    await loadAnimeFromApi();
+                    console.error('[EDIT FLOW] ERROR - Failed to save anime - no response from API');
                 }
             } else {
                 const id = Math.max(0, ...animeData.map(a => a.id)) + 1;
+                console.log('[CREATE TRACE] adminUI.js CREATE MODE - Building newAnime object');
+                console.log('[CREATE TRACE] adminUI.js payload.rating:', payload.rating);
+                console.log('[CREATE TRACE] adminUI.js payload.trending:', payload.trending);
+                console.log('[CREATE TRACE] adminUI.js payload.newEpisode:', payload.newEpisode);
+                
                 const newAnime = {
                     title: payload.title,
                     titleJp: payload.titleJp,
@@ -1303,12 +1364,12 @@
                     trailer: payload.trailer,
                     type: 'anime',
                     id,
-                    rating: 0,
+                    rating: payload.rating,
                     image: uploadedPoster?.url || `http://static.photos/technology/640x360/${id}`,
                     banner: uploadedBanner?.url || `http://static.photos/technology/1200x630/${id}`,
                     bannerVideo: uploadedBannerVideo?.url || '',
-                    trending: false,
-                    newEpisode: false,
+                    trending: payload.trending,
+                    newEpisode: payload.newEpisode,
                     episodes: 1,
                     introStart: 0,
                     introEnd: 90,
@@ -1316,21 +1377,47 @@
                     outroEnd: 0,
                 };
                 console.log('[Edit Anime] New anime payload:', newAnime);
+                console.log('[CREATE TRACE] adminUI.js newAnime.rating:', newAnime.rating);
+                console.log('[CREATE TRACE] adminUI.js newAnime.trending:', newAnime.trending);
+                console.log('[CREATE TRACE] adminUI.js newAnime.newEpisode:', newAnime.newEpisode);
                 const savedAnime = await saveAnimeToApi(newAnime, false);
                 if (typeof updateLocalAnimeData === 'function') updateLocalAnimeData(savedAnime || newAnime);
             }
     
-            // Reload anime data from API to ensure UI shows the latest data
+            // Single reload of anime data from API to ensure UI shows the latest data
             if (typeof loadAnimeFromApi === 'function') {
-                console.log('[Edit Anime] Final reload of anime data from API...');
+                console.log('[EDIT FLOW] RELOAD FROM API - Starting reload...');
+                console.log('[EDIT FLOW] RELOAD FROM API - animeData before reload:', animeData.length);
                 await loadAnimeFromApi();
+                console.log('[EDIT FLOW] RELOAD FROM API - animeData after reload:', animeData.length);
+                
+                // Check if our specific anime was updated
+                const targetId = adminService.editingAnimeId || adminService.uploadTargetAnimeId;
+                if (targetId) {
+                    const updatedAnime = animeData.find(a => a.id === targetId || a.clientId === targetId);
+                    if (updatedAnime) {
+                        console.log('[EDIT FLOW] RELOAD FROM API - Found target anime in reloaded data');
+                        console.log('[EDIT FLOW] RELOAD FROM API - Target anime status:', updatedAnime.status);
+                        console.log('[EDIT FLOW] RELOAD FROM API - Target anime rating:', updatedAnime.rating);
+                        console.log('[EDIT FLOW] RELOAD FROM API - Target anime trending:', updatedAnime.trending);
+                        console.log('[EDIT FLOW] RELOAD FROM API - Target anime newEpisode:', updatedAnime.newEpisode);
+                    } else {
+                        console.error('[EDIT FLOW] RELOAD FROM API - Could not find target anime in reloaded data! ID:', targetId);
+                    }
+                }
             }
             
+            console.log('[EDIT FLOW] SAVE TO LOCALSTORAGE - Saving animeData to localStorage...');
             saveAdminAnimeData();
+            
+            console.log('[EDIT FLOW] CLOSE MODAL - Hiding upload modal...');
             hideUploadModal();
+            
+            console.log('[EDIT FLOW] RE-RENDER UI - Switching to anime tab...');
             switchAdminTab('anime');
+            
             if (window.showToast) showToast('Anime saved successfully.');
-            console.log('[Edit Anime] ✅ SAVE CHANGES COMPLETE');
+            console.log('[EDIT FLOW] ========== EDIT ANIME SAVE COMPLETE ==========');
         } catch (e) {
             console.error('[Edit Anime] ❌ SAVE CHANGES FAILED:', e);
             alert('Save error: ' + (e?.message || e));
@@ -1426,6 +1513,8 @@
                 
                 // Clean the payload to remove MongoDB internal fields
                 const cleanPayload = {
+                    id: existing.id || existing.clientId,
+                    clientId: existing.clientId || existing.id,
                     title: updatePayload.title,
                     titleJp: updatePayload.titleJp,
                     desc: updatePayload.desc,

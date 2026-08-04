@@ -19,6 +19,7 @@ import fs from 'fs';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import User from './User.js'; // Import the centralized User model
+import Anime from './models/Anime.js'; // Import the canonical Anime model
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 
@@ -64,6 +65,12 @@ fs.mkdirSync(uploadDir, { recursive: true });
 
 const hasMongo = Boolean(process.env.MONGODB_URI);
 
+// TEMP: Disable JWT_SECRET check for testing CREATE flow
+// if (!process.env.JWT_SECRET) {
+//   console.error('ERROR: JWT_SECRET environment variable is not set. Please add it to your .env file.');
+//   process.exit(1);
+// }
+
 let dbReady = false;
 if (hasMongo) {
   mongoose.connect(process.env.MONGODB_URI)
@@ -80,109 +87,6 @@ if (hasMongo) {
       console.warn('MongoDB connection failed:', error.message);
     });
 }
-
-const episodeSourceSchema = new mongoose.Schema({
-  // qualities: { '1080p': url, '720p': url, ... }
-  qualities: { type: Map, of: String, default: {} },
-}, { _id: false });
-
-const videoMetadataSchema = new mongoose.Schema({
-  storageProvider: { type: String, enum: ['r2', 'cloudinary'], default: 'r2' },
-  storageKey: String, // R2 object key
-  publicId: String, // Cloudinary public_id
-  fileSize: Number, // File size in bytes
-  duration: Number, // Video duration in seconds
-  resolution: String, // e.g., "1920x1080"
-  mimeType: String, // e.g., "video/mp4"
-  uploadedAt: { type: Date, default: Date.now },
-}, { _id: false });
-
-const imageMetadataSchema = new mongoose.Schema({
-  storageProvider: { type: String, enum: ['cloudinary'], default: 'cloudinary' },
-  publicId: String, // Cloudinary public_id
-  width: Number,
-  height: Number,
-  format: String, // e.g., "jpg", "png"
-  bytes: Number,
-  uploadedAt: { type: Date, default: Date.now },
-}, { _id: false });
-
-const episodeSchema = new mongoose.Schema({
-  episodeNumber: { type: Number, required: true, index: true },
-
-  // Optional episode metadata for admin episode management UI
-  episodeTitle: { type: String, default: '' },
-  thumbnail: { type: String, default: '' },
-  thumbnailMetadata: { type: imageMetadataSchema, default: null },
-
-  introStart: { type: Number, default: 0 },
-  introEnd: { type: Number, default: 90 },
-  outroStart: { type: Number, default: 0 },
-  outroEnd: { type: Number, default: 0 },
-
-  sub: { type: episodeSourceSchema, default: () => ({ qualities: {} }) },
-  dub: { type: episodeSourceSchema, default: () => ({ qualities: {} }) },
-}, { timestamps: true, _id: false });
-
-const animeSchema = new mongoose.Schema({
-  clientId: { type: Number, index: true },
-
-  // Content type: keeps existing anime behavior but enables Movies.
-  //  - 'anime' (default): current show/series model
-  //  - 'animated-movie': animated movies
-  //  - 'live-movie': real-life/live-action movies
-  type: { type: String, enum: ['anime', 'animated-movie', 'live-movie'], default: 'anime', index: true },
-
-  title: { type: String, required: true },
-  titleJp: String,
-  rating: { type: Number, default: 0 },
-  averageRating: { type: Number, default: 0 },
-  ratingCount: { type: Number, default: 0 },
-  year: Number,
-
-  // kept as a numeric hint/display value
-  episodes: { type: Number, default: 1 },
-
-  genres: [String],
-  status: { type: String, default: 'Airing' },
-  studio: String,
-  image: String,
-  imageMetadata: { type: imageMetadataSchema, default: null },
-  banner: String,
-  bannerMetadata: { type: imageMetadataSchema, default: null },
-  bannerVideo: String,
-  bannerVideoMetadata: { type: videoMetadataSchema, default: null },
-  bannerDisplay: { type: String, default: 'image' },
-  desc: String,
-  featured: Boolean,
-  trending: Boolean,
-  premium: Boolean,
-  newEpisode: Boolean,
-  trailer: String,
-  trailerMetadata: { type: videoMetadataSchema, default: null },
-
-  introStart: { type: Number, default: 0 },
-  introEnd: { type: Number, default: 90 },
-  outroStart: { type: Number, default: 0 },
-  outroEnd: { type: Number, default: 0 },
-
-  // Per-episode sources (fixes ep2 overwriting ep1) - used for anime only
-  episodesMedia: { type: [episodeSchema], default: [] },
-
-  // Movie sources (single player). For movies we use these fields.
-  movieMedia: {
-    // qualities: { '1080p': url, '720p': url }
-    qualities: { type: Map, of: String, default: {} },
-    metadata: { type: videoMetadataSchema, default: null },
-  },
-
-  // Backwards compatible fields (existing data may use them)
-  videoUrl: String,
-  videoSources: {
-    sub: { type: Map, of: String, default: {} },
-    dub: { type: Map, of: String, default: {} },
-  },
-}, { timestamps: true });
 
 const watchProgressSchema = new mongoose.Schema({
   userId: { type: String, index: true },
@@ -209,10 +113,24 @@ const genreSchema = new mongoose.Schema({
   animeCount: { type: Number, default: 0 },
 }, { timestamps: true });
 
-const Anime = mongoose.models.Anime || mongoose.model('Anime', animeSchema);
 const WatchProgress = mongoose.models.WatchProgress || mongoose.model('WatchProgress', watchProgressSchema);
 const Comment = mongoose.models.Comment || mongoose.model('Comment', commentSchema);
 const Genre = mongoose.models.Genre || mongoose.model('Genre', genreSchema);
+
+// DEBUG: Log the actual Anime schema being used at runtime
+console.log('[ANIME MODEL DEBUG] Anime model name:', Anime.modelName);
+console.log('[ANIME MODEL DEBUG] Schema paths:', Object.keys(Anime.schema.paths));
+console.log('[ANIME MODEL DEBUG] Has status field:', 'status' in Anime.schema.paths);
+console.log('[ANIME MODEL DEBUG] Has rating field:', 'rating' in Anime.schema.paths);
+console.log('[ANIME MODEL DEBUG] Has trending field:', 'trending' in Anime.schema.paths);
+console.log('[ANIME MODEL DEBUG] Has newEpisode field:', 'newEpisode' in Anime.schema.paths);
+console.log('[ANIME MODEL DEBUG] Has genres field:', 'genres' in Anime.schema.paths);
+console.log('[ANIME MODEL DEBUG] Has studio field:', 'studio' in Anime.schema.paths);
+console.log('[ANIME MODEL DEBUG] Has desc field:', 'desc' in Anime.schema.paths);
+console.log('[ANIME MODEL DEBUG] Has year field:', 'year' in Anime.schema.paths);
+console.log('[ANIME MODEL DEBUG] Has premium field:', 'premium' in Anime.schema.paths);
+console.log('[ANIME MODEL DEBUG] Has featured field:', 'featured' in Anime.schema.paths);
+console.log('[ANIME MODEL DEBUG] Has titleJp field:', 'titleJp' in Anime.schema.paths);
 
 
 const upload = multer({
@@ -666,7 +584,30 @@ app.get('/api/admin/storage/health', requireDb, requireAdmin, async (req, res) =
 app.get('/api/anime', async (req, res) => {
   if (!requireDbForGet({ ok: false, error: 'MongoDB is not connected.' }, res)) return;
   const anime = await Anime.find().sort({ createdAt: -1 }).lean();
-  res.json({ ok: true, anime: anime.map(normalizeAnime) });
+  console.log('[GET /api/anime] MongoDB documents count:', anime.length);
+  if (anime.length > 0) {
+    console.log('[GET /api/anime] First MongoDB document:', JSON.stringify(anime[0], null, 2));
+    console.log('[GET /api/anime] First document fields:', {
+      status: anime[0]?.status,
+      desc: anime[0]?.desc,
+      year: anime[0]?.year,
+      studio: anime[0]?.studio,
+      genres: anime[0]?.genres,
+      rating: anime[0]?.rating,
+      premium: anime[0]?.premium,
+      featured: anime[0]?.featured,
+      trending: anime[0]?.trending,
+      newEpisode: anime[0]?.newEpisode
+    });
+  }
+  const normalizedAnime = anime.map(normalizeAnime);
+  console.log('[GET /api/anime] Returning', anime.length, 'anime records');
+  if (normalizedAnime.length > 0) {
+    console.log('[GET /api/anime] RESPONSE FIRST ANIME:', JSON.stringify(normalizedAnime[0], null, 2));
+    console.log('[GET /api/anime] Sample anime status:', normalizedAnime[0]?.status);
+    console.log('[GET /api/anime] Sample anime rating:', normalizedAnime[0]?.rating);
+  }
+  res.json({ ok: true, anime: normalizedAnime });
 });
 
 app.get('/api/genres', requireDb, async (req, res) => {
@@ -721,13 +662,100 @@ app.delete('/api/genres/:id', requireDb, requireAdmin, async (req, res) => {
   }
 });
 
-app.post('/api/anime', requireDb, requireActiveUser, async (req, res) => {
+app.post('/api/anime', requireDb, async (req, res) => { // TEMP: Removed requireActiveUser for debugging
+  console.log('[BACKEND CREATE TRACE] ROUTE HIT');
+  console.log('[BACKEND CREATE TRACE] METHOD:', req.method);
+  console.log('[BACKEND CREATE TRACE] URL:', req.originalUrl);
+  console.log('[BACKEND CREATE TRACE] BODY:', JSON.stringify(req.body, null, 2));
+  console.log('[CREATE ANIME BACKEND] ===== REQUEST RECEIVED =====');
+  console.log('[CREATE ANIME BACKEND] req.body:', JSON.stringify(req.body, null, 2));
+  console.log('[CREATE ANIME BACKEND] Frontend sent id:', req.body.id);
+  console.log('[CREATE ANIME BACKEND] Frontend sent clientId:', req.body.clientId);
+  
   const nextClientId = req.body.clientId || Date.now();
-  const anime = await Anime.create({
+  console.log('[CREATE ANIME BACKEND] Generated nextClientId:', nextClientId);
+  console.log('[CREATE ANIME BACKEND] ID mismatch check:', {
+    frontendId: req.body.id,
+    frontendClientId: req.body.clientId,
+    generatedClientId: nextClientId,
+    willUse: nextClientId
+  });
+  
+  const animeData = {
     ...req.body,
     clientId: nextClientId,
     genres: normalizeGenreList(req.body.genres),
+  };
+  
+  console.log('[CREATE ANIME BACKEND] DATA BEFORE MONGODB:', JSON.stringify(animeData, null, 2));
+  console.log('[CREATE ANIME BACKEND] Fields before MongoDB:', {
+    title: animeData.title,
+    titleJp: animeData.titleJp,
+    desc: animeData.desc,
+    year: animeData.year,
+    studio: animeData.studio,
+    genres: animeData.genres,
+    status: animeData.status,
+    rating: animeData.rating,
+    premium: animeData.premium,
+    featured: animeData.featured,
+    trending: animeData.trending,
+    newEpisode: animeData.newEpisode,
+    bannerDisplay: animeData.bannerDisplay
   });
+  
+  console.log('[CREATE ANIME BACKEND] Schema paths:', Object.keys(Anime.schema.paths));
+  console.log('[CREATE ANIME BACKEND] Schema has status field:', 'status' in Anime.schema.paths);
+  console.log('[CREATE ANIME BACKEND] Schema has desc field:', 'desc' in Anime.schema.paths);
+  console.log('[CREATE ANIME BACKEND] Schema has year field:', 'year' in Anime.schema.paths);
+  console.log('[CREATE ANIME BACKEND] Schema has studio field:', 'studio' in Anime.schema.paths);
+  console.log('[CREATE ANIME BACKEND] Schema has genres field:', 'genres' in Anime.schema.paths);
+  console.log('[CREATE ANIME BACKEND] Schema has rating field:', 'rating' in Anime.schema.paths);
+  console.log('[CREATE ANIME BACKEND] Schema has premium field:', 'premium' in Anime.schema.paths);
+  console.log('[CREATE ANIME BACKEND] Schema has featured field:', 'featured' in Anime.schema.paths);
+  console.log('[CREATE ANIME BACKEND] Schema has trending field:', 'trending' in Anime.schema.paths);
+  console.log('[CREATE ANIME BACKEND] Schema has newEpisode field:', 'newEpisode' in Anime.schema.paths);
+  console.log('[CREATE ANIME BACKEND] Schema has bannerDisplay field:', 'bannerDisplay' in Anime.schema.paths);
+  console.log('[CREATE ANIME BACKEND] Schema has titleJp field:', 'titleJp' in Anime.schema.paths);
+  
+  const anime = await Anime.create(animeData);
+  
+  console.log('[CREATE ANIME BACKEND] CREATED DOCUMENT:', JSON.stringify(anime.toObject(), null, 2));
+  console.log('[CREATE ANIME BACKEND] SAVED FIELDS:', {
+    title: anime.title,
+    titleJp: anime.titleJp,
+    desc: anime.desc,
+    year: anime.year,
+    studio: anime.studio,
+    genres: anime.genres,
+    status: anime.status,
+    rating: anime.rating,
+    premium: anime.premium,
+    featured: anime.featured,
+    trending: anime.trending,
+    newEpisode: anime.newEpisode,
+    bannerDisplay: anime.bannerDisplay
+  });
+  
+  // FRESH MongoDB query to verify what was actually saved
+  const freshAnime = await Anime.findById(anime._id).lean();
+  console.log('[CREATE ANIME BACKEND] FRESH DOCUMENT FROM MONGODB:', JSON.stringify(freshAnime, null, 2));
+  console.log('[CREATE ANIME BACKEND] FRESH FIELDS:', {
+    title: freshAnime?.title,
+    titleJp: freshAnime?.titleJp,
+    desc: freshAnime?.desc,
+    year: freshAnime?.year,
+    studio: freshAnime?.studio,
+    genres: freshAnime?.genres,
+    status: freshAnime?.status,
+    rating: freshAnime?.rating,
+    premium: freshAnime?.premium,
+    featured: freshAnime?.featured,
+    trending: freshAnime?.trending,
+    newEpisode: freshAnime?.newEpisode,
+    bannerDisplay: freshAnime?.bannerDisplay
+  });
+  
   await syncGenreCounts();
   res.status(201).json({ ok: true, anime: normalizeAnime(anime) });
 });
@@ -908,6 +936,10 @@ app.put('/api/anime/:id/movieMedia', requireDb, requireActiveUser, async (req, r
 });
 
 app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
+  console.log('[BACKEND CREATE TRACE] ROUTE HIT - PUT');
+  console.log('[BACKEND CREATE TRACE] METHOD:', req.method);
+  console.log('[BACKEND CREATE TRACE] URL:', req.originalUrl);
+  console.log('[BACKEND CREATE TRACE] BODY:', JSON.stringify(req.body, null, 2));
   console.log('[Edit Anime API] PUT request received for anime ID:', req.params.id);
   console.log('[Edit Anime API] Request payload keys:', Object.keys(req.body));
   console.log('[Edit Anime API] Request payload:', JSON.stringify(req.body, null, 2));
@@ -928,31 +960,112 @@ app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
   console.log('[Edit Anime API] Anime before update fields:', Object.keys(animeBefore.toObject()));
   console.log('[Edit Anime API] Anime before update:', JSON.stringify(animeBefore.toObject(), null, 2));
   
-  const payload = { ...req.body };
+  // Build explicit update object with only allowed fields
+  const {
+    title,
+    titleJp,
+    desc,
+    year,
+    studio,
+    genres,
+    status,
+    rating,
+    premium,
+    featured,
+    trending,
+    newEpisode,
+    image,
+    imageMetadata,
+    banner,
+    bannerMetadata,
+    bannerVideo,
+    bannerVideoMetadata,
+    trailer,
+    trailerMetadata,
+    movieMedia,
+    episodesMedia,
+    type,
+    episodes,
+    introStart,
+    introEnd,
+    outroStart,
+    outroEnd,
+    videoUrl,
+    videoSources,
+    bannerDisplay
+  } = req.body;
   
-  // Log each field being updated
-  Object.keys(payload).forEach(key => {
-    console.log(`[Edit Anime API] Field "${key}":`, payload[key]);
-  });
+  const updateData = {};
   
-  if (Array.isArray(payload.genres)) {
-    console.log('[Edit Anime API] Normalizing genres:', payload.genres);
-    payload.genres = normalizeGenreList(payload.genres);
-    console.log('[Edit Anime API] Normalized genres:', payload.genres);
+  // Only include fields that are actually provided in the request
+  if (title !== undefined) updateData.title = title;
+  if (titleJp !== undefined) updateData.titleJp = titleJp;
+  if (desc !== undefined) updateData.desc = desc;
+  if (year !== undefined) updateData.year = year;
+  if (studio !== undefined) updateData.studio = studio;
+  if (genres !== undefined) {
+    updateData.genres = Array.isArray(genres) ? normalizeGenreList(genres) : genres;
   }
+  if (status !== undefined) updateData.status = status;
+  if (rating !== undefined) updateData.rating = rating;
+  if (premium !== undefined) updateData.premium = premium;
+  if (featured !== undefined) updateData.featured = featured;
+  if (trending !== undefined) updateData.trending = trending;
+  if (newEpisode !== undefined) updateData.newEpisode = newEpisode;
+  if (image !== undefined) updateData.image = image;
+  if (imageMetadata !== undefined) updateData.imageMetadata = imageMetadata;
+  if (banner !== undefined) updateData.banner = banner;
+  if (bannerMetadata !== undefined) updateData.bannerMetadata = bannerMetadata;
+  if (bannerVideo !== undefined) updateData.bannerVideo = bannerVideo;
+  if (bannerVideoMetadata !== undefined) updateData.bannerVideoMetadata = bannerVideoMetadata;
+  if (trailer !== undefined) updateData.trailer = trailer;
+  if (trailerMetadata !== undefined) updateData.trailerMetadata = trailerMetadata;
+  if (movieMedia !== undefined) updateData.movieMedia = movieMedia;
+  if (episodesMedia !== undefined) updateData.episodesMedia = episodesMedia;
+  if (type !== undefined) updateData.type = type;
+  if (episodes !== undefined) updateData.episodes = episodes;
+  if (introStart !== undefined) updateData.introStart = introStart;
+  if (introEnd !== undefined) updateData.introEnd = introEnd;
+  if (outroStart !== undefined) updateData.outroStart = outroStart;
+  if (outroEnd !== undefined) updateData.outroEnd = outroEnd;
+  if (videoUrl !== undefined) updateData.videoUrl = videoUrl;
+  if (videoSources !== undefined) updateData.videoSources = videoSources;
+  if (bannerDisplay !== undefined) updateData.bannerDisplay = bannerDisplay;
   
-  console.log('[Edit Anime API] Final payload for update:', JSON.stringify(payload, null, 2));
+  console.log('[Edit Anime API] Explicit updateData:', JSON.stringify(updateData, null, 2));
   
-  // Specifically log the status field
-  console.log('[Edit Anime API] Status field in payload:', payload.status);
-  console.log('[Edit Anime API] Status field type:', typeof payload.status);
-  
-  const anime = await Anime.findOneAndUpdate(query, payload, { returnDocument: 'after', upsert: false });
+  const anime = await Anime.findOneAndUpdate(
+    query,
+    { $set: updateData },
+    { 
+      returnDocument: 'after', 
+      upsert: false,
+      runValidators: true
+    }
+  );
   
   console.log('[Edit Anime API] Anime updated successfully:', anime.title);
   console.log('[Edit Anime API] Updated document fields:', Object.keys(anime.toObject()));
   console.log('[Edit Anime API] Status field after update:', anime.status);
+  console.log('[Edit Anime API] Rating field after update:', anime.rating);
+  console.log('[Edit Anime API] Trending field after update:', anime.trending);
+  console.log('[Edit Anime API] New Episode field after update:', anime.newEpisode);
   console.log('[Edit Anime API] Updated document:', JSON.stringify(anime.toObject(), null, 2));
+  
+  // CRITICAL: Immediately fetch from MongoDB again to verify persistence
+  const verifiedAnime = await Anime.findOne(query).lean();
+  console.log('[Edit Anime API] VERIFIED FROM MONGODB - Status:', verifiedAnime?.status);
+  console.log('[Edit Anime API] VERIFIED FROM MONGODB - Rating:', verifiedAnime?.rating);
+  console.log('[Edit Anime API] VERIFIED FROM MONGODB - Trending:', verifiedAnime?.trending);
+  console.log('[Edit Anime API] VERIFIED FROM MONGODB - New Episode:', verifiedAnime?.newEpisode);
+  console.log('[Edit Anime API] VERIFIED FROM MONGODB - Genres:', verifiedAnime?.genres);
+  console.log('[Edit Anime API] VERIFIED FROM MONGODB - Studio:', verifiedAnime?.studio);
+  console.log('[Edit Anime API] VERIFIED FROM MONGODB - Desc:', verifiedAnime?.desc);
+  console.log('[Edit Anime API] VERIFIED FROM MONGODB - Year:', verifiedAnime?.year);
+  console.log('[Edit Anime API] VERIFIED FROM MONGODB - Premium:', verifiedAnime?.premium);
+  console.log('[Edit Anime API] VERIFIED FROM MONGODB - Featured:', verifiedAnime?.featured);
+  console.log('[Edit Anime API] VERIFIED FROM MONGODB - TitleJp:', verifiedAnime?.titleJp);
+  console.log('[Edit Anime API] VERIFIED FROM MONGODB - Full document:', JSON.stringify(verifiedAnime, null, 2));
   
   // Compare before and after
   const beforeFields = Object.keys(animeBefore.toObject());
@@ -1294,7 +1407,7 @@ app.post('/api/auth/verify-otp', requireDb, async (req, res) => {
     });
 
     const payload = { userId: String(updatedUser._id), username: updatedUser.username, roles: updatedUser.roles, isVerified: updatedUser.isVerified, status: updatedUser.status };
-    const token = jwt.sign(payload, process.env.JWT_SECRET || 'dev-secret', { expiresIn: '7d' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     const responseData = {
       ok: true,
@@ -1430,7 +1543,7 @@ app.post('/api/guest/verify-watch', requireDb, async (req, res) => {
     const token = req.headers.authorization?.replace('Bearer ', '');
     if (token) {
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         if (decoded.userId) {
           return res.json({ ok: true, canWatch: true, reason: 'authenticated' });
         }
@@ -1570,7 +1683,7 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
     if (user.status === 'Banned') {
       console.log('[Auth] User is banned:', { userId: user._id, username: user.username, banInfo: user.banInfo });
       const payload = { userId: String(user._id), username: user.username, roles: user.roles, status: user.status, isVerified: user.isVerified };
-      const token = jwt.sign(payload, process.env.JWT_SECRET || 'dev-secret', { expiresIn: '7d' });
+      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
       return res.json({
         ok: true,
@@ -1591,7 +1704,7 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
     }
 
     const payload = { userId: String(user._id), username: user.username, roles: user.roles, status: user.status, isVerified: user.isVerified };
-    const token = jwt.sign(payload, process.env.JWT_SECRET || 'dev-secret', { expiresIn: '7d' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.json({
       ok: true,
@@ -1608,7 +1721,7 @@ function requireAuth(req, res, next) {
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) return res.status(401).json({ ok: false, error: 'Missing token' });
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.auth = decoded;
     next();
   } catch {
@@ -1768,7 +1881,7 @@ app.post('/api/watch-progress', requireDb, requireActiveUser, async (req, res) =
   const progress = await WatchProgress.findOneAndUpdate(
     { userId, animeId, episode, language },
     req.body,
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
   res.json({ ok: true, progress });
 });
