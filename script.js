@@ -2156,8 +2156,8 @@ function renderPlayer(id) {
                 <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to ${a.title}
             </button>
 
-            <div class="anime-watch-layout flex flex-col lg:flex-row gap-6">
-                <div class="flex-1 anim-slide-up anim-delay-1">
+            <div class="anime-watch-layout flex flex-col lg:flex-row gap-6 items-start">
+                <div class="flex-1">
                     <!-- Target for persistent player -->
                     <div id="persistent-player-mount" class="video-player-container anime-player-frame aspect-video"></div>
 
@@ -2182,8 +2182,8 @@ function renderPlayer(id) {
                 </div>
 
                 ${contentType === 'anime' ? `
-                <div class="w-full lg:w-80 flex-shrink-0 anim-slide-up anim-delay-2">
-                    <div class="glass-card rounded-2xl p-4 sticky top-20">
+                <div class="w-full lg:w-80 flex-shrink-0">
+                    <div class="glass-card rounded-2xl p-4 h-fit">
                         <div class="flex items-center justify-between mb-3">
                             <h3 class="font-bold flex items-center gap-2 text-white"><i data-lucide="list" class="w-4 h-4 text-gold-400"></i> Episodes</h3>
                         </div>
@@ -2191,7 +2191,7 @@ function renderPlayer(id) {
                             <button class="episode-language-tab active" data-episode-language="sub" onclick="switchEpisodeLanguage('sub')">Sub</button>
                             <button class="episode-language-tab" data-episode-language="dub" onclick="switchEpisodeLanguage('dub')">Dub</button>
                         </div>
-                        <div class="space-y-2 max-h-[60vh] overflow-y-auto pr-1" id="episode-list" data-anime-id="${a.id}">
+                        <div class="overflow-y-auto max-h-[60vh] lg:max-h-[calc(100vh-12rem)] pb-4 pr-1" id="episode-list" data-anime-id="${a.id}">
                             ${renderEpisodeList(a, episodeDefaultLanguage)}
                         </div>
                     </div>

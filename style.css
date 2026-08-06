@@ -951,19 +951,38 @@ html { scroll-behavior: smooth; }
 /* Grid layout for the episode list container */
 #episode-list {
     display: grid;
-    grid-template-columns: repeat(12, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 18px;
 }
 
-@media (max-width: 1024px) {
-    #episode-list {
-        grid-template-columns: repeat(6,1fr);
-    }
+#episode-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+#episode-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#episode-list::-webkit-scrollbar-thumb {
+    background: rgba(251, 191, 36, 0.3);
+    border-radius: 10px;
+}
+
+#episode-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(251, 191, 36, 0.5);
+}
+
+.light #episode-list::-webkit-scrollbar-thumb {
+    background: rgba(245, 158, 11, 0.4);
+}
+
+.light #episode-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(245, 158, 11, 0.6);
 }
 
 @media (max-width: 640px) {
     #episode-list {
-        grid-template-columns: repeat(4,1fr);
+        grid-template-columns: repeat(4, 1fr) !important;
     }
 }
 
