@@ -51,6 +51,42 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Test email endpoint
+app.get('/test-email', async (req, res) => {
+  const mailer = getMailer();
+  if (!mailer) {
+    return res.status(500).json({ 
+      ok: false, 
+      error: 'Email configuration missing',
+      config: {
+        hasUser: !!process.env.EMAIL_USER,
+        hasPass: !!process.env.EMAIL_APP_PASSWORD,
+        hasHost: !!process.env.SMTP_HOST,
+        hasPort: !!process.env.SMTP_PORT
+      }
+    });
+  }
+
+  try {
+    await mailer.verify();
+    res.json({ 
+      ok: true, 
+      message: 'SMTP configuration is valid',
+      config: {
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT,
+        user: process.env.EMAIL_USER
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      ok: false, 
+      error: error.message,
+      details: error
+    });
+  }
+});
+
 // Verification page route
 app.get('/verify-email.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'verify-email.html'));
@@ -1476,13 +1512,18 @@ function getMailer() {
   
   if (!user || !pass || !host || !port) return null;
 
+  const portNum = parseInt(port);
+  
   return nodemailer.createTransport({
     host,
-    port: parseInt(port),
-    secure: false, // true for 465, false for other ports
+    port: portNum,
+    secure: portNum === 465, // true for 465 (SSL), false for 587 (TLS)
     auth: {
       user,
       pass,
+    },
+    tls: {
+      rejectUnauthorized: false, // for development/testing
     },
   });
 }
