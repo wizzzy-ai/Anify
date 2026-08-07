@@ -50,8 +50,8 @@ function ensureHttps(url) {
 // ============ COUNTRY DETECTION ============
 (async function detectCountry() {
     try {
-        // Request country from our server (which securely calls IPinfo)
-        const response = await fetch('/api/country');
+        // Use IPinfo API directly from client side (for development/testing)
+        const response = await fetch('https://ipinfo.io/json?token=2bb362d589e24c');
         
         if (!response.ok) {
             throw new Error('Geolocation service unavailable');
@@ -59,7 +59,7 @@ function ensureHttps(url) {
         
         const data = await response.json();
         
-        if (data.ok && data.country) {
+        if (data.country) {
             const countryCodeElement = document.getElementById('country-code');
             if (countryCodeElement) {
                 countryCodeElement.textContent = data.country;
