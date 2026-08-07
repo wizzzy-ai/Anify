@@ -1569,6 +1569,7 @@ function generateOtpCode() {
 
 app.post('/api/auth/register', requireDb, async (req, res) => {
   try {
+    console.log('[Register] Registration attempt started');
     const { name, username, email, password } = req.body || {};
     if (!username || !email || !password) {
       return res.status(400).json({ ok: false, error: 'username, email and password are required.' });
@@ -1577,6 +1578,7 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
     const normalizedEmail = String(email).toLowerCase().trim();
     const normalizedUsername = String(username).trim();
 
+    console.log('[Register] Checking for existing email:', normalizedEmail);
     const existingEmail = await User.findOne({ email: normalizedEmail }).catch(e => {
       console.error('Database error checking email:', e);
       throw new Error('Database error occurred');
@@ -1589,6 +1591,7 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
       return res.status(409).json({ ok: false, error: 'Email already exists.' });
     }
 
+    console.log('[Register] Checking for existing username:', normalizedUsername);
     const existingUser = await User.findOne({ username: normalizedUsername }).catch(e => {
       console.error('Database error checking username:', e);
       throw new Error('Database error occurred');
@@ -1597,19 +1600,23 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
 
     // Generate the first OTP before creating the user so it is stored inside
     // the same User document from the start.
+    console.log('[Register] Getting mailer configuration');
     const mailer = getMailer();
     if (!mailer) {
       console.error('SMTP not configured. Missing EMAIL_USER, EMAIL_APP_PASSWORD, SMTP_HOST, or SMTP_PORT');
       return res.status(500).json({ ok: false, error: 'SMTP not configured. Set EMAIL_USER, EMAIL_APP_PASSWORD, SMTP_HOST, and SMTP_PORT in .env.' });
     }
 
+    console.log('[Register] Generating OTP code');
     const code = generateOtpCode();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     // Create user in pending verification state
+    console.log('[Register] Hashing password');
     const passwordHash = await bcrypt.hash(String(password), 10);
     // For security, registration endpoint should only create users with the 'user' role.
     // Admin creation should be handled by a separate, secure script or internal process.
+    console.log('[Register] Creating user in database');
     const user = await User.create({
       name: name || normalizedUsername,
       username: normalizedUsername,
@@ -1629,6 +1636,7 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
     const fromName = process.env.EMAIL_FROM_NAME || 'Anify';
     const htmlContent = getOtpEmailTemplate(code);
     
+    console.log('[Register] Sending email to:', normalizedEmail);
     try {
       // Add timeout to email sending to prevent hanging
       const emailPromise = mailer.sendMail({
@@ -1644,9 +1652,9 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
       });
       
       const info = await Promise.race([emailPromise, timeoutPromise]);
-      console.log('Email sent successfully:', info.messageId);
+      console.log('[Register] Email sent successfully:', info.messageId);
     } catch (emailError) {
-      console.error('Failed to send email:', emailError);
+      console.error('[Register] Failed to send email:', emailError);
       // Delete the user since email failed
       await User.deleteOne({ _id: user._id }).catch(e => console.warn('Failed to delete user after email error:', e));
       return res.status(500).json({ 
@@ -1657,7 +1665,25 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
 
     res.status(201).json({ ok: true, message: 'OTP sent', userId: String(user._id), email: user.email });
   } catch (e) {
-    res.status(500).json({ ok: false, error: String(e?.message || e) });
+    console.error('[Register Error] Full error:', e);
+    console.error('[Register Error] Error name:', e?.name);
+    console.error('[Register Error] Error message:', e?.message);
+    console.error('[Register Error] Error stack:', e?.stack);
+    
+    // More specific error messages
+    let errorMessage = 'Registration failed';
+    if (e?.message) {
+      errorMessage = e.message;
+    }
+    
+    res.status(500).json({ 
+      ok: false, 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? {
+        name: e?.name,
+        stack: e?.stack
+      } : undefined
+    });
   }
 });
 
