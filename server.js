@@ -122,7 +122,12 @@ app.get('/api/country', async (req, res) => {
                      req.socket?.remoteAddress ||
                      req.ip;
     
-    console.log('[COUNTRY DEBUG] IP being sent to IPinfo:', clientIp);
+    console.log('[COUNTRY DEBUG] IPINFO_TOKEN exists:', Boolean(process.env.IPINFO_TOKEN));
+    console.log('[COUNTRY DEBUG] req.ip:', req.ip);
+    console.log('[COUNTRY DEBUG] x-forwarded-for:', req.headers['x-forwarded-for']);
+    console.log('[COUNTRY DEBUG] x-real-ip:', req.headers['x-real-ip']);
+    console.log('[COUNTRY DEBUG] cf-connecting-ip:', req.headers['cf-connecting-ip']);
+    console.log('[COUNTRY DEBUG] Resolved client IP:', clientIp);
     
     // Check if request is from localhost
     const isLocalhost = clientIp === '::1' || 
@@ -199,7 +204,9 @@ app.get('/api/country', async (req, res) => {
     throw new Error('No country code found');
     
   } catch (error) {
-    console.error('[COUNTRY DEBUG] Error:', error.message);
+    console.error('[COUNTRY DEBUG] ERROR MESSAGE:', error?.message);
+    console.error('[COUNTRY DEBUG] ERROR STACK:', error?.stack);
+    console.error('[COUNTRY DEBUG] ERROR OBJECT:', error);
     return res.status(500).json({
       ok: false,
       country: null,
