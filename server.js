@@ -279,6 +279,7 @@ function normalizeAnime(anime) {
 
 function requireDb(req, res, next) {
   if (!dbReady) {
+    console.error('[requireDb] MongoDB not connected, rejecting request');
     return res.status(503).json({
       ok: false,
       error: 'MongoDB is not connected. Add MONGODB_URI to .env and restart the server.',
@@ -1576,7 +1577,10 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
     const normalizedEmail = String(email).toLowerCase().trim();
     const normalizedUsername = String(username).trim();
 
-    const existingEmail = await User.findOne({ email: normalizedEmail });
+    const existingEmail = await User.findOne({ email: normalizedEmail }).catch(e => {
+      console.error('Database error checking email:', e);
+      throw new Error('Database error occurred');
+    });
     if (existingEmail) {
       // Apply defaults for missing fields (for users created before schema update)
       if (existingEmail.isVerified === undefined) existingEmail.isVerified = false;
@@ -1585,7 +1589,10 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
       return res.status(409).json({ ok: false, error: 'Email already exists.' });
     }
 
-    const existingUser = await User.findOne({ username: normalizedUsername });
+    const existingUser = await User.findOne({ username: normalizedUsername }).catch(e => {
+      console.error('Database error checking username:', e);
+      throw new Error('Database error occurred');
+    });
     if (existingUser) return res.status(409).json({ ok: false, error: 'Username already exists.' });
 
     // Generate the first OTP before creating the user so it is stored inside
@@ -1614,22 +1621,34 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
       status: 'pending',
       roles: ['user'],
       emailVerification: { code, expiresAt, attempts: 0, maxAttempts: 5, lastResendAt: new Date() },
+    }).catch(e => {
+      console.error('Database error creating user:', e);
+      throw new Error('Failed to create user account');
     });
 
     const fromName = process.env.EMAIL_FROM_NAME || 'Anify';
     const htmlContent = getOtpEmailTemplate(code);
     
     try {
-      const info = await mailer.sendMail({
+      // Add timeout to email sending to prevent hanging
+      const emailPromise = mailer.sendMail({
         from: `${fromName} <${process.env.EMAIL_USER}>`,
         to: normalizedEmail,
         subject: 'Verify Your Email - Anify',
         html: htmlContent,
         text: `Your ANIFY verification code is: ${code}. It expires in 10 minutes.`
       });
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Email sending timeout')), 15000); // 15 second timeout
+      });
+      
+      const info = await Promise.race([emailPromise, timeoutPromise]);
       console.log('Email sent successfully:', info.messageId);
     } catch (emailError) {
       console.error('Failed to send email:', emailError);
+      // Delete the user since email failed
+      await User.deleteOne({ _id: user._id }).catch(e => console.warn('Failed to delete user after email error:', e));
       return res.status(500).json({ 
         ok: false, 
         error: `Failed to send OTP email: ${emailError.message}. Check your Gmail App Password and ensure 2FA is enabled.` 
