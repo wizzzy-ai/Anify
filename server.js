@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import dns from "node:dns";
+import https from 'https';
 
 // Force Node.js to use Cloudflare DNS
 dns.setServers(["1.1.1.1", "1.0.0.1"]);
@@ -151,8 +152,6 @@ app.get('/api/country', async (req, res) => {
     }
     
     // Production: Use IPinfo lite endpoint with client IP
-    const https = require('https');
-    
     const data = await new Promise((resolve, reject) => {
       const options = {
         hostname: 'ipinfo.io',
