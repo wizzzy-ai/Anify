@@ -47,6 +47,31 @@ function ensureHttps(url) {
     }
 })();
 
+// ============ COUNTRY DETECTION ============
+(async function detectCountry() {
+    try {
+        // Request country from our server (which securely calls IPinfo)
+        const response = await fetch('/api/country');
+        
+        if (!response.ok) {
+            throw new Error('Geolocation service unavailable');
+        }
+        
+        const data = await response.json();
+        
+        if (data.ok && data.country) {
+            const countryCodeElement = document.getElementById('country-code');
+            if (countryCodeElement) {
+                countryCodeElement.textContent = data.country;
+                countryCodeElement.classList.remove('hidden');
+            }
+        }
+    } catch (error) {
+        console.log('[Country Detection] Unable to detect country:', error.message);
+        // Fail silently - country code simply won't be displayed
+    }
+})();
+
 // ============ DATA ============
 const animeData = [
     { id: 1, title: "Attack on Titan", titleJp: "進撃の巨人", rating: 9.0, year: 2013, episodes: 87, genres: ["Action", "Drama", "Fantasy"], status: "Completed", studio: "MAPPA", image: "http://static.photos/technology/640x360/1", banner: "http://static.photos/technology/1200x630/1", desc: "Humanity lives within cities surrounded by enormous walls due to the Titans, gigantic humanoid beings. The story follows Eren Yeager, who vows to exterminate the Titans after they bring about the destruction of his hometown and the death of his mother.", featured: true, trending: true, premium: false, newEpisode: false },

@@ -98,6 +98,68 @@ app.get('/test-email', async (req, res) => {
   }
 });
 
+// Country detection endpoint (server-side, secure)
+app.get('/api/country', async (req, res) => {
+  try {
+    const apiKey = process.env.IPINFO_TOKEN;
+    console.log('[Country Detection] API Key present:', !!apiKey);
+    
+    if (!apiKey) {
+      console.error('[Country Detection] IPINFO_TOKEN not configured in .env');
+      throw new Error('IPinfo API key not configured');
+    }
+    
+    // Use native https module for better compatibility
+    const https = require('https');
+    
+    const data = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'ipinfo.io',
+        path: `/json?token=${apiKey}`,
+        method: 'GET'
+      };
+      
+      const req = https.request(options, (response) => {
+        let body = '';
+        response.on('data', (chunk) => {
+          body += chunk;
+        });
+        response.on('end', () => {
+          try {
+            resolve(JSON.parse(body));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+      
+      req.on('error', reject);
+      req.setTimeout(10000, () => {
+        req.destroy();
+        reject(new Error('Timeout'));
+      });
+      req.end();
+    });
+    
+    if (data.country) {
+      return res.json({ 
+        ok: true, 
+        country: data.country 
+      });
+    }
+    
+    throw new Error('No country code found');
+    
+  } catch (error) {
+    console.error('[Country Detection] Error:', error.message);
+    // Return a default or error state without exposing details
+    res.json({ 
+      ok: false, 
+      country: null 
+    });
+  }
+});
+
 // Banned page route
 app.get('/account-banned', (req, res) => {
   res.sendFile(path.join(__dirname, 'account-banned.html'));
@@ -2353,10 +2415,10 @@ app.post('/api/admin/fix-user-verification', requireDb, async (req, res) => {
 });
 
 // Catch-all route for SPA client-side routing (must be last)
-app.get('*', (req, res, next) => {
-  // Skip API routes
+app.use((req, res) => {
+  // Skip API routes - let them 404 naturally
   if (req.path.startsWith('/api/')) {
-    return next();
+    return res.status(404).json({ ok: false, error: 'API endpoint not found' });
   }
   // Serve anify.html for client-side routing
   res.sendFile(path.join(__dirname, 'anify.html'));
