@@ -1603,20 +1603,7 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
     });
     if (existingUser) return res.status(409).json({ ok: false, error: 'Username already exists.' });
 
-    // Generate the first OTP before creating the user so it is stored inside
-    // the same User document from the start.
-    console.log('[Register] Getting mailer configuration');
-    const mailer = getMailer();
-    if (!mailer) {
-      console.error('SMTP not configured. Missing EMAIL_USER, EMAIL_APP_PASSWORD, SMTP_HOST, or SMTP_PORT');
-      return res.status(500).json({ ok: false, error: 'SMTP not configured. Set EMAIL_USER, EMAIL_APP_PASSWORD, SMTP_HOST, and SMTP_PORT in .env.' });
-    }
-
-    console.log('[Register] Generating OTP code');
-    const code = generateOtpCode();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-    // Create user in pending verification state
+    // Create user directly without OTP verification
     console.log('[Register] Hashing password');
     const passwordHash = await bcrypt.hash(String(password), 10);
     // For security, registration endpoint should only create users with the 'user' role.
@@ -1629,69 +1616,16 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
       passwordHash,
       avatar: req.body.avatar || undefined,
       plan: req.body.plan || 'Free',
-      isVerified: false,
-      status: 'pending',
+      isVerified: true, // Auto-verify users
+      status: 'active',
       roles: ['user'],
-      emailVerification: { code, expiresAt, attempts: 0, maxAttempts: 5, lastResendAt: new Date() },
     }).catch(e => {
       console.error('Database error creating user:', e);
       throw new Error('Failed to create user account');
     });
 
-    const fromName = process.env.EMAIL_FROM_NAME || 'Anify';
-    const htmlContent = getOtpEmailTemplate(code);
-    
-    console.log('[Register] Sending email to:', normalizedEmail);
-    try {
-      // Add timeout to email sending to prevent hanging
-      // Use longer timeout for production (Render) vs local development
-      const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
-      const timeoutMs = isProduction ? 30000 : 15000; // 30s for production, 15s for local
-      
-      console.log('[Register] Email timeout set to:', timeoutMs, 'ms (production:', isProduction, ')');
-      
-      const emailPromise = mailer.sendMail({
-        from: `${fromName} <${process.env.EMAIL_USER}>`,
-        to: normalizedEmail,
-        subject: 'Verify Your Email - Anify',
-        html: htmlContent,
-        text: `Your ANIFY verification code is: ${code}. It expires in 10 minutes.`
-      });
-      
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Email sending timeout')), timeoutMs);
-      });
-      
-      const info = await Promise.race([emailPromise, timeoutPromise]);
-      console.log('[Register] Email sent successfully:', info.messageId);
-    } catch (emailError) {
-      console.error('[Register] Failed to send email:', emailError);
-      // In production, don't delete user - allow manual verification or retry
-      const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
-      if (!isProduction) {
-        // Only delete user in development
-        await User.deleteOne({ _id: user._id }).catch(e => console.warn('Failed to delete user after email error:', e));
-      }
-      
-      // Return the OTP code in development mode for testing
-      if (!isProduction) {
-        console.log('[Register] Development mode - returning OTP in response:', code);
-        return res.status(200).json({ 
-          ok: true, 
-          message: 'OTP generated (email failed in development)',
-          userId: String(user._id), 
-          email: user.email,
-          developmentOtp: code // Only in development
-        });
-      }
-      
-      return res.status(500).json({ 
-        ok: false, 
-        error: `Failed to send OTP email: ${emailError.message}. Check your Gmail App Password and ensure 2FA is enabled.` 
-      });
-    }
-
-    res.status(201).json({ ok: true, message: 'OTP sent', userId: String(user._id), email: user.email });
+    console.log('[Register] User created successfully:', user._id);
+    res.status(201).json({ ok: true, message: 'Registration successful', userId: String(user._id), email: user.email });
   } catch (e) {
     console.error('[Register Error] Full error:', e);
     console.error('[Register Error] Error name:', e?.name);
@@ -1735,6 +1669,11 @@ app.post('/api/auth/verify-otp', requireDb, async (req, res) => {
       const isAdmin = Array.isArray(user.roles) && user.roles.includes('admin');
       if (isAdmin) {
         return res.status(400).json({ ok: false, error: 'Admin accounts do not require email verification.' });
+      }
+      
+      // If user is already verified, they don't need OTP
+      if (user.isVerified) {
+        return res.status(400).json({ ok: false, error: 'Email is already verified. You can login directly.' });
       }
     }
     
@@ -2058,58 +1997,29 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
       roles: user.roles
     });
 
-    // Skip email verification for admin users (including seeded admin)
+    // Skip email verification check - allow direct login for all users
     const isAdmin = Array.isArray(user.roles) && (user.roles.includes('admin') || user.roles.includes('moderator') || user.roles.includes('shield'));
     console.log('[Auth] Login - isAdmin check result:', isAdmin, 'User roles:', user.roles);
     
     // Check if user has verified their email (skip for admins)
     const isVerifiedByFlag = user.isVerified === true;
     console.log('[Auth] Login - isVerifiedByFlag check result:', isVerifiedByFlag, 'User isVerified:', user.isVerified);
-    if (!isVerifiedByFlag && !isAdmin) {
-      // Generate new OTP and send email
-      const mailer = getMailer();
-      if (mailer) {
-        const code = generateOtpCode();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-        await User.collection.updateOne(
-          { _id: user._id },
-          {
-            $set: {
-              emailVerification: { code, expiresAt, attempts: 0, maxAttempts: 5, lastResendAt: new Date() },
-              updatedAt: new Date()
-            }
-          }
-        );
-
-        const fromName = process.env.EMAIL_FROM_NAME || 'Anify';
-        const htmlContent = getOtpEmailTemplate(code);
-        
-        try {
-          await mailer.sendMail({
-            from: `${fromName} <${process.env.EMAIL_USER}>`,
-            to: user.email,
-            subject: 'Verify Your Email - Anify',
-            html: htmlContent,
-            text: `Your ANIFY verification code is: ${code}. It expires in 10 minutes.`
-          });
-        } catch (emailError) {
-          console.error('Failed to send verification email:', emailError);
-        }
-      }
-
-      return res.status(403).json({ 
-        ok: false, 
-        error: 'Please verify your email address',
-        requiresVerification: true,
-        email: user.email
-      });
+    
+    // Auto-verify users who aren't verified yet
+    if (!isVerifiedByFlag) {
+      console.log('[Auth] Auto-verifying user:', user.email);
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { isVerified: true, status: 'active' } }
+      );
+      user.isVerified = true;
+      user.status = 'active';
     }
 
     // Check if user is banned
     if (user.status === 'Banned') {
       console.log('[Auth] User is banned:', { userId: user._id, username: user.username, banInfo: user.banInfo });
-      const payload = { userId: String(user._id), username: user.username, roles: user.roles, status: user.status, isVerified: user.isVerified };
+      const payload = { userId: String(user._id), username: user.username, roles: user.roles, status: user.status, isVerified: true };
       const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
       return res.json({
@@ -2123,14 +2033,14 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
           roles: user.roles, 
           plan: user.plan, 
           status: user.status,
-          isVerified: user.isVerified,
+          isVerified: true,
           banInfo: user.banInfo
         },
         banned: true,
       });
     }
 
-    const payload = { userId: String(user._id), username: user.username, roles: user.roles, status: user.status, isVerified: user.isVerified };
+    const payload = { userId: String(user._id), username: user.username, roles: user.roles, status: user.status || 'active', isVerified: true };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.json({
