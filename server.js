@@ -31,6 +31,12 @@ const app = express();
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(__dirname));
 
+// Set Content Security Policy header
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy', "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: ws: wss: data: blob:; connect-src 'self' https: http: ws: wss: localhost:127.0.0.1:*; img-src 'self' https: http: data: blob:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:;");
+  next();
+});
+
 // Increase server timeout for large file uploads
 app.use((req, res, next) => {
   res.setTimeout(600000, () => {
