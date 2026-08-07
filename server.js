@@ -1958,22 +1958,30 @@ app.get('/api/auth/user', requireDb, requireAuth, async (req, res) => {
 
 app.post('/api/auth/login', requireDb, async (req, res) => {
   try {
+    console.log('[Auth] Login attempt started');
     const { email, password } = req.body || {};
-
 
     if (!email || !password) {
       return res.status(400).json({ ok: false, error: 'email and password are required.' });
     }
 
-    const user = await User.findOne({ email: String(email).toLowerCase().trim() });
-    if (!user) return res.status(401).json({ ok: false, error: 'Invalid credentials.' });
+    console.log('[Auth] Looking up user:', email);
+    const user = await User.findOne({ email: String(email).toLowerCase().trim() }).catch(e => {
+      console.error('[Auth] Database error finding user:', e);
+      throw new Error('Database error occurred');
+    });
+    
+    if (!user) {
+      console.log('[Auth] User not found:', email);
+      return res.status(401).json({ ok: false, error: 'Invalid credentials.' });
+    }
 
     // Apply defaults for missing fields (for users created before schema update)
     if (user.isVerified === undefined) user.isVerified = false;
     if (user.status === undefined) user.status = 'pending';
     if (!user.roles || !Array.isArray(user.roles)) user.roles = ['user'];
 
-    console.log('[Auth] Login - User fetched from DB:', {
+    console.log('[Auth] User fetched from DB:', {
       email: user.email,
       isVerified: user.isVerified,
       status: user.status,
@@ -1981,11 +1989,19 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
       userId: user._id
     });
 
-    const ok = await bcrypt.compare(String(password), user.passwordHash);
-    if (!ok) return res.status(401).json({ ok: false, error: 'Invalid credentials.' });
+    console.log('[Auth] Comparing password');
+    const ok = await bcrypt.compare(String(password), user.passwordHash).catch(e => {
+      console.error('[Auth] Password comparison error:', e);
+      throw new Error('Password verification failed');
+    });
+    
+    if (!ok) {
+      console.log('[Auth] Invalid password for:', email);
+      return res.status(401).json({ ok: false, error: 'Invalid credentials.' });
+    }
 
     // Debug logging
-    console.log('[Auth] Login attempt:', {
+    console.log('[Auth] Password verified successfully:', {
       email: user.email,
       isVerified: user.isVerified,
       status: user.status,
@@ -1994,11 +2010,11 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
 
     // Skip email verification check - allow direct login for all users
     const isAdmin = Array.isArray(user.roles) && (user.roles.includes('admin') || user.roles.includes('moderator') || user.roles.includes('shield'));
-    console.log('[Auth] Login - isAdmin check result:', isAdmin, 'User roles:', user.roles);
+    console.log('[Auth] isAdmin check result:', isAdmin, 'User roles:', user.roles);
     
     // Check if user has verified their email (skip for admins)
     const isVerifiedByFlag = user.isVerified === true;
-    console.log('[Auth] Login - isVerifiedByFlag check result:', isVerifiedByFlag, 'User isVerified:', user.isVerified);
+    console.log('[Auth] isVerifiedByFlag check result:', isVerifiedByFlag, 'User isVerified:', user.isVerified);
     
     // Auto-verify users who aren't verified yet
     if (!isVerifiedByFlag) {
@@ -2006,7 +2022,10 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
       await User.updateOne(
         { _id: user._id },
         { $set: { isVerified: true, status: 'active' } }
-      );
+      ).catch(e => {
+        console.error('[Auth] Failed to auto-verify user:', e);
+        // Continue anyway since login should still work
+      });
       user.isVerified = true;
       user.status = 'active';
     }
@@ -2035,16 +2054,30 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
       });
     }
 
+    console.log('[Auth] Generating JWT token');
     const payload = { userId: String(user._id), username: user.username, roles: user.roles, status: user.status || 'active', isVerified: true };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
+    console.log('[Auth] Login successful:', { email: user.email, userId: user._id });
     res.json({
       ok: true,
       token,
       user: { id: user._id, username: user.username, email: user.email, name: user.name, roles: user.roles, plan: user.plan, status: user.status, isVerified: user.isVerified, banInfo: user.banInfo },
     });
   } catch (e) {
-    res.status(500).json({ ok: false, error: String(e?.message || e) });
+    console.error('[Auth] Login error:', e);
+    console.error('[Auth] Error name:', e?.name);
+    console.error('[Auth] Error message:', e?.message);
+    console.error('[Auth] Error stack:', e?.stack);
+    
+    res.status(500).json({ 
+      ok: false, 
+      error: String(e?.message || e),
+      details: process.env.NODE_ENV === 'development' ? {
+        name: e?.name,
+        stack: e?.stack
+      } : undefined
+    });
   }
 });
 
