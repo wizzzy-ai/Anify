@@ -93,11 +93,6 @@ app.get('/test-email', async (req, res) => {
   }
 });
 
-// Verification page route
-app.get('/verify-email.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'verify-email.html'));
-});
-
 // Banned page route
 app.get('/account-banned', (req, res) => {
   res.sendFile(path.join(__dirname, 'account-banned.html'));

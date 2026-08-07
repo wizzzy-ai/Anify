@@ -3504,16 +3504,6 @@ async function handleLoginSubmit() {
         navigate(isAdmin ? 'admin' : 'profile');
     } catch (e) {
         const errorMessage = String(e?.message || e);
-        
-        // Check if user needs email verification
-        if (errorMessage.includes('verify your email') || errorMessage.includes('requiresVerification')) {
-            // Store email for verification page
-            localStorage.setItem('registerEmail', email);
-            // Redirect to verification page
-            window.location.href = `/verify-email.html?email=${encodeURIComponent(email)}`;
-            return;
-        }
-        
         alert(errorMessage);
         
         // Re-enable button and restore original text
@@ -3549,23 +3539,9 @@ async function handleRegisterSubmit() {
     try {
         await authService.register({ username, email, password });
 
-        // Store registration data for verification page
-        localStorage.setItem('registerEmail', email);
-        localStorage.setItem('registerUsername', username);
-        localStorage.setItem('registerPassword', password);
-
-        // Store last watched data for resume after registration (guest preview)
-        if (guestPreviewService) {
-            const lastWatched = guestPreviewService.getLastWatched();
-            if (lastWatched) {
-                localStorage.setItem('lastWatchedAnime', lastWatched.animeId);
-                localStorage.setItem('lastWatchedEpisode', lastWatched.episodeId);
-                localStorage.setItem('lastWatchedTime', lastWatched.playbackTime);
-            }
-        }
-
-        // Redirect to verification page
-        window.location.href = `/verify-email.html?email=${encodeURIComponent(email)}`;
+        // Registration successful - redirect to login page
+        alert('Registration successful! Please sign in with your credentials.');
+        window.location.href = `#login`;
     } catch (e) {
         alert(String(e?.message || e));
         
