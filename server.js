@@ -2055,6 +2055,13 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
     }
 
     console.log('[Auth] Generating JWT token');
+    
+    // Check if JWT_SECRET is set
+    if (!process.env.JWT_SECRET) {
+      console.error('[Auth] JWT_SECRET is not set!');
+      return res.status(500).json({ ok: false, error: 'Server configuration error: JWT_SECRET not set' });
+    }
+    
     const payload = { userId: String(user._id), username: user.username, roles: user.roles, status: user.status || 'active', isVerified: true };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
