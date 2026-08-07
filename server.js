@@ -48,6 +48,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// Serve anify.html as default for root
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'anify.html'));
+});
+
 // Health check endpoint for Render
 app.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -2345,6 +2350,16 @@ app.post('/api/admin/fix-user-verification', requireDb, async (req, res) => {
     console.error('[Fix User] Error:', error);
     res.status(500).json({ ok: false, error: String(error?.message || error) });
   }
+});
+
+// Catch-all route for SPA client-side routing (must be last)
+app.get('*', (req, res, next) => {
+  // Skip API routes
+  if (req.path.startsWith('/api/')) {
+    return next();
+  }
+  // Serve anify.html for client-side routing
+  res.sendFile(path.join(__dirname, 'anify.html'));
 });
 
 const port = process.env.PORT || 3000;
