@@ -100,27 +100,29 @@ app.get('/test-email', async (req, res) => {
 
 // Country detection endpoint (server-side, secure)
 app.get('/api/country', async (req, res) => {
+  console.log('[COUNTRY DEBUG] ===== COUNTRY REQUEST =====');
+  console.log('[COUNTRY DEBUG] req.ip:', req.ip);
+  console.log('[COUNTRY DEBUG] socket IP:', req.socket?.remoteAddress);
+  console.log('[COUNTRY DEBUG] x-forwarded-for:', req.headers['x-forwarded-for']);
+  console.log('[COUNTRY DEBUG] x-real-ip:', req.headers['x-real-ip']);
+  console.log('[COUNTRY DEBUG] cf-connecting-ip:', req.headers['cf-connecting-ip']);
+  console.log('[COUNTRY DEBUG] IPINFO_TOKEN exists:', Boolean(process.env.IPINFO_TOKEN));
+
   try {
     const apiKey = process.env.IPINFO_TOKEN;
-    console.log('[COUNTRY DEBUG] API Key present:', !!apiKey);
     
     if (!apiKey) {
       throw new Error('IPinfo API key not configured');
     }
     
-    // Debug logging for IP detection
-    console.log('[COUNTRY DEBUG] req.ip:', req.ip);
-    console.log('[COUNTRY DEBUG] socket IP:', req.socket?.remoteAddress);
-    console.log('[COUNTRY DEBUG] x-forwarded-for:', req.headers['x-forwarded-for']);
-    console.log('[COUNTRY DEBUG] x-real-ip:', req.headers['x-real-ip']);
-    
     // Get client IP address, considering proxy headers
     const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || 
+                     req.headers['cf-connecting-ip'] ||
                      req.headers['x-real-ip'] || 
                      req.socket?.remoteAddress ||
                      req.ip;
     
-    console.log('[COUNTRY DEBUG] Resolved client IP:', clientIp);
+    console.log('[COUNTRY DEBUG] IP being sent to IPinfo:', clientIp);
     
     // Check if request is from localhost
     const isLocalhost = clientIp === '::1' || 
@@ -146,8 +148,6 @@ app.get('/api/country', async (req, res) => {
     // Production: Use IPinfo lite endpoint with client IP
     const https = require('https');
     
-    console.log('[COUNTRY DEBUG] Querying IPinfo for IP:', clientIp);
-    
     const data = await new Promise((resolve, reject) => {
       const options = {
         hostname: 'ipinfo.io',
@@ -165,7 +165,7 @@ app.get('/api/country', async (req, res) => {
         response.on('end', () => {
           try {
             const parsed = JSON.parse(body);
-            console.log('[COUNTRY DEBUG] IPinfo response:', parsed);
+            console.log('[COUNTRY DEBUG] IPinfo response country:', parsed.country);
             resolve(parsed);
           } catch (e) {
             console.log('[COUNTRY DEBUG] JSON parse error:', e.message);
@@ -200,10 +200,10 @@ app.get('/api/country', async (req, res) => {
     
   } catch (error) {
     console.error('[COUNTRY DEBUG] Error:', error.message);
-    // Return a default or error state without exposing details
-    res.json({ 
-      ok: false, 
-      country: null 
+    return res.status(500).json({
+      ok: false,
+      country: null,
+      error: 'Country detection failed'
     });
   }
 });
