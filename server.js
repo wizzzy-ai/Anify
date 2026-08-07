@@ -115,6 +115,9 @@ app.get('/api/country', async (req, res) => {
                      req.socket?.remoteAddress ||
                      req.ip;
     
+    console.log('[COUNTRY DEBUG] STEP 1 - Client IP:', clientIp);
+    console.log('[COUNTRY DEBUG] STEP 2 - About to call IPinfo');
+    
     // Check if request is from localhost
     const isLocalhost = clientIp === '::1' || 
                         clientIp === '127.0.0.1' || 
@@ -142,15 +145,22 @@ app.get('/api/country', async (req, res) => {
       };
       
       const req = https.request(options, (response) => {
+        console.log('[COUNTRY DEBUG] STEP 3 - IPinfo request completed');
+        console.log('[COUNTRY DEBUG] STEP 3 - HTTP status:', response.statusCode);
+        console.log('[COUNTRY DEBUG] STEP 3 - Content-Type:', response.headers['content-type']);
+        
         let body = '';
         response.on('data', (chunk) => {
           body += chunk;
         });
         response.on('end', () => {
+          console.log('[COUNTRY DEBUG] STEP 4 - Raw IPinfo response:', body);
           try {
             const parsed = JSON.parse(body);
+            console.log('[COUNTRY DEBUG] STEP 5 - Parsed IPinfo data:', parsed);
             resolve(parsed);
           } catch (e) {
+            console.error('[COUNTRY DEBUG] JSON PARSE ERROR:', e);
             reject(e);
           }
         });
@@ -168,6 +178,9 @@ app.get('/api/country', async (req, res) => {
       req.end();
     });
     
+    console.log('[COUNTRY DEBUG] STEP 6 - Country:', data.country);
+    console.log('[COUNTRY DEBUG] STEP 6 - Country code:', data.countryCode);
+    
     if (data.country) {
       return res.json({ 
         ok: true, 
@@ -178,6 +191,8 @@ app.get('/api/country', async (req, res) => {
     throw new Error('No country code found');
     
   } catch (error) {
+    console.error('[COUNTRY DEBUG] ACTUAL ERROR:', error?.message);
+    console.error('[COUNTRY DEBUG] STACK:', error?.stack);
     return res.status(500).json({
       ok: false,
       country: null,
