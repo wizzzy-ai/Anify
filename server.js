@@ -1520,6 +1520,7 @@ function getMailer() {
   if (!user || !pass || !host || !port) return null;
 
   const portNum = parseInt(port);
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
   
   return nodemailer.createTransport({
     host,
@@ -1530,10 +1531,14 @@ function getMailer() {
       pass,
     },
     tls: {
-      rejectUnauthorized: false, // for development/testing
+      rejectUnauthorized: isProduction, // Allow self-signed certs in development only
     },
     // Force IPv4 to avoid IPv6 connection issues
     family: 4,
+    // Add connection pooling and retry for production
+    pool: isProduction,
+    maxConnections: isProduction ? 5 : 1,
+    maxMessages: isProduction ? 100 : 10,
   });
 }
 
@@ -1639,6 +1644,12 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
     console.log('[Register] Sending email to:', normalizedEmail);
     try {
       // Add timeout to email sending to prevent hanging
+      // Use longer timeout for production (Render) vs local development
+      const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
+      const timeoutMs = isProduction ? 30000 : 15000; // 30s for production, 15s for local
+      
+      console.log('[Register] Email timeout set to:', timeoutMs, 'ms (production:', isProduction, ')');
+      
       const emailPromise = mailer.sendMail({
         from: `${fromName} <${process.env.EMAIL_USER}>`,
         to: normalizedEmail,
@@ -1648,15 +1659,32 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
       });
       
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Email sending timeout')), 15000); // 15 second timeout
+        setTimeout(() => reject(new Error('Email sending timeout')), timeoutMs);
       });
       
       const info = await Promise.race([emailPromise, timeoutPromise]);
       console.log('[Register] Email sent successfully:', info.messageId);
     } catch (emailError) {
       console.error('[Register] Failed to send email:', emailError);
-      // Delete the user since email failed
-      await User.deleteOne({ _id: user._id }).catch(e => console.warn('Failed to delete user after email error:', e));
+      // In production, don't delete user - allow manual verification or retry
+      const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
+      if (!isProduction) {
+        // Only delete user in development
+        await User.deleteOne({ _id: user._id }).catch(e => console.warn('Failed to delete user after email error:', e));
+      }
+      
+      // Return the OTP code in development mode for testing
+      if (!isProduction) {
+        console.log('[Register] Development mode - returning OTP in response:', code);
+        return res.status(200).json({ 
+          ok: true, 
+          message: 'OTP generated (email failed in development)',
+          userId: String(user._id), 
+          email: user.email,
+          developmentOtp: code // Only in development
+        });
+      }
+      
       return res.status(500).json({ 
         ok: false, 
         error: `Failed to send OTP email: ${emailError.message}. Check your Gmail App Password and ensure 2FA is enabled.` 
