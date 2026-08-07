@@ -98,10 +98,114 @@ app.get('/test-email', async (req, res) => {
   }
 });
 
-// Country detection endpoint (disabled for now - using client-side implementation)
-// TODO: Move IPinfo token to backend before production
+// Country detection endpoint (server-side, secure)
 app.get('/api/country', async (req, res) => {
-  res.json({ ok: false, country: null });
+  try {
+    const apiKey = process.env.IPINFO_TOKEN;
+    console.log('[COUNTRY DEBUG] API Key present:', !!apiKey);
+    
+    if (!apiKey) {
+      throw new Error('IPinfo API key not configured');
+    }
+    
+    // Debug logging for IP detection
+    console.log('[COUNTRY DEBUG] req.ip:', req.ip);
+    console.log('[COUNTRY DEBUG] socket IP:', req.socket?.remoteAddress);
+    console.log('[COUNTRY DEBUG] x-forwarded-for:', req.headers['x-forwarded-for']);
+    console.log('[COUNTRY DEBUG] x-real-ip:', req.headers['x-real-ip']);
+    
+    // Get client IP address, considering proxy headers
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || 
+                     req.headers['x-real-ip'] || 
+                     req.socket?.remoteAddress ||
+                     req.ip;
+    
+    console.log('[COUNTRY DEBUG] Resolved client IP:', clientIp);
+    
+    // Check if request is from localhost
+    const isLocalhost = clientIp === '::1' || 
+                        clientIp === '127.0.0.1' || 
+                        clientIp === '::ffff:127.0.0.1' ||
+                        clientIp?.startsWith('192.168.') ||
+                        clientIp?.startsWith('10.') ||
+                        clientIp?.startsWith('172.');
+    
+    if (isLocalhost) {
+      console.log('[COUNTRY DEBUG] Localhost detected, using development fallback');
+      console.log('[COUNTRY DEBUG] This is expected when testing through localhost');
+      console.log('[COUNTRY DEBUG] In production, real visitor IP will be used');
+      
+      // Development-only fallback
+      return res.json({
+        ok: true,
+        country: "NG",
+        development: true
+      });
+    }
+    
+    // Production: Use IPinfo lite endpoint with client IP
+    const https = require('https');
+    
+    console.log('[COUNTRY DEBUG] Querying IPinfo for IP:', clientIp);
+    
+    const data = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'ipinfo.io',
+        path: `/lite/${clientIp}?token=${apiKey}`,
+        method: 'GET',
+        timeout: 10000
+      };
+      
+      const req = https.request(options, (response) => {
+        console.log('[COUNTRY DEBUG] IPinfo response status:', response.statusCode);
+        let body = '';
+        response.on('data', (chunk) => {
+          body += chunk;
+        });
+        response.on('end', () => {
+          try {
+            const parsed = JSON.parse(body);
+            console.log('[COUNTRY DEBUG] IPinfo response:', parsed);
+            resolve(parsed);
+          } catch (e) {
+            console.log('[COUNTRY DEBUG] JSON parse error:', e.message);
+            reject(e);
+          }
+        });
+      });
+      
+      req.on('error', (e) => {
+        console.log('[COUNTRY DEBUG] Request error:', e.message);
+        reject(e);
+      });
+      
+      req.on('timeout', () => {
+        console.log('[COUNTRY DEBUG] Request timeout');
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+      
+      req.end();
+    });
+    
+    if (data.country) {
+      console.log('[COUNTRY DEBUG] Returning country:', data.country);
+      return res.json({ 
+        ok: true, 
+        country: data.country 
+      });
+    }
+    
+    throw new Error('No country code found');
+    
+  } catch (error) {
+    console.error('[COUNTRY DEBUG] Error:', error.message);
+    // Return a default or error state without exposing details
+    res.json({ 
+      ok: false, 
+      country: null 
+    });
+  }
 });
 
 // Banned page route
