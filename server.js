@@ -101,14 +101,6 @@ app.get('/test-email', async (req, res) => {
 
 // Country detection endpoint (server-side, secure)
 app.get('/api/country', async (req, res) => {
-  console.log('[COUNTRY DEBUG] ===== COUNTRY REQUEST =====');
-  console.log('[COUNTRY DEBUG] req.ip:', req.ip);
-  console.log('[COUNTRY DEBUG] socket IP:', req.socket?.remoteAddress);
-  console.log('[COUNTRY DEBUG] x-forwarded-for:', req.headers['x-forwarded-for']);
-  console.log('[COUNTRY DEBUG] x-real-ip:', req.headers['x-real-ip']);
-  console.log('[COUNTRY DEBUG] cf-connecting-ip:', req.headers['cf-connecting-ip']);
-  console.log('[COUNTRY DEBUG] IPINFO_TOKEN exists:', Boolean(process.env.IPINFO_TOKEN));
-
   try {
     const apiKey = process.env.IPINFO_TOKEN;
     
@@ -123,13 +115,6 @@ app.get('/api/country', async (req, res) => {
                      req.socket?.remoteAddress ||
                      req.ip;
     
-    console.log('[COUNTRY DEBUG] IPINFO_TOKEN exists:', Boolean(process.env.IPINFO_TOKEN));
-    console.log('[COUNTRY DEBUG] req.ip:', req.ip);
-    console.log('[COUNTRY DEBUG] x-forwarded-for:', req.headers['x-forwarded-for']);
-    console.log('[COUNTRY DEBUG] x-real-ip:', req.headers['x-real-ip']);
-    console.log('[COUNTRY DEBUG] cf-connecting-ip:', req.headers['cf-connecting-ip']);
-    console.log('[COUNTRY DEBUG] Resolved client IP:', clientIp);
-    
     // Check if request is from localhost
     const isLocalhost = clientIp === '::1' || 
                         clientIp === '127.0.0.1' || 
@@ -139,10 +124,6 @@ app.get('/api/country', async (req, res) => {
                         clientIp?.startsWith('172.');
     
     if (isLocalhost) {
-      console.log('[COUNTRY DEBUG] Localhost detected, using development fallback');
-      console.log('[COUNTRY DEBUG] This is expected when testing through localhost');
-      console.log('[COUNTRY DEBUG] In production, real visitor IP will be used');
-      
       // Development-only fallback
       return res.json({
         ok: true,
@@ -161,7 +142,6 @@ app.get('/api/country', async (req, res) => {
       };
       
       const req = https.request(options, (response) => {
-        console.log('[COUNTRY DEBUG] IPinfo response status:', response.statusCode);
         let body = '';
         response.on('data', (chunk) => {
           body += chunk;
@@ -169,22 +149,18 @@ app.get('/api/country', async (req, res) => {
         response.on('end', () => {
           try {
             const parsed = JSON.parse(body);
-            console.log('[COUNTRY DEBUG] IPinfo response country:', parsed.country);
             resolve(parsed);
           } catch (e) {
-            console.log('[COUNTRY DEBUG] JSON parse error:', e.message);
             reject(e);
           }
         });
       });
       
       req.on('error', (e) => {
-        console.log('[COUNTRY DEBUG] Request error:', e.message);
         reject(e);
       });
       
       req.on('timeout', () => {
-        console.log('[COUNTRY DEBUG] Request timeout');
         req.destroy();
         reject(new Error('Request timeout'));
       });
@@ -193,7 +169,6 @@ app.get('/api/country', async (req, res) => {
     });
     
     if (data.country) {
-      console.log('[COUNTRY DEBUG] Returning country:', data.country);
       return res.json({ 
         ok: true, 
         country: data.country 
@@ -203,9 +178,6 @@ app.get('/api/country', async (req, res) => {
     throw new Error('No country code found');
     
   } catch (error) {
-    console.error('[COUNTRY DEBUG] ERROR MESSAGE:', error?.message);
-    console.error('[COUNTRY DEBUG] ERROR STACK:', error?.stack);
-    console.error('[COUNTRY DEBUG] ERROR OBJECT:', error);
     return res.status(500).json({
       ok: false,
       country: null,
