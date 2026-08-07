@@ -907,8 +907,31 @@ async function initializeApp(){
     const app = document.getElementById('app');
     const loading = document.getElementById('loading-screen');
 
-    await ensureGenresReady();
-    await loadAnimeFromApi();
+    // Run loading operations in parallel with timeout protection
+    const loadingTimeout = setTimeout(() => {
+        console.warn('[App] Loading timeout - forcing app to show');
+        if (loading) loading.style.display = 'none';
+        if (app) {
+            app.classList.remove('opacity-0');
+            app.classList.add('opacity-100');
+        }
+    }, 10000); // 10 second timeout
+
+    try {
+        // Run both loading operations in parallel instead of sequentially
+        await Promise.all([
+            ensureGenresReady().catch(e => {
+                console.warn('[App] Genre loading failed:', e);
+            }),
+            loadAnimeFromApi().catch(e => {
+                console.warn('[App] Anime API loading failed:', e);
+            })
+        ]);
+    } catch (e) {
+        console.warn('[App] Initialization error:', e);
+    }
+
+    clearTimeout(loadingTimeout);
 
     window.addEventListener('hashchange', handleRouteChange);
     window.addEventListener('popstate', handleRouteChange);
