@@ -1531,6 +1531,8 @@ function getMailer() {
     tls: {
       rejectUnauthorized: false, // for development/testing
     },
+    // Force IPv4 to avoid IPv6 connection issues
+    family: 4,
   });
 }
 
