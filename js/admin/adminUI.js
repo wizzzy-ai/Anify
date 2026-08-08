@@ -114,7 +114,7 @@
         }
 
         switch(tab) {
-            case 'dashboard': content.innerHTML = renderAdminDashboard(); break;
+            case 'dashboard': renderAdminDashboard(); break;
             case 'anime': content.innerHTML = renderAdminAnime(); break;
             case 'movies':
                 content.innerHTML = renderAdminMovies();
@@ -142,8 +142,30 @@
         if (tab === 'anime') bindAdminAnimeActions();
     }
 
-    function renderAdminDashboard() {
-        return `
+    async function renderAdminDashboard() {
+        const content = document.getElementById('admin-content');
+        if (!content) return;
+
+        // Show loading state
+        content.innerHTML = `
+            <div class="mb-6">
+                <h1 class="text-2xl md:text-3xl font-black">Dashboard</h1>
+                <p class="text-gray-500 text-sm mt-1">Loading statistics...</p>
+            </div>
+        `;
+
+        try {
+            const response = await fetch('/api/admin/stats');
+            const data = await response.json();
+
+            if (!data.ok) {
+                throw new Error(data.error || 'Failed to load statistics');
+            }
+
+            const stats = data.stats || {};
+            const recentActivity = data.recentActivity || [];
+
+            content.innerHTML = `
     <div class="mb-6">
         <h1 class="text-2xl md:text-3xl font-black anim-slide-up">Dashboard</h1>
         <p class="text-gray-500 text-sm mt-1 anim-slide-up anim-delay-1">Welcome back! Here's your overview.</p>
@@ -155,52 +177,34 @@
             <div class="w-10 h-10 rounded-xl bg-gold-400/10 flex items-center justify-center mb-3">
                 <i data-lucide="users" class="w-5 h-5 text-gold-400"></i>
             </div>
-            <p class="text-2xl font-black">24.5K</p>
+            <p class="text-2xl font-black">${stats.totalUsers || 0}</p>
             <p class="text-xs text-gray-500">Total Users</p>
-            <p class="text-xs text-green-400 mt-1">+12.5% ↑</p>
         </div>
         <div class="stat-card anim-slide-up anim-delay-2">
             <div class="w-10 h-10 rounded-xl bg-purple-400/10 flex items-center justify-center mb-3">
-                <i data-lucide="eye" class="w-5 h-5 text-purple-400"></i>
+                <i data-lucide="tv" class="w-5 h-5 text-purple-400"></i>
             </div>
-            <p class="text-2xl font-black">1.2M</p>
-            <p class="text-xs text-gray-500">Daily Views</p>
-            <p class="text-xs text-green-400 mt-1">+8.3% ↑</p>
+            <p class="text-2xl font-black">${stats.totalAnime || 0}</p>
+            <p class="text-xs text-gray-500">Total Anime</p>
         </div>
         <div class="stat-card anim-slide-up anim-delay-3">
             <div class="w-10 h-10 rounded-xl bg-blue-400/10 flex items-center justify-center mb-3">
                 <i data-lucide="crown" class="w-5 h-5 text-blue-400"></i>
             </div>
-            <p class="text-2xl font-black">8.4K</p>
+            <p class="text-2xl font-black">${stats.premiumUsers || 0}</p>
             <p class="text-xs text-gray-500">Premium Users</p>
-            <p class="text-xs text-green-400 mt-1">+5.7% ↑</p>
         </div>
         <div class="stat-card anim-slide-up anim-delay-4">
             <div class="w-10 h-10 rounded-xl bg-green-400/10 flex items-center justify-center mb-3">
-                <i data-lucide="dollar-sign" class="w-5 h-5 text-green-400"></i>
+                <i data-lucide="trending-up" class="w-5 h-5 text-green-400"></i>
             </div>
-            <p class="text-2xl font-black">$84K</p>
-            <p class="text-xs text-gray-500">Monthly Revenue</p>
-            <p class="text-xs text-green-400 mt-1">+15.2% ↑</p>
+            <p class="text-2xl font-black">${stats.trendingAnime || 0}</p>
+            <p class="text-xs text-gray-500">Trending Anime</p>
         </div>
     </div>
 
     <!-- Charts Row -->
     <div class="grid lg:grid-cols-2 gap-6 mb-8">
-        <div class="glass-card rounded-2xl p-5 anim-fade-in">
-            <h3 class="font-bold mb-4">Views This Week</h3>
-            <div class="flex items-end gap-2 h-40">
-                ${[65, 45, 80, 55, 95, 70, 85].map((v, i) => `
-                    <div class="flex-1 bg-gradient-to-t from-gold-400 to-gold-500 rounded-t-lg transition-all hover:opacity-80 relative group" style="height: ${v}%">
-                        <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 text-xs px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">${v}K views</div>
-                    </div>
-                `).join('')}
-            </div>
-            <div class="flex justify-between mt-2 text-xs text-gray-500">
-                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-            </div>
-        </div>
-
         <div class="glass-card rounded-2xl p-5 anim-fade-in">
             <h3 class="font-bold mb-4">Trending Anime</h3>
             <div class="space-y-3">
@@ -210,7 +214,7 @@
                         <img src="${ensureHttps(a.image)}" class="w-10 h-14 rounded-lg object-cover" alt="${a.title}">
                         <div class="flex-1 min-w-0">
                             <p class="font-semibold text-sm truncate">${a.title}</p>
-                            <p class="text-xs text-gray-500">${(Math.random() * 500 + 100).toFixed(0)}K views</p>
+                            <p class="text-xs text-gray-500">Trending</p>
                         </div>
                         <div class="w-20">
                             <div class="h-2 bg-white/5 rounded-full overflow-hidden">
@@ -221,31 +225,37 @@
                 `).join('')}
             </div>
         </div>
-    </div>
 
-    <!-- Recent Activity -->
-    <div class="glass-card rounded-2xl p-5 anim-fade-in">
-        <h3 class="font-bold mb-4">Recent Activity</h3>
-        <div class="space-y-3">
-            ${[
-                { icon: 'user-plus', color: 'text-green-400', text: 'New user registered: AnimeFan_99', time: '2 min ago' },
-                { icon: 'upload', color: 'text-blue-400', text: 'New episode uploaded: Jujutsu Kaisen S3E1', time: '15 min ago' },
-                { icon: 'crown', color: 'text-gold-400', text: 'User upgraded to Premium: OtakuLord', time: '1 hour ago' },
-                { icon: 'flag', color: 'text-red-400', text: 'Report filed: Spam comment on Episode 24', time: '2 hours ago' },
-                { icon: 'trending-up', color: 'text-purple-400', text: 'Solo Leveling hit 1M views milestone', time: '5 hours ago' },
-            ].map(a => `
-                <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-all">
-                    <div class="w-8 h-8 rounded-lg ${a.color.replace('text-', 'bg-').replace('400', '400/10')} flex items-center justify-center flex-shrink-0">
-                        <i data-lucide="${a.icon}" class="w-4 h-4 ${a.color}"></i>
+        <div class="glass-card rounded-2xl p-5 anim-fade-in">
+            <h3 class="font-bold mb-4">Recent Activity</h3>
+            <div class="space-y-3">
+                ${recentActivity.length > 0 ? recentActivity.map(a => `
+                    <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-all">
+                        <div class="w-8 h-8 rounded-lg ${a.color.replace('text-', 'bg-').replace('400', '400/10')} flex items-center justify-center flex-shrink-0">
+                            <i data-lucide="${a.icon}" class="w-4 h-4 ${a.color}"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm">${a.text}</p>
+                        </div>
+                        <span class="text-xs text-gray-500 whitespace-nowrap">${a.time}</span>
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm">${a.text}</p>
-                    </div>
-                    <span class="text-xs text-gray-500 whitespace-nowrap">${a.time}</span>
-                </div>
-            `).join('')}
+                `).join('') : '<p class="text-gray-500 text-sm">No recent activity</p>'}
+            </div>
         </div>
     </div>`;
+
+            if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+
+        } catch (error) {
+            console.error('Failed to load admin stats:', error);
+            content.innerHTML = `
+                <div class="mb-6">
+                    <h1 class="text-2xl md:text-3xl font-black">Dashboard</h1>
+                    <p class="text-gray-500 text-sm mt-1">Failed to load statistics. Please try again.</p>
+                </div>
+                <button onclick="switchAdminTab('dashboard')" class="btn-primary">Retry</button>
+            `;
+        }
     }
 
     function showUploadModal(mode = 'create', animeId = null) {

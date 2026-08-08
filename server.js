@@ -728,6 +728,68 @@ app.get('/api/admin/storage/health', requireDb, requireAdmin, async (req, res) =
   }
 });
 
+// Admin statistics endpoint
+app.get('/api/admin/stats', requireDb, requireAdmin, async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const premiumUsers = await User.countDocuments({ plan: { $ne: 'Free' } });
+    const activeUsers = await User.countDocuments({ status: 'active' });
+    
+    // Get recent users for activity feed
+    const recentUsers = await User.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select({ name: 1, username: 1, email: 1, createdAt: 1, status: 1, plan: 1 })
+      .lean();
+    
+    // Get anime count
+    const totalAnime = await Anime.countDocuments();
+    const trendingAnime = await Anime.countDocuments({ trending: true });
+    
+    res.json({
+      ok: true,
+      stats: {
+        totalUsers,
+        premiumUsers,
+        activeUsers,
+        totalAnime,
+        trendingAnime
+      },
+      recentActivity: recentUsers.map(user => ({
+        type: 'user',
+        icon: 'user-plus',
+        color: 'text-green-400',
+        text: `New user registered: ${user.username || user.email}`,
+        time: formatTimeAgo(user.createdAt)
+      }))
+    });
+  } catch (error) {
+    console.error('Admin stats error:', error);
+    res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+// Helper function to format time ago
+function formatTimeAgo(date) {
+  const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+  const intervals = {
+    year: 31536000,
+    month: 2592000,
+    week: 604800,
+    day: 86400,
+    hour: 3600,
+    minute: 60
+  };
+  
+  for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+    const interval = Math.floor(seconds / secondsInUnit);
+    if (interval >= 1) {
+      return `${interval} ${unit}${interval > 1 ? 's' : ''} ago`;
+    }
+  }
+  return 'Just now';
+}
+
 // --------------- Ratings ---------------
 // Get current user's rating for an anime
 app.get('/api/anime/:animeId/rating', requireDb, async (req, res) => {
