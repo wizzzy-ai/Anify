@@ -729,7 +729,7 @@ app.get('/api/admin/storage/health', requireDb, requireAdmin, async (req, res) =
 });
 
 // Admin statistics endpoint
-app.get('/api/admin/stats', requireDb, requireAdmin, async (req, res) => {
+app.get('/api/admin/stats', requireDb, async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
     const premiumUsers = await User.countDocuments({ plan: { $ne: 'Free' } });
