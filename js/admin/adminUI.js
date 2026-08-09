@@ -2219,6 +2219,7 @@ function editAdminAnime(id) {
     function renderAdminSettings() {
         const currentLimit = global.guestPreviewService ? global.guestPreviewService.getGuestLimit() : 4;
 
+        setTimeout(loadMaintenanceMode, 0);
         return `
     <div class="mb-6">
         <h1 class="text-2xl md:text-3xl font-black">Settings</h1>
@@ -2277,13 +2278,56 @@ function editAdminAnime(id) {
                         <p class="font-medium">Maintenance Mode</p>
                         <p class="text-xs text-gray-500">Temporarily disable the platform</p>
                     </div>
-                    <button class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-all">
-                        Disabled
+                    <button id="maintenance-mode-toggle" onclick="toggleMaintenanceMode()" class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-all">
+                        Loading...
                     </button>
                 </div>
             </div>
         </div>
     </div>`;
+    }
+
+    async function loadMaintenanceMode() {
+        const button = document.getElementById('maintenance-mode-toggle');
+        if (!button) return;
+        try {
+            const response = await fetch('/api/platform-settings');
+            const data = await response.json();
+            const enabled = data?.maintenanceMode === true;
+            button.textContent = enabled ? 'Enabled' : 'Disabled';
+            button.className = `px-4 py-2 rounded-lg text-sm font-medium transition-all ${enabled ? 'bg-amber-500 text-black hover:bg-amber-400' : 'bg-white/10 hover:bg-white/20'}`;
+            button.dataset.enabled = String(enabled);
+        } catch (error) {
+            button.textContent = 'Unavailable';
+            console.error('Could not load maintenance mode:', error);
+        }
+    }
+
+    async function toggleMaintenanceMode() {
+        const button = document.getElementById('maintenance-mode-toggle');
+        if (!button || button.dataset.saving === 'true') return;
+        const current = button.dataset.enabled === 'true';
+        const token = global.authService?.getToken?.();
+        if (!token) return alert('Your admin session has expired. Please sign in again.');
+
+        button.dataset.saving = 'true';
+        button.disabled = true;
+        try {
+            const response = await fetch('/api/admin/platform-settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ maintenanceMode: !current })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) throw new Error(data.error || 'Could not update maintenance mode.');
+            if (typeof showToast === 'function') showToast(`Maintenance mode ${data.maintenanceMode ? 'enabled' : 'disabled'}`);
+            await loadMaintenanceMode();
+        } catch (error) {
+            alert(error.message || 'Could not update maintenance mode.');
+        } finally {
+            button.dataset.saving = 'false';
+            button.disabled = false;
+        }
     }
 
     function saveGuestLimit() {
@@ -2643,6 +2687,9 @@ function editAdminAnime(id) {
     global.renderAdminReports = renderAdminReports;
     global.renderAdminSettings = renderAdminSettings;
     global.saveGuestLimit = saveGuestLimit;
+    global.toggleMaintenanceMode = toggleMaintenanceMode;
+    global.refreshDashboard = refreshDashboard;
+    global.exportDashboardData = exportDashboardData;
 
     // Redesign Hub Exports
     global.renderEpisodeManagementHub = renderEpisodeManagementHub;

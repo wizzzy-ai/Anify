@@ -22,6 +22,7 @@ import bcrypt from 'bcryptjs';
 import User from './User.js'; // Import the centralized User model
 import Anime from './models/Anime.js'; // Import the canonical Anime model
 import Rating from './models/Rating.js'; // Import the Rating model
+import PlatformSettings from './models/PlatformSettings.js';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 
@@ -31,6 +32,49 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json({ limit: '5mb' }));
 app.use(express.static(__dirname));
+
+// During maintenance, regular visitors cannot use API data or perform actions.
+// Admins are intentionally exempt so they can enter the dashboard and turn the
+// switch back off.
+let maintenanceModeEnabled = false;
+let maintenanceModeLastChecked = 0;
+
+async function getMaintenanceMode() {
+  if (!dbReady) return false;
+  if (Date.now() - maintenanceModeLastChecked < 5000) return maintenanceModeEnabled;
+
+  const settings = await PlatformSettings.findOne({ key: 'platform' }).lean();
+  maintenanceModeEnabled = settings?.maintenanceMode === true;
+  maintenanceModeLastChecked = Date.now();
+  return maintenanceModeEnabled;
+}
+
+function requestHasAdminToken(req) {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token || !process.env.JWT_SECRET) return false;
+
+  try {
+    const roles = jwt.verify(token, process.env.JWT_SECRET)?.roles || [];
+    return Array.isArray(roles) && (roles.includes('admin') || roles.includes('moderator') || roles.includes('shield'));
+  } catch {
+    return false;
+  }
+}
+
+app.use('/api', async (req, res, next) => {
+  const allowedDuringMaintenance = req.path === '/platform-settings' || req.path.startsWith('/admin/platform-settings') || req.path.startsWith('/auth/');
+  if (allowedDuringMaintenance || requestHasAdminToken(req)) return next();
+
+  try {
+    if (await getMaintenanceMode()) {
+      return res.status(503).json({ ok: false, maintenanceMode: true, error: 'Anify is temporarily unavailable for maintenance.' });
+    }
+  } catch (error) {
+    console.error('[Maintenance] Could not read platform setting:', error.message);
+  }
+  next();
+});
 
 // Set Content Security Policy header
 app.use((req, res, next) => {
@@ -222,6 +266,11 @@ if (hasMongo) {
   mongoose.connect(process.env.MONGODB_URI)
     .then(() => {
       dbReady = true;
+      return PlatformSettings.findOne({ key: 'platform' }).lean();
+    })
+    .then((settings) => {
+      maintenanceModeEnabled = settings?.maintenanceMode === true;
+      maintenanceModeLastChecked = Date.now();
       console.log('MongoDB connected');
       console.log('MongoDB database name:', mongoose.connection.name);
       console.log('Database:', mongoose.connection.name);
