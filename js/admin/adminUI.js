@@ -85,6 +85,9 @@
                     <button onclick="switchAdminTab('bans')" class="admin-nav-item" data-admin-nav="bans">
                         <i data-lucide="shield-ban" class="w-4 h-4"></i> Banned Users
                     </button>
+                    <button onclick="switchAdminTab('announcements')" class="admin-nav-item" data-admin-nav="announcements">
+                        <i data-lucide="megaphone" class="w-4 h-4"></i> Announcements
+                    </button>
                     <button onclick="switchAdminTab('analytics')" class="admin-nav-item" data-admin-nav="analytics">
                         <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Analytics
                     </button>
@@ -183,6 +186,10 @@
             case 'bans':
                 content.innerHTML = renderBannedUsers();
                 setTimeout(loadBannedUsersTable, 0);
+                break;
+            case 'announcements':
+                content.innerHTML = renderAnnouncementManager();
+                setTimeout(loadAdminAnnouncements, 0);
                 break;
             case 'analytics':
                 content.innerHTML = renderAdminAnalytics();
@@ -2694,6 +2701,39 @@ function editAdminAnime(id) {
         }
     }
 
+    function renderAnnouncementManager() {
+        const animeOptions = (Array.isArray(animeData) ? animeData : []).map(a => `<option value="${a.id}">${a.title}</option>`).join('');
+        return `<div class="mb-6"><h1 class="text-2xl md:text-3xl font-black">Announcements & Notifications</h1><p class="mt-1 text-sm text-gray-500">Publish platform announcements and user notifications.</p></div>
+        <div class="grid gap-6 lg:grid-cols-2">
+          <form onsubmit="publishAnnouncement(event)" class="glass-card rounded-2xl p-6 space-y-4">
+            <h2 class="font-bold text-lg">Create Announcement</h2>
+            <select id="announcement-type" class="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-3 text-sm"><option value="announcement">Platform announcement</option><option value="new_episode">New episode notification</option><option value="new_anime">New anime notification</option><option value="maintenance">Maintenance notification</option></select>
+            <input id="announcement-title" required maxlength="120" placeholder="Title: New episodes available!" class="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm">
+            <textarea id="announcement-message" required maxlength="1000" rows="4" placeholder="Message for Anify users..." class="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm"></textarea>
+            <div class="grid grid-cols-2 gap-3"><input id="announcement-action-label" maxlength="60" placeholder="Action label (Watch Now)" class="rounded-xl bg-white/5 border border-white/10 px-3 py-3 text-sm"><select id="announcement-anime" class="rounded-xl bg-white/5 border border-white/10 px-3 py-3 text-sm"><option value="">No anime link</option>${animeOptions}</select></div>
+            <button class="btn-primary w-full py-3">Publish</button>
+          </form>
+          <div class="glass-card rounded-2xl p-6"><h2 class="font-bold text-lg">User Rating Summary</h2><p class="mt-1 text-sm text-gray-500">Ratings are calculated only from user submissions.</p><select id="rating-summary-anime" onchange="loadRatingSummary()" class="mt-4 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-3 text-sm"><option value="">Choose an anime</option>${animeOptions}</select><div id="rating-summary" class="mt-5 text-sm text-gray-400">Select an anime to view its user rating breakdown.</div></div>
+        </div><div class="glass-card rounded-2xl p-6 mt-6"><h2 class="font-bold text-lg">Published</h2><div id="admin-announcements-list" class="mt-4 space-y-3"></div></div>`;
+    }
+
+    async function publishAnnouncement(event) {
+        event.preventDefault();
+        const token = getAuthToken(); const animeId = document.getElementById('announcement-anime').value;
+        const payload = { type: document.getElementById('announcement-type').value, title: document.getElementById('announcement-title').value.trim(), message: document.getElementById('announcement-message').value.trim(), actionLabel: document.getElementById('announcement-action-label').value.trim(), actionUrl: animeId ? `#anime-${animeId}` : '' };
+        try { const res = await fetch('/api/admin/announcements', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) }); const data = await res.json(); if (!res.ok || !data.ok) throw new Error(data.error); event.target.reset(); loadAdminAnnouncements(); if (window.showToast) showToast('Announcement published'); } catch (error) { alert(String(error.message || error)); }
+    }
+
+    async function loadAdminAnnouncements() {
+        const target = document.getElementById('admin-announcements-list'); if (!target) return;
+        try { const res = await fetch('/api/admin/announcements', { headers: { Authorization: `Bearer ${getAuthToken()}` } }); const data = await res.json(); if (!res.ok || !data.ok) throw new Error(data.error); target.innerHTML = data.announcements.length ? data.announcements.map(a => `<div class="rounded-xl bg-white/5 p-4"><p class="font-semibold">${a.title}</p><p class="mt-1 text-sm text-gray-400">${a.message}</p><p class="mt-2 text-xs text-gold-400 uppercase">${String(a.type).replace('_', ' ')}</p></div>`).join('') : '<p class="text-sm text-gray-500">No announcements published yet.</p>'; } catch (e) { target.innerHTML = `<p class="text-sm text-red-400">${String(e.message || e)}</p>`; }
+    }
+
+    async function loadRatingSummary() {
+        const id = document.getElementById('rating-summary-anime').value, target = document.getElementById('rating-summary'); if (!id || !target) return;
+        try { const res = await fetch(`/api/admin/anime/${id}/rating-summary`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }); const data = await res.json(); if (!res.ok || !data.ok) throw new Error(data.error); target.innerHTML = `<div class="flex items-end gap-5"><div><p class="text-3xl font-black text-gold-400">${Number(data.averageRating).toFixed(1)}</p><p class="text-xs text-gray-500">Average rating</p></div><div><p class="text-xl font-bold">${data.totalRatings}</p><p class="text-xs text-gray-500">User ratings</p></div></div><div class="mt-5 space-y-2">${data.distribution.reverse().map(d => { const pct = data.totalRatings ? Math.round(d.count / data.totalRatings * 100) : 0; return `<div class="flex items-center gap-2"><span class="w-8 text-xs">${d.stars} ★</span><div class="h-2 flex-1 overflow-hidden rounded-full bg-white/10"><div class="h-full bg-gold-400" style="width:${pct}%"></div></div><span class="w-9 text-right text-xs text-gray-400">${pct}%</span></div>`; }).join('')}</div>`; } catch (e) { target.textContent = String(e.message || e); }
+    }
+
     function renderAdminAnalytics() {
         return `
     <div class="mb-6">
@@ -3303,6 +3343,8 @@ function editAdminAnime(id) {
     global.toggleBanExpiry = toggleBanExpiry;
     global.submitBanForm = submitBanForm;
     global.unbanUser = unbanUser;
+    global.publishAnnouncement = publishAnnouncement;
+    global.loadRatingSummary = loadRatingSummary;
     global.renderAdminAnalytics = renderAdminAnalytics;
     global.renderAdminSubscriptions = renderAdminSubscriptions;
     global.renderAdminReports = renderAdminReports;

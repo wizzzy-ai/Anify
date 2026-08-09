@@ -24,6 +24,7 @@ import User from './User.js'; // Import the centralized User model
 import Anime from './models/Anime.js'; // Import the canonical Anime model
 import Rating from './models/Rating.js'; // Import the Rating model
 import PlatformSettings from './models/PlatformSettings.js';
+import Announcement from './models/Announcement.js';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 
@@ -1986,6 +1987,33 @@ app.delete('/api/anime/:animeId/rating', async (req, res) => {
 app.get('/api/users', requireDb, async (req, res) => {
   const users = await User.find().sort({ createdAt: -1 }).select({ passwordHash: 0 }).lean();
   res.json({ ok: true, users });
+});
+
+app.get('/api/announcements', requireDb, async (req, res) => {
+  const announcements = await Announcement.find({ published: true }).sort({ createdAt: -1 }).limit(20).lean();
+  res.json({ ok: true, announcements });
+});
+
+app.get('/api/admin/announcements', requireAdmin, requireDb, async (req, res) => {
+  const announcements = await Announcement.find().sort({ createdAt: -1 }).limit(100).lean();
+  res.json({ ok: true, announcements });
+});
+
+app.post('/api/admin/announcements', requireAdmin, requireDb, async (req, res) => {
+  try {
+    const { title, message, type, actionLabel, actionUrl } = req.body || {};
+    if (!String(title || '').trim() || !String(message || '').trim()) return res.status(400).json({ ok: false, error: 'Title and message are required.' });
+    const announcement = await Announcement.create({ title, message, type, actionLabel, actionUrl, publishedBy: req.auth.username || 'Admin' });
+    res.status(201).json({ ok: true, announcement });
+  } catch (error) { res.status(400).json({ ok: false, error: String(error?.message || error) }); }
+});
+
+app.get('/api/admin/anime/:animeId/rating-summary', requireAdmin, requireDb, async (req, res) => {
+  const anime = await Anime.findOne(/^[0-9]+$/.test(req.params.animeId) ? { clientId: Number(req.params.animeId) } : { _id: req.params.animeId }).lean();
+  if (!anime) return res.status(404).json({ ok: false, error: 'Anime not found.' });
+  const ratings = await Rating.find({ animeId: String(anime._id) }).lean();
+  const distribution = [1, 2, 3, 4, 5].map(stars => ({ stars, count: ratings.filter(r => Math.max(1, Math.min(5, Math.ceil(Number(r.rating) / 2))) === stars).length }));
+  res.json({ ok: true, averageRating: anime.averageRating || 0, totalRatings: ratings.length, distribution });
 });
 
 app.get('/api/admin/banned-users', requireAdmin, requireDb, async (req, res) => {
