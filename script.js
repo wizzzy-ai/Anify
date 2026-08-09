@@ -3699,7 +3699,7 @@ function toggleSearch() {
 function toggleNotifications(forceOpen = null) {
     const panel = document.getElementById('notification-panel');
     if (!panel) return;
-    const open = forceOpen === null ? !panel.classList.contains('hidden') : Boolean(forceOpen);
+    const open = forceOpen === null ? panel.classList.contains('hidden') : Boolean(forceOpen);
     panel.classList.toggle('hidden', !open);
 
     if (open) {
@@ -3760,23 +3760,23 @@ function renderNotifications() {
         const readClass = notification.read ? 'opacity-60' : 'opacity-100';
         const timestamp = new Date(notification.createdAt).toLocaleString();
         return `
-            <div tabindex="0" class="notif-item rounded-2xl p-3 bg-white/5 border border-white/10 ${readClass} focus:outline-none focus:ring-2 focus:ring-gold-400 transition-all">
+            <div tabindex="0" role="button" onclick="openNotificationReader('${notification.id}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openNotificationReader('${notification.id}'); }" class="notif-item ${readClass} ${notification.read ? 'notif-item--read' : 'notif-item--unread'}" aria-label="Open notification: ${notification.title}">
                 <div class="flex items-start gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-dark-700 flex items-center justify-center text-gold-400">
-                        <i data-lucide="${notification.icon || 'bell'}" class="w-4 h-4"></i>
+                    <div class="notif-item__icon">
+                        <i data-lucide="${notification.icon || 'bell'}"></i>
                     </div>
-                    <div class="flex-1">
-                        <div class="flex items-center justify-between gap-3">
+                    <div class="notif-item__content">
+                        <div class="notif-item__topline">
                             <div>
-                                <p class="font-semibold text-sm">${notification.title}</p>
-                                <p class="text-xs text-gray-500">${notification.type}</p>
+                                <p class="notif-item__title">${notification.title}</p>
+                                <p class="notif-item__type">${notification.type}</p>
                             </div>
-                            <button type="button" onclick="markNotificationRead('${notification.id}')" class="text-[10px] uppercase tracking-wider text-gray-400 hover:text-white transition-all">
+                            <button type="button" onclick="event.stopPropagation(); markNotificationRead('${notification.id}')" class="notif-item__read-button">
                                 ${notification.read ? 'Read' : 'Mark read'}
                             </button>
                         </div>
-                        <p class="text-xs text-gray-300 mt-2">${notification.message}</p>
-                        <p class="text-[10px] text-gray-500 mt-2">${timestamp}</p>
+                        <p class="notif-item__message">${notification.message}</p>
+                        <p class="notif-item__time">${timestamp}</p>
                     </div>
                 </div>
             </div>
@@ -3801,6 +3801,36 @@ function markNotificationRead(notificationId) {
     if (!notificationService || typeof notificationService.markAsRead !== 'function') return;
     notificationService.markAsRead(notificationId);
     renderNotifications();
+}
+
+function openNotificationReader(notificationId) {
+    const notification = notificationService?.getNotifications?.().find(item => String(item.id) === String(notificationId));
+    const reader = document.getElementById('notification-reader');
+    if (!notification || !reader) return;
+
+    document.getElementById('notification-reader-title').textContent = notification.title || 'Notification';
+    document.getElementById('notification-reader-type').textContent = notification.type || 'Update';
+    document.getElementById('notification-reader-time').textContent = new Date(notification.createdAt).toLocaleString();
+    document.getElementById('notification-reader-message').textContent = notification.message || '';
+    document.getElementById('notification-reader-icon').innerHTML = `<i data-lucide="${notification.icon || 'bell'}"></i>`;
+    const action = document.getElementById('notification-reader-action');
+    action.classList.toggle('hidden', !notification.action?.label);
+    action.textContent = notification.action?.label || '';
+    action.onclick = () => {
+        closeNotificationReader();
+        if (notification.action?.url?.startsWith('#anime-')) window.navigate?.('anime', Number(notification.action.url.replace('#anime-', '')));
+    };
+    notificationService.markAsRead(notificationId);
+    renderNotifications();
+    reader.classList.remove('hidden');
+    document.body.classList.add('notification-reader-open');
+    if (window.lucide?.createIcons) lucide.createIcons();
+    reader.querySelector('.notification-reader__close')?.focus();
+}
+
+function closeNotificationReader() {
+    document.getElementById('notification-reader')?.classList.add('hidden');
+    document.body.classList.remove('notification-reader-open');
 }
 
 function markAllAsRead() {

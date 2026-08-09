@@ -225,33 +225,22 @@
 
         <!-- Main Content -->
         <!-- Notification Panel -->
-        <div id="notification-panel" class="fixed top-16 right-4 z-50 hidden w-80 search-glass rounded-2xl p-4 shadow-2xl">
-            <div class="flex items-center justify-between gap-3 mb-3">
-                <h3 class="font-bold flex items-center gap-2">
-                    <i data-lucide="bell" class="w-4 h-4 text-gold-400"></i> Notifications
-                </h3>
-                <button type="button" onclick="toggleNotifications(false)" class="p-2 rounded-xl hover:bg-white/10 transition-all" aria-label="Close notifications" title="Close">
-                    <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
+        <div id="notification-panel" class="notification-panel fixed top-16 right-4 z-50 hidden" aria-label="Notifications">
+            <div class="notification-panel__header">
+                <div class="notification-panel__heading"><span class="notification-panel__icon"><i data-lucide="bell-ring"></i></span><div><p class="notification-panel__eyebrow">Your inbox</p><h3>Notifications</h3></div></div>
+                <button type="button" onclick="toggleNotifications(false)" class="notification-panel__close" aria-label="Close notifications" title="Close"><i data-lucide="x"></i></button>
             </div>
 
-            <!-- Controls: Search + Actions -->
-            <div class="space-y-3 mb-3">
-                <div class="flex items-center gap-2">
-                    <button type="button" onclick="markAllAsRead()" class="btn-secondary px-3 py-1.5 text-xs flex items-center gap-2 flex-1 justify-center" aria-label="Mark all as read">
-                        <i data-lucide="check" class="w-3.5 h-3.5 text-gold-400"></i> Mark all as read
-                    </button>
-                    <button type="button" onclick="clearAllNotifications()" class="btn-secondary px-3 py-1.5 text-xs flex items-center gap-2" aria-label="Clear all notifications">
-                        <i data-lucide="trash-2" class="w-3.5 h-3.5 text-red-400"></i> Clear
-                    </button>
-                </div>
+            <div class="notification-panel__actions">
+                <button type="button" onclick="markAllAsRead()" class="notification-panel__read-all" aria-label="Mark all as read"><i data-lucide="check-check"></i> Mark all read</button>
+                <button type="button" onclick="clearAllNotifications()" class="notification-panel__clear" aria-label="Clear all notifications"><i data-lucide="trash-2"></i><span>Clear</span></button>
+            </div>
 
-                <div class="relative">
-                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                    <input id="notification-search" type="text" placeholder="Search notifications..." class="w-full bg-white/10 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30 transition-all" oninput="handleNotificationSearch(this.value)">
-                </div>
+            <div class="notification-panel__search">
+                <i data-lucide="search"></i><input id="notification-search" type="text" placeholder="Search your inbox" oninput="handleNotificationSearch(this.value)">
+            </div>
 
-                <div class="flex flex-wrap gap-2">
+                <div class="notification-panel__filters" aria-label="Notification filters">
                     <button type="button" class="notif-filter-pill active" data-notif-filter="All" onclick="setNotificationFilter('All')">All</button>
                     <button type="button" class="notif-filter-pill" data-notif-filter="Unread" onclick="setNotificationFilter('Unread')">Unread</button>
                     <button type="button" class="notif-filter-pill" data-notif-filter="Read" onclick="setNotificationFilter('Read')">Read</button>
@@ -261,21 +250,29 @@
                     <button type="button" class="notif-filter-pill" data-notif-filter="promotion" onclick="setNotificationFilter('promotion')">Promotion</button>
                     <button type="button" class="notif-filter-pill" data-notif-filter="watchlist" onclick="setNotificationFilter('watchlist')">Watchlist</button>
                 </div>
-            </div>
 
             <!-- Notification list / empty state -->
-            <div id="notification-list" class="space-y-2 max-h-64 overflow-y-auto">
+            <div id="notification-list" class="notification-list">
                 <!-- Rendered by script.js -->
             </div>
 
-            <div id="notification-empty" class="hidden text-center py-8">
-                <div class="w-12 h-12 mx-auto rounded-2xl bg-white/5 flex items-center justify-center mb-3">
-                    <i data-lucide="bell" class="w-6 h-6 text-gray-300"></i>
-                </div>
-                <p class="text-base font-bold mb-1">No Notifications</p>
-                <p class="text-xs text-gray-400">You're all caught up!</p>
-                <p class="text-xs text-gold-400 mt-1">Check back later.</p>
+            <div id="notification-empty" class="notification-empty hidden">
+                <div class="notification-empty__icon"><i data-lucide="sparkles"></i></div>
+                <p>You're all caught up</p><span>New episode alerts and updates will appear here.</span>
             </div>
+        </div>
+
+        <div id="notification-reader" class="notification-reader hidden" role="dialog" aria-modal="true" aria-labelledby="notification-reader-title">
+            <div class="notification-reader__backdrop" onclick="closeNotificationReader()"></div>
+            <article class="notification-reader__card">
+                <button type="button" class="notification-reader__close" onclick="closeNotificationReader()" aria-label="Close notification"><i data-lucide="x"></i></button>
+                <div class="notification-reader__icon"><span id="notification-reader-icon"><i data-lucide="bell"></i></span></div>
+                <p id="notification-reader-type" class="notification-reader__type"></p>
+                <h2 id="notification-reader-title"></h2>
+                <p id="notification-reader-time" class="notification-reader__time"></p>
+                <div id="notification-reader-message" class="notification-reader__message"></div>
+                <div class="notification-reader__footer"><button type="button" class="notification-reader__done" onclick="closeNotificationReader()">Done</button><button type="button" id="notification-reader-action" class="notification-reader__action hidden"></button></div>
+            </article>
         </div>
 
 
@@ -395,7 +392,7 @@
     <script src="js/interactions/interactionService.js"></script>
     <script src="js/interactions/surpriseService.js"></script>
     <script src="js/notifications/notificationService.js"></script>
-    <script src="js/platformAnnouncements.js"></script>
+    <script src="js/platformAnnouncements.js?v=3"></script>
     <script src="js/player/playerService.js"></script>
     <script src="js/player/miniPlayer.js"></script>
     <script src="js/guest/guestPreviewService.js"></script>
