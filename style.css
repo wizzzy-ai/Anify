@@ -1693,6 +1693,26 @@ html { scroll-behavior: smooth; }
     border-color: rgba(0, 0, 0, 0.08);
 }
 
+/* Announcement card follows the app's existing light/dark theme. */
+.announcement-popup {
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    background: rgba(18, 16, 34, 0.95);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+.announcement-popup-title { color: #fff; }
+.announcement-popup-message { color: #d1d5db; }
+.announcement-popup-close { color: #6b7280; }
+.announcement-popup-close:hover { color: #fff; }
+.light .announcement-popup {
+    border-color: rgba(217, 119, 6, 0.32);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 24px 70px rgba(120, 53, 15, 0.18);
+}
+.light .announcement-popup-title { color: #1f2937; }
+.light .announcement-popup-message { color: #4b5563; }
+.light .announcement-popup-close { color: #9ca3af; }
+.light .announcement-popup-close:hover { color: #1f2937; }
+
 /* Shared cinematic treatment for the login and registration pages. */
 .auth-container.auth-cinematic {
     position: relative;
