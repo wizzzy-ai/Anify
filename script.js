@@ -2252,11 +2252,13 @@ function renderPlayer(id) {
 // ============ RENDER: LOGIN ============
 function renderLogin() {
     return `
-    <div class="auth-container">
+    <div class="auth-container auth-cinematic">
+        <div class="auth-cinematic-background" aria-hidden="true"></div>
+        <div class="auth-cinematic-overlay" aria-hidden="true"></div>
         <div class="floating-orb w-96 h-96 bg-gold-400 top-1/4 left-1/4" style="animation-delay: 0s;"></div>
         <div class="floating-orb w-64 h-64 bg-purple-500 bottom-1/4 right-1/4" style="animation-delay: 3s;"></div>
         <div class="relative z-10 w-full max-w-md px-4 anim-slide-up">
-            <div class="auth-card">
+            <div class="auth-card auth-cinematic-card">
                 <div class="text-center mb-8">
                     <div class="w-14 h-14 bg-gradient-to-br from-gold-400 to-gold-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <span class="text-black font-black text-2xl">A</span>
@@ -2307,11 +2309,13 @@ function renderLogin() {
 // ============ RENDER: REGISTER ============
 function renderRegister() {
     return `
-    <div class="auth-container">
+    <div class="auth-container auth-cinematic">
+        <div class="auth-cinematic-background" aria-hidden="true"></div>
+        <div class="auth-cinematic-overlay" aria-hidden="true"></div>
         <div class="floating-orb w-96 h-96 bg-gold-400 top-1/4 right-1/4" style="animation-delay: 0s;"></div>
         <div class="floating-orb w-64 h-64 bg-blue-500 bottom-1/4 left-1/4" style="animation-delay: 3s;"></div>
         <div class="relative z-10 w-full max-w-md px-4 anim-slide-up">
-            <div class="auth-card">
+            <div class="auth-card auth-cinematic-card">
                 <div class="text-center mb-8">
                     <div class="w-14 h-14 bg-gradient-to-br from-gold-400 to-gold-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <span class="text-black font-black text-2xl">A</span>

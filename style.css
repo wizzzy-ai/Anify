@@ -1693,6 +1693,44 @@ html { scroll-behavior: smooth; }
     border-color: rgba(0, 0, 0, 0.08);
 }
 
+/* Shared cinematic treatment for the login and registration pages. */
+.auth-container.auth-cinematic {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding: 2.5rem 0;
+    background: #06050b;
+}
+
+.auth-cinematic-background,
+.auth-cinematic-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.auth-cinematic-background {
+    z-index: 0;
+    background: url('/pictures/ANIME.jpg') center / cover no-repeat;
+    transform: scale(1.05);
+}
+
+.auth-cinematic-overlay {
+    z-index: 1;
+    background:
+        radial-gradient(circle at 12% 12%, rgba(251, 191, 36, 0.17), transparent 28rem),
+        radial-gradient(circle at 88% 82%, rgba(126, 58, 242, 0.22), transparent 30rem),
+        linear-gradient(135deg, rgba(5, 3, 11, 0.95), rgba(9, 5, 20, 0.78), rgba(5, 5, 9, 0.94));
+}
+
+.auth-container.auth-cinematic .auth-cinematic-card {
+    background: rgba(16, 13, 27, 0.72);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 30px 100px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
 .input-field {
     width: 100%;
     background: rgba(255, 255, 255, 0.05);
