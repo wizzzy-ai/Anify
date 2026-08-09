@@ -36,6 +36,7 @@ const userSchema = new mongoose.Schema({
         enum: ['pending', 'active', 'suspended', 'deleted', 'Banned']
     },
     roles: { type: [String], required: true, default: ['user'] },
+    forceLogoutAt: { type: Date, default: null },
     // Present only while a user must verify their email. It is removed as soon
     // as verification succeeds, so one user document owns its OTP lifecycle.
     emailVerification: { type: emailVerificationSchema, default: null },

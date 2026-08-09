@@ -2444,7 +2444,7 @@ function editAdminAnime(id) {
     <div class="glass-card rounded-2xl overflow-hidden anim-fade-in">
         <div id="admin-users-table" class="overflow-x-auto"></div>
     </div>
-    ${renderBanModal()}`;
+    ${renderBanModal()}${renderUserDetailsModal()}`;
     }
 
     async function handleAdminUserAction(userId, patch) {
@@ -2541,6 +2541,11 @@ function editAdminAnime(id) {
                                         <button class="p-2 rounded-lg hover:bg-white/10 transition-all" title="Ban user" onclick="openBanUserModal('${u._id || ''}', '${name.replace(/'/g, "\\'")}')">
                                             <i data-lucide="x" class="w-4 h-4 text-red-400"></i>
                                         </button>
+                                        <button class="p-2 rounded-lg hover:bg-white/10 transition-all" title="View profile & activity" onclick="viewAdminUser('${u._id || ''}')"><i data-lucide="eye" class="w-4 h-4 text-blue-400"></i></button>
+                                        <button class="p-2 rounded-lg hover:bg-white/10 transition-all" title="Change role" onclick="changeUserRole('${u._id || ''}', '${roles[0] || 'user'}')"><i data-lucide="shield" class="w-4 h-4 text-purple-400"></i></button>
+                                        <button class="p-2 rounded-lg hover:bg-white/10 transition-all" title="Reset password" onclick="resetUserPassword('${u._id || ''}')"><i data-lucide="key-round" class="w-4 h-4 text-gold-400"></i></button>
+                                        <button class="p-2 rounded-lg hover:bg-white/10 transition-all" title="Force logout" onclick="forceUserLogout('${u._id || ''}')"><i data-lucide="log-out" class="w-4 h-4 text-orange-400"></i></button>
+                                        <button class="p-2 rounded-lg hover:bg-white/10 transition-all" title="Delete user" onclick="deleteAdminUser('${u._id || ''}')"><i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i></button>
                                     </div>
                                 </td>
                             </tr>`;
@@ -2588,6 +2593,21 @@ function editAdminAnime(id) {
             </form>
         </div>`;
     }
+
+    function renderUserDetailsModal() {
+        return `<div id="admin-user-details-modal" class="hidden fixed inset-0 z-[100] overflow-y-auto bg-black/70 p-4"><div class="mx-auto my-8 w-full max-w-3xl rounded-2xl border border-white/10 bg-[#141225] p-6"><div class="flex justify-between"><h2 class="text-xl font-black">User Profile & Activity</h2><button onclick="closeAdminUserDetails()" class="text-xl text-gray-400">×</button></div><div id="admin-user-details-content" class="mt-5"></div></div></div>`;
+    }
+
+    async function viewAdminUser(userId) {
+        const modal = document.getElementById('admin-user-details-modal'), target = document.getElementById('admin-user-details-content');
+        modal?.classList.remove('hidden'); target.innerHTML = '<p class="text-sm text-gray-400">Loading profile…</p>';
+        try { const res = await fetch(`/api/admin/users/${userId}/details`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }); const data = await res.json(); if (!res.ok || !data.ok) throw new Error(data.error); const u = data.user; target.innerHTML = `<div class="grid gap-5 md:grid-cols-2"><div class="rounded-xl bg-white/5 p-4"><p class="text-lg font-bold">${u.username || u.name || 'User'}</p><p class="text-sm text-gray-400">${u.email}</p><p class="mt-3 text-xs text-gold-400">${(u.roles || ['user']).join(', ')}</p></div><div class="rounded-xl bg-white/5 p-4"><p class="font-bold">Activity</p><p class="mt-2 text-sm text-gray-400">Watch history: ${data.watchHistory.length}</p><p class="text-sm text-gray-400">Comments/reviews: ${data.comments.length}</p><p class="text-sm text-gray-400">Ratings: ${data.ratings.length}</p><p class="mt-2 text-xs text-gray-500">Bookmarks are stored only in the user’s browser.</p></div></div><div class="mt-5"><h3 class="font-bold">Recent watch history</h3><div class="mt-2 space-y-2">${data.watchHistory.length ? data.watchHistory.map(w => `<div class="rounded-lg bg-white/5 p-3 text-sm">Anime #${w.animeId} · Episode ${w.episode || 1}</div>`).join('') : '<p class="text-sm text-gray-500">No watch history.</p>'}</div></div><div class="mt-5"><h3 class="font-bold">Comments & reviews</h3><div class="mt-2 space-y-2">${data.comments.length ? data.comments.map(c => `<div class="rounded-lg bg-white/5 p-3 text-sm text-gray-300">${c.text}</div>`).join('') : '<p class="text-sm text-gray-500">No comments or reviews.</p>'}</div></div>`; } catch (e) { target.textContent = String(e.message || e); }
+    }
+    function closeAdminUserDetails() { document.getElementById('admin-user-details-modal')?.classList.add('hidden'); }
+    async function changeUserRole(id, current) { const role = prompt('Role: user, moderator, shield, or admin', current); if (!role) return; await handleAdminUserAction(id, { roles: [role.trim().toLowerCase()] }); }
+    async function resetUserPassword(id) { const password = prompt('Enter a new temporary password (at least 8 characters):'); if (!password) return; const res = await fetch(`/api/admin/users/${id}/reset-password`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` }, body: JSON.stringify({ password }) }); const d = await res.json(); if (!res.ok || !d.ok) return alert(d.error || 'Could not reset password'); if (window.showToast) showToast('Password reset and session ended'); }
+    async function forceUserLogout(id) { if (!confirm('End this user’s active session?')) return; const res = await fetch(`/api/admin/users/${id}/force-logout`, { method: 'POST', headers: { Authorization: `Bearer ${getAuthToken()}` } }); const d = await res.json(); if (!res.ok || !d.ok) return alert(d.error || 'Could not force logout'); if (window.showToast) showToast('User logged out'); }
+    async function deleteAdminUser(id) { if (!confirm('Permanently delete this user and their history?')) return; const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${getAuthToken()}` } }); const d = await res.json(); if (!res.ok || !d.ok) return alert(d.error || 'Could not delete user'); await loadAdminUsersTable(); if (window.showToast) showToast('User deleted'); }
 
     function renderBannedUsers() {
         return `
@@ -3343,6 +3363,12 @@ function editAdminAnime(id) {
     global.toggleBanExpiry = toggleBanExpiry;
     global.submitBanForm = submitBanForm;
     global.unbanUser = unbanUser;
+    global.viewAdminUser = viewAdminUser;
+    global.closeAdminUserDetails = closeAdminUserDetails;
+    global.changeUserRole = changeUserRole;
+    global.resetUserPassword = resetUserPassword;
+    global.forceUserLogout = forceUserLogout;
+    global.deleteAdminUser = deleteAdminUser;
     global.publishAnnouncement = publishAnnouncement;
     global.loadRatingSummary = loadRatingSummary;
     global.renderAdminAnalytics = renderAdminAnalytics;

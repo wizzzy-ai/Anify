@@ -2034,6 +2034,39 @@ app.get('/api/admin/banned-users', requireAdmin, requireDb, async (req, res) => 
   }
 });
 
+app.get('/api/admin/users/:userId/details', requireAdmin, requireDb, async (req, res) => {
+  const user = await User.findById(req.params.userId).select({ passwordHash: 0 }).lean();
+  if (!user) return res.status(404).json({ ok: false, error: 'User not found.' });
+  const [watchHistory, comments, ratings] = await Promise.all([
+    WatchProgress.find({ userId: String(user._id) }).sort({ updatedAt: -1 }).limit(30).lean(),
+    Comment.find({ userId: String(user._id) }).sort({ createdAt: -1 }).limit(30).lean(),
+    Rating.find({ userId: String(user._id) }).sort({ updatedAt: -1 }).limit(30).lean(),
+  ]);
+  res.json({ ok: true, user, watchHistory, comments, ratings });
+});
+
+app.post('/api/admin/users/:userId/reset-password', requireAdmin, requireDb, async (req, res) => {
+  const password = String(req.body?.password || '');
+  if (password.length < 8) return res.status(400).json({ ok: false, error: 'Password must be at least 8 characters.' });
+  const passwordHash = await bcrypt.hash(password, 12);
+  await User.findByIdAndUpdate(req.params.userId, { $set: { passwordHash, forceLogoutAt: new Date() } });
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/users/:userId/force-logout', requireAdmin, requireDb, async (req, res) => {
+  await User.findByIdAndUpdate(req.params.userId, { $set: { forceLogoutAt: new Date() } });
+  res.json({ ok: true });
+});
+
+app.delete('/api/admin/users/:userId', requireAdmin, requireDb, async (req, res) => {
+  if (String(req.params.userId) === String(req.auth.userId)) return res.status(400).json({ ok: false, error: 'You cannot delete your own admin account.' });
+  const target = await User.findById(req.params.userId);
+  if (!target) return res.status(404).json({ ok: false, error: 'User not found.' });
+  if ((target.roles || []).some(role => ['admin', 'moderator', 'shield'].includes(role))) return res.status(403).json({ ok: false, error: 'Admin accounts cannot be deleted here.' });
+  await Promise.all([User.deleteOne({ _id: target._id }), WatchProgress.deleteMany({ userId: String(target._id) }), Comment.deleteMany({ userId: String(target._id) }), Rating.deleteMany({ userId: String(target._id) })]);
+  res.json({ ok: true });
+});
+
 app.put('/api/admin/users/:userId', requireAdmin, requireDb, async (req, res) => {
   try {
     const { userId } = req.params;
@@ -2694,12 +2727,17 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
   }
 });
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const auth = req.headers.authorization || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) return res.status(401).json({ ok: false, error: 'Missing token' });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select({ forceLogoutAt: 1 }).lean();
+    if (!user) return res.status(401).json({ ok: false, error: 'User not found' });
+    if (user.forceLogoutAt && Number(decoded.iat || 0) <= Math.floor(new Date(user.forceLogoutAt).getTime() / 1000)) {
+      return res.status(401).json({ ok: false, error: 'Your session has been ended. Please sign in again.' });
+    }
     req.auth = decoded;
     next();
   } catch {
