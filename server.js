@@ -3,6 +3,7 @@ dotenv.config();
 
 import dns from "node:dns";
 import https from 'https';
+import { EventEmitter } from 'node:events';
 
 // Force Node.js to use Cloudflare DNS
 dns.setServers(["1.1.1.1", "1.0.0.1"]);
@@ -38,6 +39,12 @@ app.use(express.static(__dirname));
 // switch back off.
 let maintenanceModeEnabled = false;
 let maintenanceModeLastChecked = 0;
+const maintenanceEvents = new EventEmitter();
+maintenanceEvents.setMaxListeners(0);
+
+function broadcastMaintenanceMode() {
+  maintenanceEvents.emit('change', { maintenanceMode: maintenanceModeEnabled });
+}
 
 async function getMaintenanceMode() {
   if (!dbReady) return false;
@@ -63,7 +70,7 @@ function requestHasAdminToken(req) {
 }
 
 app.use('/api', async (req, res, next) => {
-  const allowedDuringMaintenance = req.path === '/platform-settings' || req.path.startsWith('/admin/platform-settings') || req.path.startsWith('/auth/');
+  const allowedDuringMaintenance = req.path === '/platform-settings' || req.path === '/platform-settings/stream' || req.path.startsWith('/admin/platform-settings') || req.path.startsWith('/auth/');
   if (allowedDuringMaintenance || requestHasAdminToken(req)) return next();
 
   try {
@@ -327,6 +334,29 @@ app.get('/api/platform-settings', async (req, res) => {
   }
 });
 
+// Keeps open browser tabs informed the instant an admin changes maintenance
+// mode. Server-Sent Events work without adding another realtime dependency.
+app.get('/api/platform-settings/stream', async (req, res) => {
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+  });
+  res.flushHeaders();
+
+  const send = (state) => res.write(`data: ${JSON.stringify(state)}\n\n`);
+  send({ maintenanceMode: await getMaintenanceMode() });
+
+  const onChange = (state) => send(state);
+  maintenanceEvents.on('change', onChange);
+  const heartbeat = setInterval(() => res.write(': keepalive\n\n'), 25000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    maintenanceEvents.off('change', onChange);
+  });
+});
+
 app.put('/api/admin/platform-settings', requireDb, requireAdmin, async (req, res) => {
   const { maintenanceMode } = req.body || {};
   if (typeof maintenanceMode !== 'boolean') {
@@ -341,6 +371,7 @@ app.put('/api/admin/platform-settings', requireDb, requireAdmin, async (req, res
     );
     maintenanceModeEnabled = maintenanceMode;
     maintenanceModeLastChecked = Date.now();
+    broadcastMaintenanceMode();
     res.json({ ok: true, maintenanceMode });
   } catch (error) {
     res.status(500).json({ ok: false, error: String(error?.message || error) });

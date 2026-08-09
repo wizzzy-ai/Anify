@@ -61,4 +61,18 @@
             enforceMaintenanceMode();
         })
         .catch(() => {});
+
+    // Update all open tabs immediately when an admin toggles the setting.
+    if (typeof EventSource !== 'undefined') {
+        const stream = new EventSource('/api/platform-settings/stream');
+        stream.onmessage = (event) => {
+            try {
+                const settings = JSON.parse(event.data);
+                maintenanceModeEnabled = settings?.maintenanceMode === true;
+                enforceMaintenanceMode();
+            } catch (error) {
+                console.warn('Invalid maintenance-mode update:', error);
+            }
+        };
+    }
 })();
