@@ -317,6 +317,10 @@ const Genre = mongoose.models.Genre || mongoose.model('Genre', genreSchema);
 app.get('/api/platform-settings', async (req, res) => {
   try {
     const maintenanceMode = await getMaintenanceMode();
+    // This switch must always reflect the latest admin change. A cached
+    // "false" response would allow the UI to show fallback content while the
+    // API itself is already in maintenance mode.
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({ ok: true, maintenanceMode });
   } catch (error) {
     res.status(500).json({ ok: false, error: String(error?.message || error) });

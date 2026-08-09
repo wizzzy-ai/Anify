@@ -24,7 +24,7 @@
                 <h1 class="text-3xl font-black text-white">We’ll be right back</h1>
                 <p class="mt-3 text-gray-400">Anify is temporarily offline for maintenance. Please check back soon.</p>
                 <button id="maintenance-login-button" class="mt-6 rounded-xl bg-gold-400 px-5 py-3 font-bold text-black transition hover:bg-gold-300">
-                    Sign in as admin
+                    Return to Login Page
                 </button>
             </div>`;
         document.body.appendChild(screen);
@@ -54,7 +54,7 @@
         };
     });
 
-    fetch('/api/platform-settings')
+    fetch('/api/platform-settings', { cache: 'no-store' })
         .then(response => response.ok ? response.json() : null)
         .then(settings => {
             maintenanceModeEnabled = settings?.maintenanceMode === true;
