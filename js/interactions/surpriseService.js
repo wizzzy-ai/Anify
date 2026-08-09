@@ -19,13 +19,22 @@
             let pool = [...(global.animeData || [])];
 
             // 1. Basic safety filtering
-            pool = pool.filter(a => a.image && a.banner && a.desc);
+            pool = pool.filter(a => a && a.image && (a.desc || a.title));
+
+            const ratingOf = (anime) => Number(anime.averageRating ?? anime.rating ?? 0);
 
             // 2. Mode-specific filtering
             if (mode === 'hidden-gem') {
-                pool = pool.filter(a => a.rating >= 8.0 && !a.trending);
+                const hiddenGems = pool.filter(a => ratingOf(a) >= 7.5 && !a.trending);
+                // Some catalog entries have not been marked trending yet. Keep
+                // the button useful instead of returning an empty result.
+                const nonTrending = pool.filter(a => !a.trending);
+                pool = hiddenGems.length ? hiddenGems : (nonTrending.length ? nonTrending : pool);
             } else if (mode === 'editors-pick') {
-                pool = pool.filter(a => a.featured);
+                const featured = pool.filter(a => a.featured);
+                // Fall back to the highest rated titles if no editor picks have
+                // been selected in the catalog.
+                pool = featured.length ? featured : [...pool].sort((a, b) => ratingOf(b) - ratingOf(a)).slice(0, Math.max(1, Math.ceil(pool.length / 3)));
             }
 
             // 3. User filters
@@ -42,7 +51,7 @@
             }
 
             if (filters.minRating && filters.minRating !== 'any') {
-                pool = pool.filter(a => a.rating >= Number(filters.minRating));
+                pool = pool.filter(a => ratingOf(a) >= Number(filters.minRating));
             }
 
             if (filters.language && filters.language !== 'any') {
