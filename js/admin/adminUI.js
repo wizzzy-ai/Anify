@@ -82,6 +82,9 @@
                     <button onclick="switchAdminTab('users')" class="admin-nav-item" data-admin-nav="users">
                         <i data-lucide="users" class="w-4 h-4"></i> User Management
                     </button>
+                    <button onclick="switchAdminTab('bans')" class="admin-nav-item" data-admin-nav="bans">
+                        <i data-lucide="shield-ban" class="w-4 h-4"></i> Banned Users
+                    </button>
                     <button onclick="switchAdminTab('analytics')" class="admin-nav-item" data-admin-nav="analytics">
                         <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Analytics
                     </button>
@@ -114,6 +117,9 @@
                 </button>
                 <button onclick="switchAdminTab('users')" class="flex flex-col items-center gap-0.5 p-2 text-gray-500" data-admin-nav-mobile="users">
                     <i data-lucide="users" class="w-5 h-5"></i><span class="text-[10px]">Users</span>
+                </button>
+                <button onclick="switchAdminTab('bans')" class="flex flex-col items-center gap-0.5 p-2 text-gray-500" data-admin-nav-mobile="bans">
+                    <i data-lucide="shield-ban" class="w-5 h-5"></i><span class="text-[10px]">Bans</span>
                 </button>
                 <button onclick="switchAdminTab('analytics')" class="flex flex-col items-center gap-0.5 p-2 text-gray-500" data-admin-nav-mobile="analytics">
                     <i data-lucide="bar-chart-3" class="w-5 h-5"></i><span class="text-[10px]">Analytics</span>
@@ -173,6 +179,10 @@
             case 'users':
                 content.innerHTML = renderAdminUsers();
                 setTimeout(loadAdminUsersTable, 0);
+                break;
+            case 'bans':
+                content.innerHTML = renderBannedUsers();
+                setTimeout(loadBannedUsersTable, 0);
                 break;
             case 'analytics':
                 content.innerHTML = renderAdminAnalytics();
@@ -2426,7 +2436,8 @@ function editAdminAnime(id) {
     </div>
     <div class="glass-card rounded-2xl overflow-hidden anim-fade-in">
         <div id="admin-users-table" class="overflow-x-auto"></div>
-    </div>`;
+    </div>
+    ${renderBanModal()}`;
     }
 
     async function handleAdminUserAction(userId, patch) {
@@ -2520,7 +2531,7 @@ function editAdminAnime(id) {
                                         <button class="p-2 rounded-lg hover:bg-white/10 transition-all" title="Set Pending" onclick="handleAdminUserAction('${u._id || ''}', { status: 'Pending' })">
                                             <i data-lucide="clock" class="w-4 h-4 text-yellow-400"></i>
                                         </button>
-                                        <button class="p-2 rounded-lg hover:bg-white/10 transition-all" title="Set Banned" onclick="handleAdminUserAction('${u._id || ''}', { status: 'Banned' })">
+                                        <button class="p-2 rounded-lg hover:bg-white/10 transition-all" title="Ban user" onclick="openBanUserModal('${u._id || ''}', '${name.replace(/'/g, "\\'")}')">
                                             <i data-lucide="x" class="w-4 h-4 text-red-400"></i>
                                         </button>
                                     </div>
@@ -2532,6 +2543,154 @@ function editAdminAnime(id) {
             if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
         } catch (e) {
             target.innerHTML = `<p class="p-4 text-sm text-red-400">Failed to load users: ${String(e?.message || e)}</p>`;
+        }
+    }
+
+    function renderBanModal() {
+        return `
+        <div id="ban-user-modal" class="hidden fixed inset-0 z-[100] items-center justify-center bg-black/70 p-4">
+            <form onsubmit="submitBanForm(event)" class="w-full max-w-lg rounded-2xl border border-white/10 bg-[#141225] p-6 shadow-2xl">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.18em] text-red-400">Ban management</p>
+                        <h2 class="mt-1 text-xl font-black">Ban <span id="ban-user-name">user</span></h2>
+                    </div>
+                    <button type="button" onclick="closeBanUserModal()" class="rounded-lg p-2 text-gray-400 hover:bg-white/10 hover:text-white" aria-label="Close">×</button>
+                </div>
+                <input id="ban-user-id" type="hidden">
+                <label class="mt-5 block text-sm font-medium text-gray-300">Reason</label>
+                <textarea id="ban-reason" required maxlength="500" rows="3" placeholder="Explain why this account is being banned..." class="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none transition focus:border-red-400/60"></textarea>
+                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300">Ban type</label>
+                        <select id="ban-type" onchange="toggleBanExpiry()" class="mt-2 w-full rounded-xl border border-white/10 bg-[#1c1930] px-3 py-3 text-sm outline-none focus:border-red-400/60">
+                            <option value="permanent">Permanent ban</option>
+                            <option value="temporary">Temporary ban</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300">Expires</label>
+                        <input id="ban-expiry" type="datetime-local" disabled class="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-40 focus:border-red-400/60">
+                    </div>
+                </div>
+                <p class="mt-3 text-xs text-gray-500">IP and device restrictions are not enabled because this platform does not yet store reliable device or IP records.</p>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" onclick="closeBanUserModal()" class="rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-300 hover:bg-white/10">Cancel</button>
+                    <button type="submit" class="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-400">Ban user</button>
+                </div>
+            </form>
+        </div>`;
+    }
+
+    function renderBannedUsers() {
+        return `
+        <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-black">Banned Users</h1>
+                <p class="mt-1 text-sm text-gray-500">Review active bans, reasons and expiry dates.</p>
+            </div>
+            <button onclick="switchAdminTab('users')" class="rounded-xl bg-red-500/10 px-4 py-2.5 text-sm font-bold text-red-300 transition hover:bg-red-500/20">
+                Manage users
+            </button>
+        </div>
+        <div class="glass-card overflow-hidden rounded-2xl anim-fade-in">
+            <div id="banned-users-table" class="overflow-x-auto"></div>
+        </div>
+        ${renderBanModal()}`;
+    }
+
+    async function loadBannedUsersTable() {
+        const target = document.getElementById('banned-users-table');
+        if (!target) return;
+        const token = getAuthToken();
+        try {
+            const response = await fetch('/api/admin/banned-users', { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.ok) throw new Error(data.error || `HTTP ${response.status}`);
+            const users = Array.isArray(data.users) ? data.users : [];
+            if (!users.length) {
+                target.innerHTML = `<div class="p-10 text-center"><i data-lucide="shield-check" class="mx-auto mb-3 h-9 w-9 text-green-400"></i><p class="font-bold">No active bans</p><p class="mt-1 text-sm text-gray-500">There are no users currently blocked from the platform.</p></div>`;
+            } else {
+                target.innerHTML = `<table class="w-full min-w-[680px]">
+                    <thead><tr class="border-b border-white/5 text-left">
+                        <th class="p-4 text-xs font-semibold uppercase text-gray-400">User</th>
+                        <th class="p-4 text-xs font-semibold uppercase text-gray-400">Reason</th>
+                        <th class="p-4 text-xs font-semibold uppercase text-gray-400">Banned</th>
+                        <th class="p-4 text-xs font-semibold uppercase text-gray-400">Expires</th>
+                        <th class="p-4 text-xs font-semibold uppercase text-gray-400">Action</th>
+                    </tr></thead>
+                    <tbody>${users.map((user) => {
+                        const name = user.username || user.name || user.email || 'User';
+                        const info = user.banInfo || {};
+                        const date = info.bannedAt ? new Date(info.bannedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+                        const expires = info.banEnds ? new Date(info.banEnds).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Permanent';
+                        return `<tr class="border-b border-white/5 hover:bg-white/[0.03]">
+                            <td class="p-4"><p class="font-semibold text-sm">${name}</p><p class="mt-0.5 text-xs text-gray-500">${user.email || ''}</p></td>
+                            <td class="max-w-xs p-4 text-sm text-gray-300">${info.reason || 'No reason supplied'}</td>
+                            <td class="p-4 text-sm text-gray-400">${date}</td>
+                            <td class="p-4"><span class="rounded-full px-2.5 py-1 text-xs font-semibold ${info.banEnds ? 'bg-amber-400/10 text-amber-300' : 'bg-red-500/10 text-red-300'}">${expires}</span></td>
+                            <td class="p-4"><button onclick="unbanUser('${user._id}')" class="rounded-lg bg-green-400/10 px-3 py-2 text-xs font-bold text-green-300 transition hover:bg-green-400/20">Unban</button></td>
+                        </tr>`;
+                    }).join('')}</tbody>
+                </table>`;
+            }
+            if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+        } catch (error) {
+            target.innerHTML = `<p class="p-5 text-sm text-red-400">Failed to load banned users: ${String(error?.message || error)}</p>`;
+        }
+    }
+
+    function openBanUserModal(userId, name) {
+        const modal = document.getElementById('ban-user-modal');
+        if (!modal) return;
+        document.getElementById('ban-user-id').value = userId;
+        document.getElementById('ban-user-name').textContent = name || 'user';
+        document.getElementById('ban-reason').value = '';
+        document.getElementById('ban-type').value = 'permanent';
+        document.getElementById('ban-expiry').value = '';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        toggleBanExpiry();
+    }
+
+    function closeBanUserModal() {
+        const modal = document.getElementById('ban-user-modal');
+        modal?.classList.add('hidden');
+        modal?.classList.remove('flex');
+    }
+
+    function toggleBanExpiry() {
+        const temporary = document.getElementById('ban-type')?.value === 'temporary';
+        const expiry = document.getElementById('ban-expiry');
+        if (expiry) expiry.disabled = !temporary;
+    }
+
+    async function submitBanForm(event) {
+        event.preventDefault();
+        const userId = document.getElementById('ban-user-id')?.value;
+        const reason = document.getElementById('ban-reason')?.value.trim();
+        const temporary = document.getElementById('ban-type')?.value === 'temporary';
+        const expiry = document.getElementById('ban-expiry')?.value;
+        if (!userId || !reason) return;
+        if (temporary && !expiry) return alert('Choose an expiry date for a temporary ban.');
+        try {
+            await updateAdminUser(userId, { status: 'Banned', banInfo: { reason, banEnds: temporary ? new Date(expiry).toISOString() : null } });
+            closeBanUserModal();
+            await loadBannedUsersTable();
+            if (window.showToast) showToast('User banned');
+        } catch (error) {
+            alert(String(error?.message || error));
+        }
+    }
+
+    async function unbanUser(userId) {
+        if (!confirm('Unban this user and restore account access?')) return;
+        try {
+            await updateAdminUser(userId, { status: 'Active' });
+            await loadBannedUsersTable();
+            if (window.showToast) showToast('User unbanned');
+        } catch (error) {
+            alert(String(error?.message || error));
         }
     }
 
@@ -3137,6 +3296,13 @@ function editAdminAnime(id) {
     global.renderAdminUsers = renderAdminUsers;
     global.handleAdminUserAction = handleAdminUserAction;
     global.loadAdminUsersTable = loadAdminUsersTable;
+    global.renderBannedUsers = renderBannedUsers;
+    global.loadBannedUsersTable = loadBannedUsersTable;
+    global.openBanUserModal = openBanUserModal;
+    global.closeBanUserModal = closeBanUserModal;
+    global.toggleBanExpiry = toggleBanExpiry;
+    global.submitBanForm = submitBanForm;
+    global.unbanUser = unbanUser;
     global.renderAdminAnalytics = renderAdminAnalytics;
     global.renderAdminSubscriptions = renderAdminSubscriptions;
     global.renderAdminReports = renderAdminReports;

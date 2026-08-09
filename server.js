@@ -1988,6 +1988,24 @@ app.get('/api/users', requireDb, async (req, res) => {
   res.json({ ok: true, users });
 });
 
+app.get('/api/admin/banned-users', requireAdmin, requireDb, async (req, res) => {
+  try {
+    // Expired temporary bans should no longer appear or prevent access.
+    await User.updateMany(
+      { status: 'Banned', 'banInfo.banEnds': { $ne: null, $lte: new Date() } },
+      { $set: { status: 'Active' }, $unset: { banInfo: 1 } }
+    );
+
+    const users = await User.find({ status: { $in: ['Banned', 'banned'] } })
+      .sort({ 'banInfo.bannedAt': -1 })
+      .select({ passwordHash: 0 })
+      .lean();
+    res.json({ ok: true, users });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
 app.put('/api/admin/users/:userId', requireAdmin, requireDb, async (req, res) => {
   try {
     const { userId } = req.params;
@@ -2020,10 +2038,18 @@ app.put('/api/admin/users/:userId', requireAdmin, requireDb, async (req, res) =>
 
     // Handle banInfo when banning a user
     if (status === 'Banned') {
-      updateData.banInfo = banInfo || {
-        reason: 'Violation of Community Guidelines',
+      const reason = String(banInfo?.reason || 'Violation of Community Guidelines').trim();
+      const banEnds = banInfo?.banEnds ? new Date(banInfo.banEnds) : null;
+      if (!reason || reason.length > 500) {
+        return res.status(400).json({ ok: false, error: 'Ban reason is required and must be 500 characters or fewer.' });
+      }
+      if (banEnds && (Number.isNaN(banEnds.getTime()) || banEnds <= new Date())) {
+        return res.status(400).json({ ok: false, error: 'Temporary-ban expiry must be a future date.' });
+      }
+      updateData.banInfo = {
+        reason,
         bannedAt: new Date(),
-        banEnds: null,
+        banEnds,
         bannedBy: req.auth.username || 'Admin',
       };
       console.log('[Admin] Setting user as Banned with banInfo:', updateData.banInfo);
@@ -2575,6 +2601,13 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
       user.status = 'active';
     }
 
+    // Expired temporary bans restore access automatically.
+    if (user.status === 'Banned' && user.banInfo?.banEnds && new Date(user.banInfo.banEnds) <= new Date()) {
+      await User.updateOne({ _id: user._id }, { $set: { status: 'Active' }, $unset: { banInfo: 1 } });
+      user.status = 'Active';
+      user.banInfo = undefined;
+    }
+
     // Check if user is banned
     if (user.status === 'Banned') {
       console.log('[Auth] User is banned:', { userId: user._id, username: user.username, banInfo: user.banInfo });
@@ -2652,6 +2685,13 @@ function requireActiveUser(req, res, next) {
       const user = await User.findById(req.auth.userId);
       if (!user) {
         return res.status(404).json({ ok: false, error: 'User not found' });
+      }
+
+      // Expired temporary bans restore access automatically.
+      if (user.status === 'Banned' && user.banInfo?.banEnds && new Date(user.banInfo.banEnds) <= new Date()) {
+        await User.updateOne({ _id: user._id }, { $set: { status: 'Active' }, $unset: { banInfo: 1 } });
+        user.status = 'Active';
+        user.banInfo = undefined;
       }
 
       // Check if user is banned
