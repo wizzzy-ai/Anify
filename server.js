@@ -312,6 +312,37 @@ const WatchProgress = mongoose.models.WatchProgress || mongoose.model('WatchProg
 const Comment = mongoose.models.Comment || mongoose.model('Comment', commentSchema);
 const Genre = mongoose.models.Genre || mongoose.model('Genre', genreSchema);
 
+// Public read endpoint lets the web app show a clear maintenance screen before
+// rendering the normal experience. Only admins may change this setting.
+app.get('/api/platform-settings', async (req, res) => {
+  try {
+    const maintenanceMode = await getMaintenanceMode();
+    res.json({ ok: true, maintenanceMode });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.put('/api/admin/platform-settings', requireDb, requireAdmin, async (req, res) => {
+  const { maintenanceMode } = req.body || {};
+  if (typeof maintenanceMode !== 'boolean') {
+    return res.status(400).json({ ok: false, error: 'maintenanceMode must be true or false.' });
+  }
+
+  try {
+    await PlatformSettings.findOneAndUpdate(
+      { key: 'platform' },
+      { $set: { maintenanceMode } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    maintenanceModeEnabled = maintenanceMode;
+    maintenanceModeLastChecked = Date.now();
+    res.json({ ok: true, maintenanceMode });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
 // DEBUG: Log the actual Anime schema being used at runtime
 console.log('[ANIME MODEL DEBUG] Anime model name:', Anime.modelName);
 console.log('[ANIME MODEL DEBUG] Schema paths:', Object.keys(Anime.schema.paths));
@@ -784,6 +815,24 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
     const premiumUsers = await User.countDocuments({ plan: { $ne: 'Free' } });
     const activeUsers = await User.countDocuments({ status: 'active' });
     
+    // Enhanced user statistics
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    const newUsersToday = await User.countDocuments({ createdAt: { $gte: todayStart } });
+    const newUsersThisWeek = await User.countDocuments({ createdAt: { $gte: weekStart } });
+    
+    // User plan distribution
+    const freeUsers = await User.countDocuments({ plan: 'Free' });
+    const basicUsers = await User.countDocuments({ plan: 'Basic' });
+    const premiumPlanUsers = await User.countDocuments({ plan: 'Premium' });
+    const vipUsers = await User.countDocuments({ plan: 'VIP' });
+    
+    // User status distribution
+    const pendingUsers = await User.countDocuments({ status: 'pending' });
+    const bannedUsers = await User.countDocuments({ status: 'banned' });
+    
     // Get recent users for activity feed
     const recentUsers = await User.find()
       .sort({ createdAt: -1 })
@@ -791,9 +840,185 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
       .select({ name: 1, username: 1, email: 1, createdAt: 1, status: 1, plan: 1 })
       .lean();
     
-    // Get anime count
+    // Enhanced anime statistics
     const totalAnime = await Anime.countDocuments();
     const trendingAnime = await Anime.countDocuments({ trending: true });
+    const featuredAnime = await Anime.countDocuments({ featured: true });
+    const premiumAnime = await Anime.countDocuments({ premium: true });
+    const newEpisodesAnime = await Anime.countDocuments({ newEpisode: true });
+    
+    // Anime status distribution
+    const ongoingAnime = await Anime.countDocuments({ status: 'Ongoing' });
+    const completedAnime = await Anime.countDocuments({ status: 'Completed' });
+    const upcomingAnime = await Anime.countDocuments({ status: 'Upcoming' });
+    
+    // Recently added anime
+    const recentAnime = await Anime.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select({ title: 1, image: 1, status: 1, createdAt: 1, rating: 1 })
+      .lean();
+    
+    // Top rated anime
+    const topRatedAnime = await Anime.find()
+      .sort({ averageRating: -1 })
+      .limit(5)
+      .select({ title: 1, image: 1, averageRating: 1, ratingCount: 1 })
+      .lean();
+    
+    // Genre distribution
+    const allAnime = await Anime.find().select({ genres: 1 }).lean();
+    const genreCounts = {};
+    allAnime.forEach(anime => {
+      if (Array.isArray(anime.genres)) {
+        anime.genres.forEach(genre => {
+          genreCounts[genre] = (genreCounts[genre] || 0) + 1;
+        });
+      }
+    });
+    
+    // User growth over time (last 7 days)
+    const userGrowth = [];
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      const count = await User.countDocuments({
+        createdAt: { $gte: dayStart, $lt: dayEnd }
+      });
+      userGrowth.push({
+        date: dayStart.toISOString().split('T')[0],
+        count: count
+      });
+    }
+    
+    // Anime growth over time (last 7 days)
+    const animeGrowth = [];
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      const count = await Anime.countDocuments({
+        createdAt: { $gte: dayStart, $lt: dayEnd }
+      });
+      animeGrowth.push({
+        date: dayStart.toISOString().split('T')[0],
+        count: count
+      });
+    }
+    
+    // Enhanced user analytics
+    // User engagement metrics (using watch progress as proxy for engagement)
+    const activeWatchers = await WatchProgress.countDocuments({
+      updatedAt: { $gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) }
+    });
+    
+    // User registration trends by month (last 6 months)
+    const monthlyRegistrations = [];
+    for (let i = 5; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+      const count = await User.countDocuments({
+        createdAt: { $gte: monthStart, $lte: monthEnd }
+      });
+      monthlyRegistrations.push({
+        month: monthStart.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        count: count
+      });
+    }
+    
+    // User activity distribution (by last login/activity)
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    
+    const activeLastDay = await User.countDocuments({ updatedAt: { $gte: oneDayAgo } });
+    const activeLastWeek = await User.countDocuments({ updatedAt: { $gte: sevenDaysAgo } });
+    const activeLastMonth = await User.countDocuments({ updatedAt: { $gte: thirtyDaysAgo } });
+    
+    // Most active users (based on recent activity)
+    const mostActiveUsers = await User.find()
+      .sort({ updatedAt: -1 })
+      .limit(5)
+      .select({ username: 1, email: 1, plan: 1, updatedAt: 1, createdAt: 1 })
+      .lean();
+    
+    // User retention (simplified - users who registered in last month and are still active)
+    const lastMonthUsers = await User.find({
+      createdAt: { $gte: thirtyDaysAgo }
+    }).select({ _id: 1, updatedAt: 1 }).lean();
+    
+    const retainedUsers = lastMonthUsers.filter(user => 
+      user.updatedAt && new Date(user.updatedAt) >= sevenDaysAgo
+    ).length;
+    
+    const retentionRate = lastMonthUsers.length > 0 
+      ? Math.round((retainedUsers / lastMonthUsers.length) * 100) 
+      : 0;
+    
+    // Time-based analytics
+    // Peak usage hours (analyze user activity by hour of day)
+    const hourlyActivity = [];
+    for (let hour = 0; hour < 24; hour++) {
+      const hourStart = new Date(now);
+      hourStart.setHours(hour, 0, 0, 0);
+      const hourEnd = new Date(hourStart);
+      hourEnd.setHours(hour + 1);
+      
+      // Count users who were active in this hour (using updatedAt as proxy)
+      const count = await User.countDocuments({
+        updatedAt: { $gte: hourStart, $lt: hourEnd }
+      });
+      
+      hourlyActivity.push({
+        hour: hour,
+        count: count,
+        label: `${hour}:00`
+      });
+    }
+    
+    // Day-of-week activity patterns
+    const dayOfWeekActivity = [];
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    for (let day = 0; day < 7; day++) {
+      const dayStart = new Date(now);
+      dayStart.setDate(dayStart.getDate() - dayStart.getDay() + day);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      
+      const count = await User.countDocuments({
+        updatedAt: { $gte: dayStart, $lt: dayEnd }
+      });
+      
+      dayOfWeekActivity.push({
+        day: dayNames[day],
+        count: count
+      });
+    }
+    
+    // Seasonal trends (last 12 months)
+    const seasonalTrends = [];
+    for (let i = 11; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+      
+      const newUsers = await User.countDocuments({
+        createdAt: { $gte: monthStart, $lte: monthEnd }
+      });
+      
+      const activeUsers = await User.countDocuments({
+        updatedAt: { $gte: monthStart, $lte: monthEnd }
+      });
+      
+      seasonalTrends.push({
+        month: monthStart.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        newUsers: newUsers,
+        activeUsers: activeUsers
+      });
+    }
+    
+    // Peak usage identification
+    const peakHour = hourlyActivity.reduce((max, hour) => hour.count > max.count ? hour : max, hourlyActivity[0]);
+    const peakDay = dayOfWeekActivity.reduce((max, day) => day.count > max.count ? day : max, dayOfWeekActivity[0]);
     
     res.json({
       ok: true,
@@ -802,7 +1027,54 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
         premiumUsers,
         activeUsers,
         totalAnime,
-        trendingAnime
+        trendingAnime,
+        // Enhanced user stats
+        newUsersToday,
+        newUsersThisWeek,
+        userPlanDistribution: {
+          free: freeUsers,
+          basic: basicUsers,
+          premium: premiumPlanUsers,
+          vip: vipUsers
+        },
+        userStatusDistribution: {
+          active: activeUsers,
+          pending: pendingUsers,
+          banned: bannedUsers
+        },
+        // User analytics
+        activeWatchers,
+        userActivityDistribution: {
+          lastDay: activeLastDay,
+          lastWeek: activeLastWeek,
+          lastMonth: activeLastMonth
+        },
+        retentionRate,
+        monthlyRegistrations,
+        // Time-based analytics
+        hourlyActivity,
+        dayOfWeekActivity,
+        seasonalTrends,
+        peakUsage: {
+          hour: peakHour.label,
+          hourCount: peakHour.count,
+          day: peakDay.day,
+          dayCount: peakDay.count
+        },
+        // Enhanced anime stats
+        featuredAnime,
+        premiumAnime,
+        newEpisodesAnime,
+        animeStatusDistribution: {
+          ongoing: ongoingAnime,
+          completed: completedAnime,
+          upcoming: upcomingAnime
+        },
+        // Growth data
+        userGrowth,
+        animeGrowth,
+        // Genre distribution
+        genreDistribution: genreCounts
       },
       recentActivity: recentUsers.map(user => ({
         type: 'user',
@@ -810,6 +1082,25 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
         color: 'text-green-400',
         text: `New user registered: ${user.username || user.email}`,
         time: formatTimeAgo(user.createdAt)
+      })),
+      recentAnime: recentAnime.map(anime => ({
+        title: anime.title,
+        image: anime.image,
+        status: anime.status,
+        rating: anime.rating,
+        createdAt: anime.createdAt
+      })),
+      topRatedAnime: topRatedAnime.map(anime => ({
+        title: anime.title,
+        image: anime.image,
+        averageRating: anime.averageRating,
+        ratingCount: anime.ratingCount
+      })),
+      mostActiveUsers: mostActiveUsers.map(user => ({
+        username: user.username || user.email,
+        plan: user.plan,
+        lastActive: formatTimeAgo(user.updatedAt),
+        memberSince: formatTimeAgo(user.createdAt)
       }))
     });
   } catch (error) {

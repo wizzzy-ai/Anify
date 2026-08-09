@@ -7,6 +7,54 @@
         return url.replace(/^http:/, 'https:');
     }
 
+    // Helper function to format time ago
+    function formatTimeAgo(date) {
+        const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+        const intervals = {
+            year: 31536000,
+            month: 2592000,
+            week: 604800,
+            day: 86400,
+            hour: 3600,
+            minute: 60
+        };
+        
+        for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+            const interval = Math.floor(seconds / secondsInUnit);
+            if (interval >= 1) {
+                return `${interval} ${unit}${interval > 1 ? 's' : ''} ago`;
+            }
+        }
+        return 'Just now';
+    }
+
+    // Quick action functions
+    function refreshDashboard() {
+        renderAdminDashboard();
+    }
+
+    function exportDashboardData() {
+        // Export current dashboard data as JSON
+        fetch('/api/admin/stats')
+            .then(response => response.json())
+            .then(data => {
+                const dataStr = JSON.stringify(data, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `anify-dashboard-export-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error('Export failed:', error);
+                alert('Failed to export dashboard data');
+            });
+    }
+
+
+
     function ensureAdminOrRedirect() {
         if (global.adminService && typeof global.adminService.ensureAdminOrRedirect === 'function') {
             return global.adminService.ensureAdminOrRedirect();
@@ -86,7 +134,7 @@
     </div>`;
     }
 
-    function switchAdminTab(tab) {
+    async function switchAdminTab(tab) {
         document.querySelectorAll('[data-admin-nav]').forEach(n => n.classList.remove('active'));
         document.querySelectorAll('[data-admin-nav-mobile]').forEach(n => {
             n.classList.remove('text-gold-400');
@@ -114,7 +162,9 @@
         }
 
         switch(tab) {
-            case 'dashboard': renderAdminDashboard(); break;
+            case 'dashboard': 
+                await renderAdminDashboard();
+                break;
             case 'anime': content.innerHTML = renderAdminAnime(); break;
             case 'movies':
                 content.innerHTML = renderAdminMovies();
@@ -164,6 +214,12 @@
 
             const stats = data.stats || {};
             const recentActivity = data.recentActivity || [];
+            const recentAnime = data.recentAnime || [];
+            const topRatedAnime = data.topRatedAnime || [];
+            const mostActiveUsers = data.mostActiveUsers || [];
+            const hourlyActivity = stats.hourlyActivity || [];
+            const dayOfWeekActivity = stats.dayOfWeekActivity || [];
+            const seasonalTrends = stats.seasonalTrends || [];
 
             content.innerHTML = `
     <div class="mb-6">
@@ -171,7 +227,86 @@
         <p class="text-gray-500 text-sm mt-1 anim-slide-up anim-delay-1">Welcome back! Here's your overview.</p>
     </div>
 
-    <!-- Stats Grid -->
+    <!-- Quick Actions -->
+    <div class="glass-card rounded-2xl p-5 mb-8 anim-fade-in">
+        <h3 class="font-bold mb-4">Quick Actions</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <button onclick="switchAdminTab('anime')" class="flex flex-col items-center gap-2 p-3 rounded-xl bg-gold-400/10 hover:bg-gold-400/20 transition-all group">
+                <div class="w-10 h-10 rounded-lg bg-gold-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i data-lucide="tv" class="w-5 h-5 text-gold-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-gray-300">Manage Anime</span>
+            </button>
+            
+            <button onclick="switchAdminTab('movies')" class="flex flex-col items-center gap-2 p-3 rounded-xl bg-purple-400/10 hover:bg-purple-400/20 transition-all group">
+                <div class="w-10 h-10 rounded-lg bg-purple-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i data-lucide="film" class="w-5 h-5 text-purple-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-gray-300">Manage Movies</span>
+            </button>
+            
+            <button onclick="switchAdminTab('users')" class="flex flex-col items-center gap-2 p-3 rounded-xl bg-blue-400/10 hover:bg-blue-400/20 transition-all group">
+                <div class="w-10 h-10 rounded-lg bg-blue-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i data-lucide="users" class="w-5 h-5 text-blue-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-gray-300">Manage Users</span>
+            </button>
+            
+            <button onclick="refreshDashboard()" class="flex flex-col items-center gap-2 p-3 rounded-xl bg-green-400/10 hover:bg-green-400/20 transition-all group">
+                <div class="w-10 h-10 rounded-lg bg-green-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i data-lucide="refresh-cw" class="w-5 h-5 text-green-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-gray-300">Refresh Data</span>
+            </button>
+            
+            <button onclick="switchAdminTab('analytics')" class="flex flex-col items-center gap-2 p-3 rounded-xl bg-orange-400/10 hover:bg-orange-400/20 transition-all group">
+                <div class="w-10 h-10 rounded-lg bg-orange-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5 text-orange-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-gray-300">Analytics</span>
+            </button>
+            
+            <button onclick="switchAdminTab('settings')" class="flex flex-col items-center gap-2 p-3 rounded-xl bg-pink-400/10 hover:bg-pink-400/20 transition-all group">
+                <div class="w-10 h-10 rounded-lg bg-pink-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i data-lucide="settings" class="w-5 h-5 text-pink-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-gray-300">Settings</span>
+            </button>
+        </div>
+        
+        <!-- Secondary Quick Actions -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+            <button onclick="switchAdminTab('reports')" class="flex items-center gap-2 p-3 rounded-xl bg-red-400/10 hover:bg-red-400/20 transition-all group">
+                <div class="w-8 h-8 rounded-lg bg-red-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i data-lucide="flag" class="w-4 h-4 text-red-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-gray-300">View Reports</span>
+            </button>
+            
+            <button onclick="switchAdminTab('subscriptions')" class="flex items-center gap-2 p-3 rounded-xl bg-yellow-400/10 hover:bg-yellow-400/20 transition-all group">
+                <div class="w-8 h-8 rounded-lg bg-yellow-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i data-lucide="credit-card" class="w-4 h-4 text-yellow-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-gray-300">Subscriptions</span>
+            </button>
+            
+            <button onclick="exportDashboardData()" class="flex items-center gap-2 p-3 rounded-xl bg-indigo-400/10 hover:bg-indigo-400/20 transition-all group">
+                <div class="w-8 h-8 rounded-lg bg-indigo-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i data-lucide="download" class="w-4 h-4 text-indigo-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-gray-300">Export Data</span>
+            </button>
+            
+            <button onclick="navigate('home')" class="flex items-center gap-2 p-3 rounded-xl bg-gray-400/10 hover:bg-gray-400/20 transition-all group">
+                <div class="w-8 h-8 rounded-lg bg-gray-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i data-lucide="arrow-left" class="w-4 h-4 text-gray-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-gray-300">Back to Site</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Enhanced Stats Grid -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div class="stat-card anim-slide-up anim-delay-1">
             <div class="w-10 h-10 rounded-xl bg-gold-400/10 flex items-center justify-center mb-3">
@@ -179,6 +314,7 @@
             </div>
             <p class="text-2xl font-black">${stats.totalUsers || 0}</p>
             <p class="text-xs text-gray-500">Total Users</p>
+            <p class="text-xs text-green-400">+${stats.newUsersToday || 0} today</p>
         </div>
         <div class="stat-card anim-slide-up anim-delay-2">
             <div class="w-10 h-10 rounded-xl bg-purple-400/10 flex items-center justify-center mb-3">
@@ -186,6 +322,7 @@
             </div>
             <p class="text-2xl font-black">${stats.totalAnime || 0}</p>
             <p class="text-xs text-gray-500">Total Anime</p>
+            <p class="text-xs text-blue-400">${stats.featuredAnime || 0} featured</p>
         </div>
         <div class="stat-card anim-slide-up anim-delay-3">
             <div class="w-10 h-10 rounded-xl bg-blue-400/10 flex items-center justify-center mb-3">
@@ -193,6 +330,7 @@
             </div>
             <p class="text-2xl font-black">${stats.premiumUsers || 0}</p>
             <p class="text-xs text-gray-500">Premium Users</p>
+            <p class="text-xs text-purple-400">${stats.premiumAnime || 0} premium anime</p>
         </div>
         <div class="stat-card anim-slide-up anim-delay-4">
             <div class="w-10 h-10 rounded-xl bg-green-400/10 flex items-center justify-center mb-3">
@@ -200,32 +338,146 @@
             </div>
             <p class="text-2xl font-black">${stats.trendingAnime || 0}</p>
             <p class="text-xs text-gray-500">Trending Anime</p>
+            <p class="text-xs text-orange-400">${stats.newEpisodesAnime || 0} new episodes</p>
         </div>
     </div>
 
-    <!-- Charts Row -->
-    <div class="grid lg:grid-cols-2 gap-6 mb-8">
+    <!-- Content Analytics Section -->
+    <div class="grid lg:grid-cols-3 gap-6 mb-8">
+        <!-- Anime Status Distribution -->
         <div class="glass-card rounded-2xl p-5 anim-fade-in">
-            <h3 class="font-bold mb-4">Trending Anime</h3>
+            <h3 class="font-bold mb-4">Anime Status</h3>
             <div class="space-y-3">
-                ${animeData.filter(a => a.trending).slice(0, 5).map((a, i) => `
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs font-bold w-5 text-gold-400">#${i + 1}</span>
-                        <img src="${ensureHttps(a.image)}" class="w-10 h-14 rounded-lg object-cover" alt="${a.title}">
-                        <div class="flex-1 min-w-0">
-                            <p class="font-semibold text-sm truncate">${a.title}</p>
-                            <p class="text-xs text-gray-500">Trending</p>
-                        </div>
-                        <div class="w-20">
+                ${Object.entries(stats.animeStatusDistribution || {}).map(([status, count]) => {
+                    const colors = {
+                        ongoing: 'from-green-400 to-green-500',
+                        completed: 'from-blue-400 to-blue-500',
+                        upcoming: 'from-purple-400 to-purple-500'
+                    };
+                    const total = stats.totalAnime || 1;
+                    const percentage = Math.round((count / total) * 100);
+                    return `
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="capitalize">${status}</span>
+                                <span class="text-gray-500">${count} (${percentage}%)</span>
+                            </div>
                             <div class="h-2 bg-white/5 rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-gold-400 to-gold-500 rounded-full" style="width: ${100 - i * 18}%"></div>
+                                <div class="h-full bg-gradient-to-r ${colors[status] || 'from-gray-400 to-gray-500'} rounded-full" style="width: ${percentage}%"></div>
                             </div>
                         </div>
-                    </div>
-                `).join('')}
+                    `;
+                }).join('')}
             </div>
         </div>
 
+        <!-- Top Rated Anime -->
+        <div class="glass-card rounded-2xl p-5 anim-fade-in">
+            <h3 class="font-bold mb-4">Top Rated Anime</h3>
+            <div class="space-y-3">
+                ${topRatedAnime.length > 0 ? topRatedAnime.slice(0, 5).map((anime, i) => `
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold w-5 text-gold-400">#${i + 1}</span>
+                        <img src="${ensureHttps(anime.image)}" class="w-10 h-14 rounded-lg object-cover" alt="${anime.title}">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-sm truncate">${anime.title}</p>
+                            <p class="text-xs text-gray-500">⭐ ${anime.averageRating?.toFixed(1) || 'N/A'} (${anime.ratingCount || 0} votes)</p>
+                        </div>
+                    </div>
+                `).join('') : '<p class="text-gray-500 text-sm">No ratings yet</p>'}
+            </div>
+        </div>
+
+        <!-- Recently Added Anime -->
+        <div class="glass-card rounded-2xl p-5 anim-fade-in">
+            <h3 class="font-bold mb-4">Recently Added</h3>
+            <div class="space-y-3">
+                ${recentAnime.length > 0 ? recentAnime.slice(0, 5).map(anime => `
+                    <div class="flex items-center gap-3">
+                        <img src="${ensureHttps(anime.image)}" class="w-10 h-14 rounded-lg object-cover" alt="${anime.title}">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-sm truncate">${anime.title}</p>
+                            <p class="text-xs text-gray-500">${formatTimeAgo(anime.createdAt)}</p>
+                        </div>
+                        <span class="text-xs px-2 py-1 rounded-full ${anime.status === 'Ongoing' ? 'bg-green-400/10 text-green-400' : anime.status === 'Completed' ? 'bg-blue-400/10 text-blue-400' : 'bg-purple-400/10 text-purple-400'}">${anime.status}</span>
+                    </div>
+                `).join('') : '<p class="text-gray-500 text-sm">No anime added yet</p>'}
+            </div>
+        </div>
+    </div>
+
+    <!-- Genre Distribution & Growth Charts -->
+    <div class="grid lg:grid-cols-2 gap-6 mb-8">
+        <!-- Genre Distribution -->
+        <div class="glass-card rounded-2xl p-5 anim-fade-in">
+            <h3 class="font-bold mb-4">Genre Distribution</h3>
+            <div class="space-y-2">
+                ${Object.entries(stats.genreDistribution || {}).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([genre, count]) => {
+                    const total = stats.totalAnime || 1;
+                    const percentage = Math.round((count / total) * 100);
+                    return `
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1">
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="truncate">${genre}</span>
+                                    <span class="text-gray-500">${count}</span>
+                                </div>
+                                <div class="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                    <div class="h-full bg-gradient-to-r from-gold-400 to-gold-500 rounded-full" style="width: ${percentage}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+
+        <!-- User Growth Chart -->
+        <div class="glass-card rounded-2xl p-5 anim-fade-in">
+            <h3 class="font-bold mb-4">User Growth (7 Days)</h3>
+            <div class="space-y-2">
+                ${stats.userGrowth?.map(day => {
+                    const maxGrowth = Math.max(...stats.userGrowth.map(d => d.count), 1);
+                    const height = Math.round((day.count / maxGrowth) * 100);
+                    const date = new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+                    return `
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-gray-500 w-12">${date}</span>
+                            <div class="flex-1 h-8 bg-white/5 rounded-lg overflow-hidden flex items-end">
+                                <div class="w-full bg-gradient-to-t from-gold-400 to-gold-500 rounded-lg transition-all" style="height: ${Math.max(height, 5)}%"></div>
+                            </div>
+                            <span class="text-xs font-bold w-8 text-right">${day.count}</span>
+                        </div>
+                    `;
+                }).join('') || '<p class="text-gray-500 text-sm">No growth data available</p>'}
+            </div>
+        </div>
+    </div>
+
+    <!-- User Analytics & Recent Activity -->
+    <div class="grid lg:grid-cols-2 gap-6 mb-8">
+        <!-- User Plan Distribution -->
+        <div class="glass-card rounded-2xl p-5 anim-fade-in">
+            <h3 class="font-bold mb-4">User Plan Distribution</h3>
+            <div class="grid grid-cols-2 gap-4">
+                ${Object.entries(stats.userPlanDistribution || {}).map(([plan, count]) => {
+                    const colors = {
+                        free: 'bg-gray-400/10 text-gray-400',
+                        basic: 'bg-blue-400/10 text-blue-400',
+                        premium: 'bg-purple-400/10 text-purple-400',
+                        vip: 'bg-gold-400/10 text-gold-400'
+                    };
+                    return `
+                        <div class="p-3 rounded-xl ${colors[plan] || 'bg-gray-400/10 text-gray-400'}">
+                            <p class="text-2xl font-black">${count}</p>
+                            <p class="text-xs capitalize">${plan}</p>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
         <div class="glass-card rounded-2xl p-5 anim-fade-in">
             <h3 class="font-bold mb-4">Recent Activity</h3>
             <div class="space-y-3">
@@ -240,6 +492,209 @@
                         <span class="text-xs text-gray-500 whitespace-nowrap">${a.time}</span>
                     </div>
                 `).join('') : '<p class="text-gray-500 text-sm">No recent activity</p>'}
+            </div>
+        </div>
+    </div>
+
+    <!-- User Analytics Section -->
+    <div class="grid lg:grid-cols-3 gap-6 mb-8">
+        <!-- User Activity Distribution -->
+        <div class="glass-card rounded-2xl p-5 anim-fade-in">
+            <h3 class="font-bold mb-4">User Activity</h3>
+            <div class="space-y-3">
+                ${Object.entries(stats.userActivityDistribution || {}).map(([period, count]) => {
+                    const colors = {
+                        lastDay: 'from-green-400 to-green-500',
+                        lastWeek: 'from-blue-400 to-blue-500',
+                        lastMonth: 'from-purple-400 to-purple-500'
+                    };
+                    const total = stats.totalUsers || 1;
+                    const percentage = Math.round((count / total) * 100);
+                    return `
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="capitalize">${period.replace('last', 'Last ')}</span>
+                                <span class="text-gray-500">${count} (${percentage}%)</span>
+                            </div>
+                            <div class="h-2 bg-white/5 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r ${colors[period] || 'from-gray-400 to-gray-500'} rounded-full" style="width: ${percentage}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+
+        <!-- Monthly User Registrations -->
+        <div class="glass-card rounded-2xl p-5 anim-fade-in">
+            <h3 class="font-bold mb-4">Monthly Registrations</h3>
+            <div class="space-y-2">
+                ${stats.monthlyRegistrations?.map(month => {
+                    const maxRegistrations = Math.max(...stats.monthlyRegistrations.map(m => m.count), 1);
+                    const height = Math.round((month.count / maxRegistrations) * 100);
+                    return `
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-gray-500 w-12">${month.month}</span>
+                            <div class="flex-1 h-6 bg-white/5 rounded-lg overflow-hidden flex items-end">
+                                <div class="w-full bg-gradient-to-t from-gold-400 to-gold-500 rounded-lg transition-all" style="height: ${Math.max(height, 5)}%"></div>
+                            </div>
+                            <span class="text-xs font-bold w-6 text-right">${month.count}</span>
+                        </div>
+                    `;
+                }).join('') || '<p class="text-gray-500 text-sm">No registration data</p>'}
+            </div>
+        </div>
+
+        <!-- User Retention -->
+        <div class="glass-card rounded-2xl p-5 anim-fade-in">
+            <h3 class="font-bold mb-4">User Retention</h3>
+            <div class="text-center mb-4">
+                <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-green-400 to-green-500 p-1">
+                    <div class="w-full h-full rounded-full bg-gray-900 flex items-center justify-center">
+                        <span class="text-2xl font-black text-green-400">${stats.retentionRate || 0}%</span>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-500 mt-2">Retention Rate</p>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">Active Watchers</span>
+                    <span class="font-bold">${stats.activeWatchers || 0}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">New This Week</span>
+                    <span class="font-bold">${stats.newUsersThisWeek || 0}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Most Active Users -->
+    <div class="glass-card rounded-2xl p-5 anim-fade-in mb-8">
+        <h3 class="font-bold mb-4">Most Active Users</h3>
+        <div class="space-y-3">
+            ${mostActiveUsers?.length > 0 ? mostActiveUsers.slice(0, 5).map((user, i) => `
+                <div class="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all">
+                    <div class="w-8 h-8 rounded-lg bg-gold-400/10 flex items-center justify-center">
+                        <span class="text-sm font-bold text-gold-400">#${i + 1}</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-sm truncate">${user.username}</p>
+                        <p class="text-xs text-gray-500">Member since ${user.memberSince}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs px-2 py-1 rounded-full ${user.plan === 'Free' ? 'bg-gray-400/10 text-gray-400' : user.plan === 'Premium' ? 'bg-purple-400/10 text-purple-400' : 'bg-gold-400/10 text-gold-400'}">${user.plan}</span>
+                        <p class="text-xs text-gray-500 mt-1">Active ${user.lastActive}</p>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-gray-500 text-sm">No user activity data</p>'}
+        </div>
+    </div>
+
+    <!-- Time-based Analytics Section -->
+    <div class="glass-card rounded-2xl p-5 anim-fade-in mb-8">
+        <h3 class="font-bold mb-4">Time-based Analytics</h3>
+        
+        <!-- Peak Usage Summary -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="p-4 rounded-xl bg-gold-400/10 text-center">
+                <i data-lucide="clock" class="w-6 h-6 text-gold-400 mx-auto mb-2"></i>
+                <p class="text-2xl font-black">${stats.peakUsage?.hour || 'N/A'}</p>
+                <p class="text-xs text-gray-500">Peak Hour</p>
+            </div>
+            <div class="p-4 rounded-xl bg-purple-400/10 text-center">
+                <i data-lucide="calendar" class="w-6 h-6 text-purple-400 mx-auto mb-2"></i>
+                <p class="text-2xl font-black">${stats.peakUsage?.day || 'N/A'}</p>
+                <p class="text-xs text-gray-500">Peak Day</p>
+            </div>
+            <div class="p-4 rounded-xl bg-blue-400/10 text-center">
+                <i data-lucide="activity" class="w-6 h-6 text-blue-400 mx-auto mb-2"></i>
+                <p class="text-2xl font-black">${stats.peakUsage?.hourCount || 0}</p>
+                <p class="text-xs text-gray-500">Peak Hour Activity</p>
+            </div>
+            <div class="p-4 rounded-xl bg-green-400/10 text-center">
+                <i data-lucide="trending-up" class="w-6 h-6 text-green-400 mx-auto mb-2"></i>
+                <p class="text-2xl font-black">${stats.peakUsage?.dayCount || 0}</p>
+                <p class="text-xs text-gray-500">Peak Day Activity</p>
+            </div>
+        </div>
+
+        <!-- Peak Usage Hours Chart -->
+        <div class="mb-6">
+            <h4 class="font-semibold mb-3">Peak Usage Hours (24h)</h4>
+            <div class="h-32 flex items-end gap-1">
+                ${hourlyActivity?.map((hour, i) => {
+                    const maxActivity = Math.max(...hourlyActivity.map(h => h.count), 1);
+                    const height = Math.round((hour.count / maxActivity) * 100);
+                    const isPeak = hour.hour === parseInt(stats.peakUsage?.hour?.split(':')[0]);
+                    return `
+                        <div class="flex-1 flex flex-col items-center gap-1 group">
+                            <div class="w-full rounded-t-lg transition-all ${isPeak ? 'bg-gradient-to-t from-gold-400 to-gold-500' : 'bg-gradient-to-t from-gray-600 to-gray-500'} group-hover:from-gold-400 group-hover:to-gold-500" style="height: ${Math.max(height, 2)}%"></div>
+                            <span class="text-xs text-gray-500">${i % 3 === 0 ? hour.label : ''}</span>
+                        </div>
+                    `;
+                }).join('') || '<p class="text-gray-500 text-sm">No hourly data</p>'}
+            </div>
+        </div>
+
+        <!-- Day-of-Week Activity -->
+        <div class="mb-6">
+            <h4 class="font-semibold mb-3">Day-of-Week Activity Patterns</h4>
+            <div class="grid grid-cols-7 gap-2">
+                ${dayOfWeekActivity?.map((day, i) => {
+                    const maxActivity = Math.max(...dayOfWeekActivity.map(d => d.count), 1);
+                    const height = Math.round((day.count / maxActivity) * 100);
+                    const isPeak = day.day === stats.peakUsage?.day;
+                    return `
+                        <div class="flex flex-col items-center gap-2">
+                            <div class="w-full h-24 rounded-lg flex items-end">
+                                <div class="w-full rounded-b-lg transition-all ${isPeak ? 'bg-gradient-to-t from-gold-400 to-gold-500' : 'bg-gradient-to-t from-gray-600 to-gray-500'}" style="height: ${Math.max(height, 5)}%"></div>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xs font-semibold ${isPeak ? 'text-gold-400' : 'text-gray-400'}">${day.day.slice(0, 3)}</p>
+                                <p class="text-xs text-gray-500">${day.count}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('') || '<p class="text-gray-500 text-sm">No day data</p>'}
+            </div>
+        </div>
+
+        <!-- Seasonal Trends -->
+        <div>
+            <h4 class="font-semibold mb-3">Seasonal Trends (12 Months)</h4>
+            <div class="space-y-2">
+                ${seasonalTrends?.map(trend => {
+                    const maxNewUsers = Math.max(...seasonalTrends.map(t => t.newUsers), 1);
+                    const maxActiveUsers = Math.max(...seasonalTrends.map(t => t.activeUsers), 1);
+                    const newUsersHeight = Math.round((trend.newUsers / maxNewUsers) * 100);
+                    const activeUsersHeight = Math.round((trend.activeUsers / maxActiveUsers) * 100);
+                    return `
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-gray-500 w-16">${trend.month}</span>
+                            <div class="flex-1 flex gap-1">
+                                <div class="flex-1 h-6 bg-white/5 rounded-lg overflow-hidden flex items-end relative">
+                                    <div class="w-full bg-gradient-to-t from-blue-400 to-blue-500 rounded-lg" style="height: ${Math.max(newUsersHeight, 3)}%"></div>
+                                    <span class="absolute top-1 left-2 text-xs font-bold text-blue-400">${trend.newUsers}</span>
+                                </div>
+                                <div class="flex-1 h-6 bg-white/5 rounded-lg overflow-hidden flex items-end relative">
+                                    <div class="w-full bg-gradient-to-t from-green-400 to-green-500 rounded-lg" style="height: ${Math.max(activeUsersHeight, 3)}%"></div>
+                                    <span class="absolute top-1 left-2 text-xs font-bold text-green-400">${trend.activeUsers}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('') || '<p class="text-gray-500 text-sm">No seasonal data</p>'}
+            </div>
+            <div class="flex gap-4 mt-3 text-xs">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded bg-blue-400"></div>
+                    <span class="text-gray-400">New Users</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded bg-green-400"></div>
+                    <span class="text-gray-400">Active Users</span>
+                </div>
             </div>
         </div>
     </div>`;
