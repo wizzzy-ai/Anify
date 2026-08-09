@@ -2008,6 +2008,12 @@ app.post('/api/admin/announcements', requireAdmin, requireDb, async (req, res) =
   } catch (error) { res.status(400).json({ ok: false, error: String(error?.message || error) }); }
 });
 
+app.delete('/api/admin/announcements/:announcementId', requireAdmin, requireDb, async (req, res) => {
+  const deleted = await Announcement.findByIdAndDelete(req.params.announcementId);
+  if (!deleted) return res.status(404).json({ ok: false, error: 'Announcement not found.' });
+  res.json({ ok: true });
+});
+
 app.get('/api/admin/anime/:animeId/rating-summary', requireAdmin, requireDb, async (req, res) => {
   const anime = await Anime.findOne(/^[0-9]+$/.test(req.params.animeId) ? { clientId: Number(req.params.animeId) } : { _id: req.params.animeId }).lean();
   if (!anime) return res.status(404).json({ ok: false, error: 'Anime not found.' });

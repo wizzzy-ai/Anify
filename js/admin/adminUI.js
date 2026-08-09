@@ -2746,8 +2746,10 @@ function editAdminAnime(id) {
 
     async function loadAdminAnnouncements() {
         const target = document.getElementById('admin-announcements-list'); if (!target) return;
-        try { const res = await fetch('/api/admin/announcements', { headers: { Authorization: `Bearer ${getAuthToken()}` } }); const data = await res.json(); if (!res.ok || !data.ok) throw new Error(data.error); target.innerHTML = data.announcements.length ? data.announcements.map(a => `<div class="rounded-xl bg-white/5 p-4"><p class="font-semibold">${a.title}</p><p class="mt-1 text-sm text-gray-400">${a.message}</p><p class="mt-2 text-xs text-gold-400 uppercase">${String(a.type).replace('_', ' ')}</p></div>`).join('') : '<p class="text-sm text-gray-500">No announcements published yet.</p>'; } catch (e) { target.innerHTML = `<p class="text-sm text-red-400">${String(e.message || e)}</p>`; }
+        try { const res = await fetch('/api/admin/announcements', { headers: { Authorization: `Bearer ${getAuthToken()}` } }); const data = await res.json(); if (!res.ok || !data.ok) throw new Error(data.error); target.innerHTML = data.announcements.length ? data.announcements.map(a => `<div class="group rounded-2xl border border-white/5 bg-gradient-to-r from-white/[0.07] to-white/[0.02] p-4"><div class="flex gap-4"><div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-400/10 text-gold-400"><i data-lucide="megaphone" class="w-5 h-5"></i></div><div class="min-w-0 flex-1"><div class="flex justify-between gap-3"><p class="font-semibold">${a.title}</p><button onclick="deleteAnnouncement('${a._id}')" class="rounded-lg p-2 text-gray-500 transition hover:bg-red-500/10 hover:text-red-300" title="Delete announcement"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div><p class="mt-1 text-sm leading-6 text-gray-400">${a.message}</p><p class="mt-3 text-[10px] font-bold uppercase tracking-[0.15em] text-gold-400">${String(a.type).replace('_', ' ')}</p></div></div></div>`).join('') : '<p class="text-sm text-gray-500">No announcements published yet.</p>'; if (window.lucide) lucide.createIcons(); } catch (e) { target.innerHTML = `<p class="text-sm text-red-400">${String(e.message || e)}</p>`; }
     }
+
+    async function deleteAnnouncement(id) { if (!confirm('Delete this announcement?')) return; try { const res = await fetch(`/api/admin/announcements/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${getAuthToken()}` } }); const data = await res.json(); if (!res.ok || !data.ok) throw new Error(data.error); loadAdminAnnouncements(); if (window.showToast) showToast('Announcement deleted'); } catch (error) { alert(String(error.message || error)); } }
 
     async function loadRatingSummary() {
         const id = document.getElementById('rating-summary-anime').value, target = document.getElementById('rating-summary'); if (!id || !target) return;
@@ -3371,6 +3373,7 @@ function editAdminAnime(id) {
     global.deleteAdminUser = deleteAdminUser;
     global.publishAnnouncement = publishAnnouncement;
     global.loadRatingSummary = loadRatingSummary;
+    global.deleteAnnouncement = deleteAnnouncement;
     global.renderAdminAnalytics = renderAdminAnalytics;
     global.renderAdminSubscriptions = renderAdminSubscriptions;
     global.renderAdminReports = renderAdminReports;
