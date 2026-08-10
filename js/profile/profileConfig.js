@@ -8,6 +8,57 @@
         'violet', 'azure', 'sunset', 'ice', 'cyber', 'royal',
     ];
 
+    // Light variants intentionally keep the same semantic token shape as dark
+    // variants so the runtime can swap appearance without changing profile ids.
+    function createLightTokens({
+        primary,
+        primaryHover,
+        primaryLight,
+        primaryDark,
+        accent,
+        background,
+        surface,
+        surfaceHover,
+        surfaceStrong,
+        buttonText,
+    }) {
+        const textPrimary = '#172033';
+        const textSecondary = '#475569';
+        const textTertiary = '#64748B';
+        const border = `color-mix(in srgb, ${primary} 18%, #CBD5E1)`;
+
+        return {
+            primary,
+            primaryHover,
+            primaryLight,
+            primaryDark,
+            accent,
+            accentSoft: `color-mix(in srgb, ${accent} 16%, transparent)`,
+            background,
+            surface,
+            surfaceHover,
+            surfaceStrong,
+            border,
+            textPrimary,
+            textSecondary,
+            textTertiary,
+            success: '#16A34A',
+            danger: '#DC2626',
+            shadow: 'rgba(15, 23, 42, 0.16)',
+            scrollbarThumb: `color-mix(in srgb, ${primary} 44%, transparent)`,
+            scrollbarThumbHover: `color-mix(in srgb, ${primary} 64%, transparent)`,
+            buttonText,
+            cardBackground: `color-mix(in srgb, ${surface} 88%, transparent)`,
+            modalBackground: `linear-gradient(135deg, ${surface}, ${surfaceStrong})`,
+            modalInner: `linear-gradient(180deg, color-mix(in srgb, ${accent} 10%, transparent), transparent 50%)`,
+            borderColor: border,
+            hoverBackground: `color-mix(in srgb, ${primary} 10%, ${surface})`,
+            overlay: 'rgba(15, 23, 42, 0.38)',
+            focusRing: `color-mix(in srgb, ${primary} 30%, transparent)`,
+            surfaceMuted: `color-mix(in srgb, ${textPrimary} 4%, transparent)`,
+        };
+    }
+
     const PROFILE_THEMES = {
         default: {
             id: 'default',
@@ -21,6 +72,10 @@
                 success: '#34D399', danger: '#F87171', shadow: 'rgba(0, 0, 0, 0.50)',
                 scrollbarThumb: 'rgba(251, 191, 36, 0.30)', scrollbarThumbHover: 'rgba(251, 191, 36, 0.55)', buttonText: '#09090B',
             },
+            lightTokens: createLightTokens({
+                primary: '#D97706', primaryHover: '#B45309', primaryLight: '#FCD34D', primaryDark: '#92400E', accent: '#7C3AED',
+                background: '#FFFDF8', surface: '#FFFFFF', surfaceHover: '#FFF7ED', surfaceStrong: '#FFFBEB', buttonText: '#201506',
+            }),
         },
         crimson: {
             id: 'crimson', label: 'Crimson', description: 'Dramatic red energy with deep wine surfaces.',
@@ -30,6 +85,10 @@
                 border: 'rgba(251, 113, 133, 0.24)', textPrimary: '#FFF7F8', textSecondary: '#FBCFE8', textTertiary: '#FDA4AF',
                 success: '#4ADE80', danger: '#FB7185', shadow: 'rgba(0, 0, 0, 0.58)', scrollbarThumb: 'rgba(244, 63, 94, 0.34)', scrollbarThumbHover: 'rgba(244, 63, 94, 0.62)', buttonText: '#2B0713',
             },
+            lightTokens: createLightTokens({
+                primary: '#E11D48', primaryHover: '#BE123C', primaryLight: '#FDA4AF', primaryDark: '#9F1239', accent: '#BE123C',
+                background: '#FFF5F7', surface: '#FFFFFF', surfaceHover: '#FFF1F2', surfaceStrong: '#FFE4E6', buttonText: '#FFFFFF',
+            }),
         },
         ocean: {
             id: 'ocean', label: 'Ocean', description: 'Cobalt depth balanced with clear cyan highlights.',
@@ -39,6 +98,10 @@
                 border: 'rgba(125, 211, 252, 0.22)', textPrimary: '#F0F9FF', textSecondary: '#BAE6FD', textTertiary: '#7DD3FC',
                 success: '#34D399', danger: '#FB7185', shadow: 'rgba(1, 11, 24, 0.62)', scrollbarThumb: 'rgba(56, 189, 248, 0.34)', scrollbarThumbHover: 'rgba(56, 189, 248, 0.62)', buttonText: '#032033',
             },
+            lightTokens: createLightTokens({
+                primary: '#0284C7', primaryHover: '#0369A1', primaryLight: '#7DD3FC', primaryDark: '#075985', accent: '#0891B2',
+                background: '#F0F9FF', surface: '#FFFFFF', surfaceHover: '#E0F2FE', surfaceStrong: '#F0FDFA', buttonText: '#FFFFFF',
+            }),
         },
         sakura: {
             id: 'sakura', label: 'Sakura', description: 'Soft pink warmth with plum-purple contrast.',
@@ -48,6 +111,10 @@
                 border: 'rgba(249, 168, 212, 0.23)', textPrimary: '#FFF7FB', textSecondary: '#FCE7F3', textTertiary: '#F9A8D4',
                 success: '#4ADE80', danger: '#FB7185', shadow: 'rgba(19, 2, 20, 0.58)', scrollbarThumb: 'rgba(244, 114, 182, 0.34)', scrollbarThumbHover: 'rgba(244, 114, 182, 0.62)', buttonText: '#380A26',
             },
+            lightTokens: createLightTokens({
+                primary: '#DB2777', primaryHover: '#BE185D', primaryLight: '#F9A8D4', primaryDark: '#9D174D', accent: '#9333EA',
+                background: '#FFF7FB', surface: '#FFFFFF', surfaceHover: '#FDF2F8', surfaceStrong: '#FCE7F3', buttonText: '#FFFFFF',
+            }),
         },
         emerald: {
             id: 'emerald', label: 'Emerald', description: 'Fresh green accents over obsidian forest tones.',
@@ -57,6 +124,10 @@
                 border: 'rgba(110, 231, 183, 0.22)', textPrimary: '#F0FDF4', textSecondary: '#BBF7D0', textTertiary: '#86EFAC',
                 success: '#86EFAC', danger: '#FB7185', shadow: 'rgba(0, 15, 10, 0.62)', scrollbarThumb: 'rgba(52, 211, 153, 0.34)', scrollbarThumbHover: 'rgba(52, 211, 153, 0.62)', buttonText: '#032217',
             },
+            lightTokens: createLightTokens({
+                primary: '#059669', primaryHover: '#047857', primaryLight: '#6EE7B7', primaryDark: '#065F46', accent: '#0D9488',
+                background: '#F0FDF4', surface: '#FFFFFF', surfaceHover: '#ECFDF5', surfaceStrong: '#D1FAE5', buttonText: '#052E1A',
+            }),
         },
         violet: {
             id: 'violet', label: 'Violet', description: 'Electric purple tones for a mysterious streaming room.',
@@ -66,6 +137,10 @@
                 border: 'rgba(196, 181, 253, 0.24)', textPrimary: '#FAF5FF', textSecondary: '#E9D5FF', textTertiary: '#C4B5FD',
                 success: '#4ADE80', danger: '#FB7185', shadow: 'rgba(6, 2, 18, 0.64)', scrollbarThumb: 'rgba(167, 139, 250, 0.34)', scrollbarThumbHover: 'rgba(167, 139, 250, 0.62)', buttonText: '#170B2C',
             },
+            lightTokens: createLightTokens({
+                primary: '#7C3AED', primaryHover: '#6D28D9', primaryLight: '#C4B5FD', primaryDark: '#5B21B6', accent: '#9333EA',
+                background: '#FAF5FF', surface: '#FFFFFF', surfaceHover: '#F5F3FF', surfaceStrong: '#EDE9FE', buttonText: '#FFFFFF',
+            }),
         },
         azure: {
             id: 'azure', label: 'Azure', description: 'Bright blue clarity with a navy foundation.',
@@ -75,6 +150,10 @@
                 border: 'rgba(147, 197, 253, 0.23)', textPrimary: '#EFF6FF', textSecondary: '#DBEAFE', textTertiary: '#93C5FD',
                 success: '#4ADE80', danger: '#FB7185', shadow: 'rgba(1, 8, 29, 0.62)', scrollbarThumb: 'rgba(96, 165, 250, 0.34)', scrollbarThumbHover: 'rgba(96, 165, 250, 0.62)', buttonText: '#06152E',
             },
+            lightTokens: createLightTokens({
+                primary: '#2563EB', primaryHover: '#1D4ED8', primaryLight: '#93C5FD', primaryDark: '#1E40AF', accent: '#4F46E5',
+                background: '#EFF6FF', surface: '#FFFFFF', surfaceHover: '#DBEAFE', surfaceStrong: '#E0E7FF', buttonText: '#FFFFFF',
+            }),
         },
         sunset: {
             id: 'sunset', label: 'Sunset', description: 'Hot orange light fading into crimson night.',
@@ -84,6 +163,10 @@
                 border: 'rgba(253, 186, 116, 0.23)', textPrimary: '#FFF7ED', textSecondary: '#FFEDD5', textTertiary: '#FDBA74',
                 success: '#4ADE80', danger: '#FB7185', shadow: 'rgba(24, 5, 1, 0.62)', scrollbarThumb: 'rgba(251, 146, 60, 0.34)', scrollbarThumbHover: 'rgba(251, 146, 60, 0.62)', buttonText: '#351007',
             },
+            lightTokens: createLightTokens({
+                primary: '#EA580C', primaryHover: '#C2410C', primaryLight: '#FDBA74', primaryDark: '#9A3412', accent: '#E11D48',
+                background: '#FFF7ED', surface: '#FFFFFF', surfaceHover: '#FFEDD5', surfaceStrong: '#FFEDD5', buttonText: '#FFFFFF',
+            }),
         },
         ice: {
             id: 'ice', label: 'Ice', description: 'Cool cyan light across a midnight blue canvas.',
@@ -93,6 +176,10 @@
                 border: 'rgba(165, 243, 252, 0.24)', textPrimary: '#ECFEFF', textSecondary: '#CFFAFE', textTertiary: '#A5F3FC',
                 success: '#6EE7B7', danger: '#FDA4AF', shadow: 'rgba(1, 13, 20, 0.64)', scrollbarThumb: 'rgba(103, 232, 249, 0.34)', scrollbarThumbHover: 'rgba(103, 232, 249, 0.62)', buttonText: '#06202A',
             },
+            lightTokens: createLightTokens({
+                primary: '#0891B2', primaryHover: '#0E7490', primaryLight: '#67E8F9', primaryDark: '#155E75', accent: '#2563EB',
+                background: '#ECFEFF', surface: '#FFFFFF', surfaceHover: '#CFFAFE', surfaceStrong: '#E0F2FE', buttonText: '#083344',
+            }),
         },
         cyber: {
             id: 'cyber', label: 'Cyber', description: 'Neon cyan and electric purple in a black arcade.',
@@ -102,6 +189,10 @@
                 border: 'rgba(103, 232, 249, 0.24)', textPrimary: '#F5F3FF', textSecondary: '#E0E7FF', textTertiary: '#A5B4FC',
                 success: '#2DD4BF', danger: '#FB7185', shadow: 'rgba(0, 0, 0, 0.72)', scrollbarThumb: 'rgba(34, 211, 238, 0.36)', scrollbarThumbHover: 'rgba(217, 70, 239, 0.66)', buttonText: '#03151A',
             },
+            lightTokens: createLightTokens({
+                primary: '#0891B2', primaryHover: '#0E7490', primaryLight: '#67E8F9', primaryDark: '#155E75', accent: '#C026D3',
+                background: '#F5F3FF', surface: '#FFFFFF', surfaceHover: '#EDE9FE', surfaceStrong: '#FAE8FF', buttonText: '#0F172A',
+            }),
         },
         royal: {
             id: 'royal', label: 'Royal', description: 'Regal blue, polished gold, and deep navy.',
@@ -111,6 +202,10 @@
                 border: 'rgba(147, 197, 253, 0.24)', textPrimary: '#FFFBEB', textSecondary: '#E0E7FF', textTertiary: '#BFDBFE',
                 success: '#4ADE80', danger: '#FB7185', shadow: 'rgba(1, 7, 27, 0.65)', scrollbarThumb: 'rgba(250, 204, 21, 0.34)', scrollbarThumbHover: 'rgba(250, 204, 21, 0.62)', buttonText: '#241700',
             },
+            lightTokens: createLightTokens({
+                primary: '#CA8A04', primaryHover: '#A16207', primaryLight: '#FDE047', primaryDark: '#854D0E', accent: '#2563EB',
+                background: '#F8FAFC', surface: '#FFFFFF', surfaceHover: '#EFF6FF', surfaceStrong: '#FEF3C7', buttonText: '#1C1917',
+            }),
         },
     };
 

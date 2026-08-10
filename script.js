@@ -131,22 +131,48 @@ function resolveProfileAvatarId(avatarId) {
     return getProfileConfig().normalizeAvatarId(avatarId);
 }
 
-function applyProfileTheme(themeId) {
+const THEME_MODE_STORAGE_KEY = 'anify-theme';
+
+const PROFILE_THEME_CSS_TOKEN_MAP = {
+    primary: '--primary', primaryHover: '--primary-hover', primaryLight: '--primary-light', primaryDark: '--primary-dark',
+    accent: '--accent', accentSoft: '--accent-soft', accentGold: '--accent-gold', accentPurple: '--accent-purple',
+    background: '--background', surface: '--surface', surfaceHover: '--surface-hover', surfaceStrong: '--surface-strong',
+    border: '--border', borderColor: '--border-color', textPrimary: '--text-primary', textSecondary: '--text-secondary', textTertiary: '--text-tertiary',
+    cardBackground: '--card-background', modalBackground: '--modal-background', modalInner: '--modal-inner', hoverBackground: '--hover-background',
+    overlay: '--overlay', focusRing: '--focus-ring', surfaceMuted: '--surface-muted',
+    success: '--success', danger: '--danger', shadow: '--shadow-color', scrollbarThumb: '--scrollbar-thumb', scrollbarThumbHover: '--scrollbar-thumb-hover', buttonText: '--button-text',
+};
+
+function normalizeThemeMode(value) {
+    return String(value || '').toLowerCase() === 'light' ? 'light' : 'dark';
+}
+
+function getStoredThemeMode() {
+    return normalizeThemeMode(localStorage.getItem(THEME_MODE_STORAGE_KEY));
+}
+
+function getCurrentTheme() {
+    return normalizeThemeMode(document.documentElement.dataset.colorMode || (document.documentElement.classList.contains('light') ? 'light' : 'dark'));
+}
+
+function resolveThemeTokens(theme, mode = getCurrentTheme()) {
+    if (!theme) return null;
+    const normalizedMode = normalizeThemeMode(mode);
+    return normalizedMode === 'light' && theme.lightTokens ? theme.lightTokens : theme.tokens;
+}
+
+function applyProfileTheme(themeId, mode = getCurrentTheme()) {
     const config = getProfileConfig();
     const normalizedTheme = resolveProfileThemeId(themeId || config.DEFAULT_PROFILE_THEME);
     const theme = config.PROFILE_THEMES[normalizedTheme] || config.PROFILE_THEMES[config.DEFAULT_PROFILE_THEME];
+    const tokens = resolveThemeTokens(theme, mode);
     const root = document.documentElement;
     root.dataset.theme = normalizedTheme;
+    root.dataset.colorMode = normalizeThemeMode(mode);
 
-    if (theme?.tokens) {
-        const cssTokenMap = {
-            primary: '--primary', primaryHover: '--primary-hover', primaryLight: '--primary-light', primaryDark: '--primary-dark',
-            accent: '--accent', accentSoft: '--accent-soft', background: '--background', surface: '--surface', surfaceHover: '--surface-hover', surfaceStrong: '--surface-strong',
-            border: '--border', textPrimary: '--text-primary', textSecondary: '--text-secondary', textTertiary: '--text-tertiary',
-            success: '--success', danger: '--danger', shadow: '--shadow-color', scrollbarThumb: '--scrollbar-thumb', scrollbarThumbHover: '--scrollbar-thumb-hover', buttonText: '--button-text',
-        };
-        Object.entries(cssTokenMap).forEach(([token, property]) => {
-            if (theme.tokens[token]) root.style.setProperty(property, theme.tokens[token]);
+    if (tokens) {
+        Object.entries(PROFILE_THEME_CSS_TOKEN_MAP).forEach(([token, property]) => {
+            if (tokens[token]) root.style.setProperty(property, tokens[token]);
         });
     }
 
@@ -154,9 +180,12 @@ function applyProfileTheme(themeId) {
 }
 
 function applyTheme(theme) {
-    const isLight = theme === 'light';
-    document.documentElement.classList.toggle('light', isLight);
-    document.documentElement.classList.toggle('dark', !isLight);
+    const nextMode = normalizeThemeMode(theme);
+    const root = document.documentElement;
+    const isLight = nextMode === 'light';
+    root.classList.toggle('light', isLight);
+    root.classList.toggle('dark', !isLight);
+    root.dataset.colorMode = nextMode;
 
     document.querySelectorAll('.theme-icon-sun').forEach((icon) => {
         icon.classList.toggle('hidden', !isLight);
@@ -164,20 +193,25 @@ function applyTheme(theme) {
     document.querySelectorAll('.theme-icon-moon').forEach((icon) => {
         icon.classList.toggle('hidden', isLight);
     });
-}
+    document.querySelectorAll('[data-theme-toggle]').forEach((toggle) => {
+        toggle.setAttribute('aria-pressed', String(isLight));
+        toggle.setAttribute('aria-label', isLight ? 'Switch to dark mode' : 'Switch to light mode');
+        toggle.setAttribute('title', isLight ? 'Switch to dark mode' : 'Switch to light mode');
+    });
 
-function getCurrentTheme() {
-    return document.documentElement.classList.contains('light') ? 'light' : 'dark';
+    const config = getProfileConfig();
+    applyProfileTheme(root.dataset.theme || config.DEFAULT_PROFILE_THEME, nextMode);
+    return nextMode;
 }
 
 function toggleTheme() {
     const nextTheme = getCurrentTheme() === 'light' ? 'dark' : 'light';
-    localStorage.setItem('anify-theme', nextTheme);
+    localStorage.setItem(THEME_MODE_STORAGE_KEY, nextTheme);
     applyTheme(nextTheme);
 }
 
-applyTheme(localStorage.getItem('anify-theme') === 'light' ? 'light' : 'dark');
-applyProfileTheme(window.authService?.getCurrentUser?.()?.profileTheme || getProfileConfig().DEFAULT_PROFILE_THEME);
+applyTheme(getStoredThemeMode());
+applyProfileTheme(window.authService?.getCurrentUser?.()?.profileTheme || getProfileConfig().DEFAULT_PROFILE_THEME, getCurrentTheme());
 
 async function ensureGenresReady() {
     const service = window.genreService || globalThis.genreService;
@@ -2585,7 +2619,7 @@ function renderThemePicker(selectedThemeId) {
             ${config.PROFILE_THEME_IDS.map((themeId) => {
                 const theme = config.PROFILE_THEMES[themeId];
                 const selected = themeId === selectedThemeId;
-                const tokens = theme.tokens;
+                const tokens = resolveThemeTokens(theme, getCurrentTheme()) || theme.tokens;
                 return `
                     <button type="button" class="profile-theme-card" data-profile-theme-option data-theme-id="${themeId}" aria-label="${escapeHtml(theme.label)} theme" aria-pressed="${selected}" style="--profile-preview-bg:${tokens.background};--profile-preview-primary:${tokens.primary};--profile-preview-accent:${tokens.accent};--profile-preview-button-text:${tokens.buttonText}" onclick="selectProfileTheme('${themeId}')">
                         <span class="profile-theme-card__mock" aria-hidden="true"><span class="profile-theme-card__avatar"></span><span class="profile-theme-card__button"></span></span>

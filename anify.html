@@ -12,6 +12,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     <script>
+        // Set the persisted appearance before the stylesheet paints to avoid a mode flash.
+        (function applyStoredAppearance() {
+            const mode = localStorage.getItem('anify-theme') === 'light' ? 'light' : 'dark';
+            let profileTheme = 'default';
+            try {
+                profileTheme = JSON.parse(localStorage.getItem('anify-user-profile') || '{}').profileTheme || profileTheme;
+            } catch (error) {
+                // The runtime normalizes invalid profile data after the config loads.
+            }
+            document.documentElement.dataset.theme = profileTheme;
+            document.documentElement.dataset.colorMode = mode;
+            document.documentElement.classList.toggle('light', mode === 'light');
+            document.documentElement.classList.toggle('dark', mode !== 'light');
+        })();
+    </script>
+    <script>
     // Tailwind CDN is OK for development, but not ideal for production.
     // Keep this for now to avoid breaking the current build setup.
     tailwind.config = {
@@ -148,9 +164,9 @@
 
 
                         <!-- Dark/Light Mode Toggle -->
-                        <button onclick="toggleTheme()" class="hidden md:inline-flex p-2 rounded-xl hover:bg-white/10 transition-all" title="Toggle theme" aria-label="Toggle theme">
-                            <i data-lucide="sun" class="w-5 h-5 theme-icon-sun hidden"></i>
-                            <i data-lucide="moon" class="w-5 h-5 theme-icon-moon"></i>
+                        <button type="button" data-theme-toggle onclick="toggleTheme()" class="inline-flex p-2 rounded-xl hover:bg-white/10 transition-all" title="Switch to light mode" aria-label="Switch to light mode" aria-pressed="false">
+                            <i data-lucide="sun" class="w-5 h-5 theme-icon-sun hidden" aria-hidden="true"></i>
+                            <i data-lucide="moon" class="w-5 h-5 theme-icon-moon" aria-hidden="true"></i>
                         </button>
 
                         <!-- Auth actions (Sign In / Register Now or profile) -->
