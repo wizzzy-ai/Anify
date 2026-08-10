@@ -30,6 +30,10 @@
             status: user.status || null,
             isVerified: user.isVerified || false,
             avatar: user.avatar || null,
+            avatarId: user.avatarId || 'shadow',
+            bio: user.bio || '',
+            profileTheme: user.profileTheme || 'default',
+            pinnedAnimeIds: Array.isArray(user.pinnedAnimeIds) ? user.pinnedAnimeIds.map(String) : [],
         };
     }
 
@@ -47,6 +51,10 @@
             status: normalizedUser.status,
             isVerified: normalizedUser.isVerified,
             avatar: normalizedUser.avatar,
+            avatarId: normalizedUser.avatarId,
+            bio: normalizedUser.bio,
+            profileTheme: normalizedUser.profileTheme,
+            pinnedAnimeIds: normalizedUser.pinnedAnimeIds,
         };
     }
 
@@ -175,6 +183,13 @@
          */
         dispatchAuthChanged() {
             return dispatchAuthChanged();
+        },
+
+        /** Update the cached user profile after a profile edit. */
+        updateCurrentUser(user) {
+            const profile = persistProfile({ ...this.getCurrentUser(), ...(user || {}) });
+            dispatchAuthChanged();
+            return profile;
         },
 
         /**

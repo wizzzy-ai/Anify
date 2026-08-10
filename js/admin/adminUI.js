@@ -2511,7 +2511,7 @@ function editAdminAnime(id) {
                         const plan = u.plan || 'Free';
                         const status = u.status || 'Active';
                         const name = u.username || u.name || 'User';
-                        const avatar = u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
+                        const avatar = typeof getProfileAvatarUrl === 'function' ? getProfileAvatarUrl(u.avatarId) : u.avatar;
                         return `
                             <tr class="border-b border-white/5 hover:bg-white/3 transition-colors">
                                 <td class="p-4">

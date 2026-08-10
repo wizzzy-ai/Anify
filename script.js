@@ -93,6 +93,11 @@ const animeData = [
 ];
 
 const categories = ["All"];
+// Keep the notification inbox usable on its first render. These values are
+// read whenever the bell is opened, before a user has interacted with either
+// the filters or the search field.
+let notificationFilter = 'All';
+let notificationSearchQuery = '';
 const fallbackGenres = [
     'Action','Adventure','Comedy','Drama','Fantasy','Sci-Fi','Romance','Slice of Life','Mystery','Thriller','Horror','Supernatural','Psychological','Sports','Music','Mecha','Military','Historical','Samurai','Martial Arts','Magic','Isekai','School','Shounen','Shoujo','Seinen','Josei','Ecchi','Harem','Reverse Harem','Idol','Cooking','Medical','Detective','Crime','Police','Spy','Family','Vampire','Demons','Monsters','Space','Survival','Game','Parody','Post-Apocalyptic','Superpower'
 ];
@@ -103,6 +108,49 @@ function createLucideIconsSafe() {
     if (window.lucide && typeof lucide.createIcons === 'function') {
         lucide.createIcons();
     }
+}
+
+function getProfileConfig() {
+    return window.AnifyProfileConfig || {
+        DEFAULT_PROFILE_THEME: 'default',
+        DEFAULT_AVATAR_ID: 'shadow',
+        normalizeThemeId: (value) => String(value || 'default').toLowerCase() === 'gold' ? 'default' : String(value || 'default').toLowerCase(),
+        normalizeAvatarId: (value) => String(value || 'shadow').toLowerCase(),
+        getAvatarUrl: (value) => `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(value || 'anify-shadow')}`,
+        PROFILE_THEME_IDS: ['default'],
+        PROFILE_THEMES: {},
+        PROFILE_AVATARS: [],
+    };
+}
+
+function resolveProfileThemeId(themeId) {
+    return getProfileConfig().normalizeThemeId(themeId);
+}
+
+function resolveProfileAvatarId(avatarId) {
+    return getProfileConfig().normalizeAvatarId(avatarId);
+}
+
+function applyProfileTheme(themeId) {
+    const config = getProfileConfig();
+    const normalizedTheme = resolveProfileThemeId(themeId || config.DEFAULT_PROFILE_THEME);
+    const theme = config.PROFILE_THEMES[normalizedTheme] || config.PROFILE_THEMES[config.DEFAULT_PROFILE_THEME];
+    const root = document.documentElement;
+    root.dataset.theme = normalizedTheme;
+
+    if (theme?.tokens) {
+        const cssTokenMap = {
+            primary: '--primary', primaryHover: '--primary-hover', primaryLight: '--primary-light', primaryDark: '--primary-dark',
+            accent: '--accent', accentSoft: '--accent-soft', background: '--background', surface: '--surface', surfaceHover: '--surface-hover', surfaceStrong: '--surface-strong',
+            border: '--border', textPrimary: '--text-primary', textSecondary: '--text-secondary', textTertiary: '--text-tertiary',
+            success: '--success', danger: '--danger', shadow: '--shadow-color', scrollbarThumb: '--scrollbar-thumb', scrollbarThumbHover: '--scrollbar-thumb-hover', buttonText: '--button-text',
+        };
+        Object.entries(cssTokenMap).forEach(([token, property]) => {
+            if (theme.tokens[token]) root.style.setProperty(property, theme.tokens[token]);
+        });
+    }
+
+    return normalizedTheme;
 }
 
 function applyTheme(theme) {
@@ -129,6 +177,7 @@ function toggleTheme() {
 }
 
 applyTheme(localStorage.getItem('anify-theme') === 'light' ? 'light' : 'dark');
+applyProfileTheme(window.authService?.getCurrentUser?.()?.profileTheme || getProfileConfig().DEFAULT_PROFILE_THEME);
 
 async function ensureGenresReady() {
     const service = window.genreService || globalThis.genreService;
@@ -314,7 +363,8 @@ async function loadCommentsForAnime(animeId) {
         for (const c of data.comments || []) {
             comments.push({
                 user: c.username || c.userId, // Use username from API, fallback to userId
-                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(c.username || c.userId)}`,
+                avatarId: resolveProfileAvatarId(c.avatarId),
+                avatar: getProfileAvatarUrl(c.avatarId),
                 text: c.text,
                 rating: c.rating || null,
                 time: timeAgo(c.createdAt),
@@ -329,43 +379,84 @@ async function loadCommentsForAnime(animeId) {
     }
 }
 
-function updateCommentsSection() {
-    const commentsContainer = document.querySelector('.space-y-3');
-    if (!commentsContainer) return;
-    
-    commentsContainer.innerHTML = comments.map(c => `
-        <div class="comment-bubble">
-            <div class="flex items-start gap-3">
-                <img src="${c.avatar}" class="w-8 h-8 rounded-lg flex-shrink-0" alt="${c.user}">
-                <div class="flex-1">
-                    <div class="flex items-center gap-2">
-                        <span class="font-semibold text-sm">${c.user}</span>
-                        <span class="text-xs text-gray-500">${c.time}</span>
-                        ${c.rating ? `
-                            <div class="flex items-center gap-1 ml-2">
-                                ${[1, 2, 3, 4, 5].map(star => `
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 ${star <= c.rating ? 'text-gold-400' : 'text-gray-600'}" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                    </svg>
-                                `).join('')}
-                            </div>
-                        ` : ''}
-                    </div>
-                    <p class="text-sm text-gray-300 mt-1">${c.text}</p>
-                    <div class="flex items-center gap-4 mt-2">
-                        <button class="flex items-center gap-1 text-xs text-gray-500 hover:text-gold-400 transition-colors">
-                            <i data-lucide="heart" class="w-3 h-3"></i> ${c.likes}
-                        </button>
-                        <button class="flex items-center gap-1 text-xs text-gray-500 hover:text-gold-400 transition-colors">
-                            <i data-lucide="message-circle" class="w-3 h-3"></i> Reply
-                        </button>
-                    </div>
+function getCommentInitials(username) {
+    const value = String(username || '').trim();
+    if (!value) return '?';
+    return value.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
+}
+
+function formatReviewRating(rating) {
+    const value = Number(rating);
+    return value > 0 ? `${value} / 5` : '';
+}
+
+function renderCommentRow(comment) {
+    const user = String(comment.user || 'Anonymous');
+    const safeUser = escapeHtml(user);
+    const avatarUrl = comment.avatar || getProfileAvatarUrl(comment.avatarId);
+    const initials = escapeHtml(getCommentInitials(user));
+    const avatarMarkup = avatarUrl
+        ? `<span class="review-avatar-shell"><img src="${avatarUrl}" class="review-avatar" alt="${safeUser} avatar" onerror="this.hidden=true;this.nextElementSibling.hidden=false;"><span class="review-avatar review-avatar-fallback" aria-hidden="true" hidden>${initials}</span></span>`
+        : `<span class="review-avatar review-avatar-fallback" aria-hidden="true">${initials}</span>`;
+    const ratingLabel = formatReviewRating(comment.rating);
+    const likes = Math.max(0, Number(comment.likes) || 0);
+
+    return `
+        <article class="review-comment-row">
+            ${avatarMarkup}
+            <div class="review-comment-content">
+                <div class="review-comment-meta">
+                    <span class="review-comment-name">${safeUser}</span>
+                    <span class="review-comment-time">${escapeHtml(comment.time || 'Recently')}</span>
+                    ${ratingLabel ? `
+                        <span class="review-rating-chip" aria-label="Rated ${ratingLabel}">
+                            <i data-lucide="star" aria-hidden="true"></i>
+                            ${ratingLabel}
+                        </span>
+                    ` : ''}
+                </div>
+                <p class="review-comment-copy">${escapeHtml(comment.text || '')}</p>
+                <div class="review-comment-actions">
+                    <button type="button" class="review-comment-action" aria-label="Like ${safeUser}'s review">
+                        <i data-lucide="heart" aria-hidden="true"></i>
+                        <span>${likes} likes</span>
+                    </button>
+                    <button type="button" class="review-comment-action" aria-label="Reply to ${safeUser}">
+                        <i data-lucide="message-circle" aria-hidden="true"></i>
+                        <span>Reply</span>
+                    </button>
                 </div>
             </div>
-        </div>
-    `).join('');
-    
-    lucide.createIcons();
+        </article>
+    `;
+}
+
+function updateReviewComposerState() {
+    const input = document.getElementById('comment-input');
+    const ratingInput = document.getElementById('comment-rating');
+    const counter = document.getElementById('review-counter');
+    const status = document.getElementById('review-status');
+    const text = input?.value?.trim() || '';
+    const rating = Number(ratingInput?.value || 0);
+
+    if (counter && input) counter.textContent = `${input.value.length} / 280`;
+    if (!status) return;
+
+    if (text) {
+        status.textContent = 'Your draft is ready to post.';
+    } else if (rating > 0) {
+        status.textContent = 'Rating selected — add a few words to share your take.';
+    } else {
+        status.textContent = 'Choose a rating, then add a few words.';
+    }
+}
+
+function updateCommentsSection() {
+    const commentsContainer = document.querySelector('.review-comment-list');
+    if (!commentsContainer) return;
+
+    commentsContainer.innerHTML = comments.map(renderCommentRow).join('');
+    if (window.lucide) window.lucide.createIcons();
 }
 
 async function addComment() {
@@ -485,36 +576,41 @@ async function submitUserRating(animeId, rating) {
 }
 
 function setRating(rating) {
+    const normalizedRating = Math.min(5, Math.max(0, Number(rating) || 0));
     const ratingInput = document.getElementById('comment-rating');
-    if (ratingInput) {
-        ratingInput.value = rating;
-    }
-    updateRatingStars(rating);
+    if (ratingInput) ratingInput.value = String(normalizedRating);
+    updateRatingStars(normalizedRating);
 }
 
 function updateRatingStars(selectedRating) {
+    const normalizedRating = Math.min(5, Math.max(0, Number(selectedRating) || 0));
     const stars = document.querySelectorAll('.rating-star');
+
     stars.forEach((star, index) => {
-        const starRating = index + 1;
-        const svg = star.querySelector('svg');
-        if (svg) {
-            if (starRating <= selectedRating) {
-                svg.classList.remove('text-gray-600');
-                svg.classList.add('text-gold-400');
-            } else {
-                svg.classList.remove('text-gold-400');
-                svg.classList.add('text-gray-600');
-            }
-        }
+        const starRating = Number(star.dataset.rating) || index + 1;
+        const selected = starRating <= normalizedRating;
+        star.dataset.selected = String(selected);
+        star.setAttribute('aria-pressed', String(selected));
+
+        const icon = star.querySelector('svg, i');
+        if (icon) icon.classList.remove('text-gray-600', 'text-gold-400');
     });
+
+    const ratingValue = document.getElementById('rating-value');
+    const ratingStatus = document.getElementById('rating-status');
+    if (ratingValue) ratingValue.textContent = `${normalizedRating} / 5`;
+    if (ratingStatus) {
+        ratingStatus.textContent = normalizedRating
+            ? 'Rating selected — add a few words to share your take.'
+            : 'Choose a star to rate this title.';
+    }
+    updateReviewComposerState();
 }
 
 function resetRatingStars() {
-    updateRatingStars(0);
     const ratingInput = document.getElementById('comment-rating');
-    if (ratingInput) {
-        ratingInput.value = '0';
-    }
+    if (ratingInput) ratingInput.value = '0';
+    updateRatingStars(0);
 }
 
 
@@ -1020,6 +1116,7 @@ async function uploadVideoFile(file, onProgress = null) {
 document.addEventListener('DOMContentLoaded', () => {
     applyTheme(getCurrentTheme());
     authService.restoreSession();
+    applyProfileTheme(authService.getCurrentUser()?.profileTheme || getProfileConfig().DEFAULT_PROFILE_THEME);
     restoreContinueWatching();
     initializeApp();
     setupHeroLiveWallpapers();
@@ -1035,6 +1132,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })());
 
         restoreContinueWatching();
+        applyProfileTheme(authService.getCurrentUser()?.profileTheme || getProfileConfig().DEFAULT_PROFILE_THEME);
         renderAuthNav();
         loadWatchlist();
         updateBookmarkUI();
@@ -1050,6 +1148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentPage === 'profile') {
             const content = document.getElementById('main-content');
             if (content) content.innerHTML = renderProfile();
+            loadProfileActivity();
         }
         console.log('[Auth] navbar UI updated');
     });
@@ -1146,7 +1245,10 @@ function handleRouteChange() {
         case 'player': content.innerHTML = renderPlayer(Number(data)); break;
         case 'login': content.innerHTML = renderLogin(); break;
         case 'register': content.innerHTML = renderRegister(); break;
-        case 'profile': content.innerHTML = renderProfile(); break;
+        case 'profile':
+            content.innerHTML = renderProfile();
+            loadProfileActivity();
+            break;
         case 'admin': 
             if (!ensureAdminOrRedirect()) return;
             content.innerHTML = renderAdmin(); 
@@ -2095,83 +2197,91 @@ function renderAnimeDetail(id) {
 
         ${recommendedSection}
 
-        <!-- Comments -->
-        <div class="mt-12 anim-fade-in">
-            <div class="max-w-7xl mx-auto px-4 md:px-8">
-                <h2 class="text-2xl font-black mb-4 flex items-center gap-2">
-                    <i data-lucide="message-circle" class="w-5 h-5 text-gold-400"></i> Reviews & Comments
-                </h2>
+        <!-- Reviews & Comments -->
+        <section class="review-section anim-fade-in" aria-labelledby="reviews-title">
+            <div class="review-section-inner">
+                <header class="review-heading">
+                    <div class="review-heading-main">
+                        <span class="review-heading-icon" aria-hidden="true"><i data-lucide="message-circle"></i></span>
+                        <div>
+                            <p class="review-eyebrow">Community notes</p>
+                            <h2 id="reviews-title">Reviews & Comments</h2>
+                            <p class="review-heading-copy">Share a rating or a quick take with the community. Your perspective helps other fans find their next favorite.</p>
+                        </div>
+                    </div>
+                    <div class="review-count" aria-label="${comments.length} community reviews">
+                        <i data-lucide="users" aria-hidden="true"></i>
+                        <strong>${comments.length}</strong>
+                        <span>community reviews</span>
+                    </div>
+                </header>
+
                 ${getAuthToken() ? `
-                <div class="glass-card rounded-2xl p-4 mb-4">
-                    <div class="flex items-start gap-3">
-                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Me" class="w-8 h-8 rounded-lg flex-shrink-0" alt="me">
-                        <div class="flex-1">
-                            <!-- Rating Selector -->
-                            <div class="mb-3">
-                                <label class="text-xs text-gray-400 mb-1 block">Your Rating (Optional)</label>
-                                <div class="flex gap-1" id="rating-selector">
-                                    ${[1, 2, 3, 4, 5].map(star => `
-                                        <button type="button" class="rating-star text-2xl transition-all hover:scale-110 focus:outline-none" data-rating="${star}" onclick="setRating(${star})">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                            </svg>
-                                        </button>
-                                    `).join('')}
-                                </div>
-                                <input type="hidden" id="comment-rating" value="0">
+                <form class="review-composer" id="review-form" aria-label="Write a review" onsubmit="return false;">
+                    <div class="review-composer-top">
+                        <div class="review-author">
+                            <span class="review-avatar-shell">
+                                <img src="${getCurrentAvatarUrl()}" class="review-avatar" alt="${escapeHtml(getCurrentUsername())} avatar" onerror="this.hidden=true;this.nextElementSibling.hidden=false;">
+                                <span class="review-avatar review-avatar-fallback" aria-hidden="true" hidden>${escapeHtml(getCommentInitials(getCurrentUsername()))}</span>
+                            </span>
+                            <div>
+                                <h3>Share your take</h3>
+                                <p>Your review will be public on this title.</p>
                             </div>
-                            <textarea id="comment-input" placeholder="Share your thoughts..." class="w-full bg-transparent border-none outline-none resize-none text-sm" rows="2"></textarea>
-                            <div class="flex justify-end mt-2">
-                                <button onclick="addComment()" class="btn-primary px-4 py-1.5 text-xs">Post Review</button>
+                        </div>
+                        <div class="review-draft-state"><span aria-hidden="true"></span> Draft ready</div>
+                    </div>
+
+                    <div class="review-composer-grid">
+                        <fieldset class="review-rating-panel">
+                            <legend class="review-field-label">Rate this title <span class="review-optional">Optional</span></legend>
+                            <p class="review-field-helper" id="rating-helper">Tap a star to add your overall feeling.</p>
+                            <div class="review-rating-stars" id="rating-selector" role="group" aria-label="Rate this title from 1 to 5 stars">
+                                ${[1, 2, 3, 4, 5].map(star => `
+                                    <button type="button" class="rating-star" data-rating="${star}" data-selected="false" aria-label="${star} star${star === 1 ? '' : 's'}" aria-pressed="false" onclick="setRating(${star})">
+                                        <i data-lucide="star" aria-hidden="true"></i>
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <input type="hidden" id="comment-rating" value="0">
+                            <div class="review-rating-readout" aria-live="polite"><strong id="rating-value">0 / 5</strong><span>selected rating</span></div>
+                            <div class="review-rating-status" id="rating-status" aria-live="polite">Choose a star to rate this title.</div>
+                        </fieldset>
+
+                        <div class="review-field">
+                            <label class="review-field-label" for="comment-input">Your review</label>
+                            <p class="review-field-helper" id="review-helper">Keep it thoughtful and spoiler-free for everyone.</p>
+                            <div class="review-textarea-wrap">
+                                <textarea id="comment-input" maxlength="280" rows="5" aria-describedby="review-helper review-counter" placeholder="What stood out to you?" oninput="updateReviewComposerState()"></textarea>
+                                <span class="review-character-count" id="review-counter">0 / 280</span>
                             </div>
                         </div>
                     </div>
-                </div>
-                ` : `
-                <div class="glass-card rounded-2xl p-6 mb-4 text-center">
-                    <div class="flex flex-col items-center gap-3">
-                        <i data-lucide="lock" class="w-8 h-8 text-gold-400"></i>
-                        <h3 class="font-semibold text-lg">Sign in to review</h3>
-                        <p class="text-gray-400 text-sm">You need to be signed in to post reviews and comments.</p>
-                        <button onclick="navigate('login')" class="btn-primary px-6 py-2 text-sm">Sign In</button>
+
+                    <div class="review-composer-footer">
+                        <div class="review-privacy-note"><i data-lucide="shield-check" aria-hidden="true"></i><span>Visible to the community</span></div>
+                        <button type="button" class="review-post-button" onclick="addComment()"><i data-lucide="send" aria-hidden="true"></i> Post review</button>
                     </div>
+                    <div class="review-status" id="review-status" aria-live="polite">Choose a rating, then add a few words.</div>
+                </form>
+                ` : `
+                <div class="review-signin-card" role="status">
+                    <i data-lucide="lock" aria-hidden="true"></i>
+                    <h3>Sign in to review</h3>
+                    <p>You need to be signed in to post reviews and comments.</p>
+                    <button type="button" class="review-post-button" onclick="navigate('login')">Sign in</button>
                 </div>
                 `}
-                <div class="space-y-3">
-                    ${comments.map(c => `
-                        <div class="comment-bubble">
-                            <div class="flex items-start gap-3">
-                                <img src="${c.avatar}" class="w-8 h-8 rounded-lg flex-shrink-0" alt="${c.user}">
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-semibold text-sm">${c.user}</span>
-                                        <span class="text-xs text-gray-500">${c.time}</span>
-                                        ${c.rating ? `
-                                            <div class="flex items-center gap-1 ml-2">
-                                                ${[1, 2, 3, 4, 5].map(star => `
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 ${star <= c.rating ? 'text-gold-400' : 'text-gray-600'}" fill="currentColor" viewBox="0 0 24 24">
-                                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                                                    </svg>
-                                                `).join('')}
-                                            </div>
-                                        ` : ''}
-                                    </div>
-                                    <p class="text-sm text-gray-300 mt-1">${c.text}</p>
-                                    <div class="flex items-center gap-4 mt-2">
-                                        <button class="flex items-center gap-1 text-xs text-gray-500 hover:text-gold-400 transition-colors">
-                                            <i data-lucide="heart" class="w-3 h-3"></i> ${c.likes}
-                                        </button>
-                                        <button class="flex items-center gap-1 text-xs text-gray-500 hover:text-gold-400 transition-colors">
-                                            <i data-lucide="message-circle" class="w-3 h-3"></i> Reply
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
+
+                <div class="review-comments-heading">
+                    <h3>What the community is saying</h3>
+                    <p>Latest thoughtful takes</p>
+                </div>
+                <div class="review-comment-list" aria-label="Community reviews">
+                    ${comments.map(renderCommentRow).join('')}
                 </div>
             </div>
-        </div>
+        </section>
     </div>`;
 }
 
@@ -2351,6 +2461,217 @@ function renderRegister() {
     </div>`;
 }
 
+// ============ PROFILE CUSTOMIZATION ============
+let profileCustomizationDraft = null;
+
+function getProfileAvatarUrl(avatarId) {
+    return getProfileConfig().getAvatarUrl(resolveProfileAvatarId(avatarId));
+}
+
+function getProfileCustomizationDraft(profile) {
+    const userId = String(profile?.id || 'guest');
+    if (!profileCustomizationDraft || profileCustomizationDraft.userId !== userId) {
+        profileCustomizationDraft = {
+            userId,
+            avatarId: resolveProfileAvatarId(profile?.avatarId),
+            bio: String(profile?.bio || '').slice(0, 160),
+            profileTheme: resolveProfileThemeId(profile?.profileTheme),
+            editingBio: false,
+        };
+    }
+    return profileCustomizationDraft;
+}
+
+function rerenderProfilePage() {
+    const content = document.getElementById('main-content');
+    if (!content || currentPage !== 'profile') return;
+    content.innerHTML = renderProfile();
+    loadProfileActivity();
+    createLucideIconsSafe();
+}
+
+function scrollToProfileCustomization() {
+    document.querySelector('.profile-customization')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function setProfileCustomizationStatus(message, state = '') {
+    const status = document.getElementById('profile-customization-status');
+    if (!status) return;
+    status.textContent = message || '';
+    status.className = `profile-customization__status${state ? ` is-${state}` : ''}`;
+}
+
+function updateProfileBioCounter(value) {
+    const length = String(value || '').length;
+    const counter = document.getElementById('profile-bio-count');
+    if (counter) {
+        counter.textContent = `${length} / 160 characters`;
+        counter.classList.toggle('is-near-limit', length >= 140);
+    }
+    const preview = document.getElementById('profile-preview-bio');
+    if (preview) preview.textContent = String(value || '').trim() || 'Add a bio to tell other anime fans a little about yourself.';
+    if (profileCustomizationDraft) profileCustomizationDraft.bio = String(value || '').slice(0, 160);
+}
+
+function selectProfileAvatar(avatarId) {
+    const nextAvatarId = resolveProfileAvatarId(avatarId);
+    const draft = profileCustomizationDraft;
+    if (!draft) return;
+    draft.avatarId = nextAvatarId;
+    document.querySelectorAll('[data-profile-avatar-option]').forEach((option) => {
+        option.setAttribute('aria-pressed', String(option.dataset.avatarId === nextAvatarId));
+    });
+    document.querySelectorAll('[data-profile-avatar]').forEach((image) => {
+        image.src = getProfileAvatarUrl(nextAvatarId);
+    });
+    saveProfileCustomization({ avatarId: nextAvatarId, silent: true });
+}
+
+function selectProfileTheme(themeId) {
+    const nextTheme = resolveProfileThemeId(themeId);
+    const draft = profileCustomizationDraft;
+    if (!draft) return;
+    draft.profileTheme = nextTheme;
+    applyProfileTheme(nextTheme);
+    document.querySelectorAll('[data-profile-theme-option]').forEach((option) => {
+        option.setAttribute('aria-pressed', String(option.dataset.themeId === nextTheme));
+    });
+    setProfileCustomizationStatus(`${getProfileConfig().PROFILE_THEMES[nextTheme]?.label || 'Theme'} preview active`, 'success');
+    saveProfileCustomization({ profileTheme: nextTheme, silent: true });
+}
+
+function beginBioEdit() {
+    if (!profileCustomizationDraft) return;
+    profileCustomizationDraft.editingBio = true;
+    rerenderProfilePage();
+    document.getElementById('profile-bio-input')?.focus();
+}
+
+function cancelBioEdit() {
+    const profile = authService.getCurrentUser() || {};
+    profileCustomizationDraft = {
+        userId: String(profile.id || 'guest'),
+        avatarId: resolveProfileAvatarId(profile.avatarId),
+        bio: String(profile.bio || '').slice(0, 160),
+        profileTheme: resolveProfileThemeId(profile.profileTheme),
+        editingBio: false,
+    };
+    rerenderProfilePage();
+}
+
+function renderAvatarPicker(selectedAvatarId) {
+    const config = getProfileConfig();
+    return `
+        <div class="profile-avatar-grid-wrap">
+            <div class="profile-avatar-grid" role="group" aria-label="Choose an avatar">
+                ${config.PROFILE_AVATARS.map((avatar) => {
+                    const selected = avatar.id === selectedAvatarId;
+                    return `
+                        <button type="button" class="profile-avatar-option" data-profile-avatar-option data-avatar-id="${avatar.id}" aria-label="${escapeHtml(avatar.label)} avatar, ${escapeHtml(avatar.category)}" aria-pressed="${selected}" onclick="selectProfileAvatar('${avatar.id}')">
+                            <img src="${config.getAvatarUrl(avatar.id)}" alt="${escapeHtml(avatar.label)} anime-inspired avatar" loading="lazy">
+                            ${selected ? '<span class="profile-avatar-option__check" aria-hidden="true"><i data-lucide="check"></i></span>' : ''}
+                            <span class="profile-avatar-option__label">${escapeHtml(avatar.label)}</span>
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+        </div>`;
+}
+
+function renderThemePicker(selectedThemeId) {
+    const config = getProfileConfig();
+    return `
+        <div class="profile-theme-grid" role="group" aria-label="Choose a profile theme">
+            ${config.PROFILE_THEME_IDS.map((themeId) => {
+                const theme = config.PROFILE_THEMES[themeId];
+                const selected = themeId === selectedThemeId;
+                const tokens = theme.tokens;
+                return `
+                    <button type="button" class="profile-theme-card" data-profile-theme-option data-theme-id="${themeId}" aria-label="${escapeHtml(theme.label)} theme" aria-pressed="${selected}" style="--profile-preview-bg:${tokens.background};--profile-preview-primary:${tokens.primary};--profile-preview-accent:${tokens.accent};--profile-preview-button-text:${tokens.buttonText}" onclick="selectProfileTheme('${themeId}')">
+                        <span class="profile-theme-card__mock" aria-hidden="true"><span class="profile-theme-card__avatar"></span><span class="profile-theme-card__button"></span></span>
+                        <span class="profile-theme-card__title">${escapeHtml(theme.label)}</span>
+                        <span class="profile-theme-card__description">${escapeHtml(theme.description)}</span>
+                        <span class="profile-theme-card__check" aria-hidden="true"><i data-lucide="check"></i></span>
+                    </button>
+                `;
+            }).join('')}
+        </div>`;
+}
+
+function renderProfileCustomization(profile, draft, totalEpisodes, watchedCount, bookmarkCount, favoriteCount) {
+    const config = getProfileConfig();
+    const theme = config.PROFILE_THEMES[draft.profileTheme] || config.PROFILE_THEMES[config.DEFAULT_PROFILE_THEME];
+    const displayName = profile?.name || profile?.username || 'User';
+    const username = profile?.username || 'user';
+    const avatarUrl = getProfileAvatarUrl(draft.avatarId);
+    const bio = draft.bio || '';
+
+    return `
+        <section class="profile-customization" aria-labelledby="profile-customization-title">
+            <div class="profile-preview-card anim-slide-up">
+                <div class="profile-preview-card__banner"></div>
+                <div class="profile-preview-card__body">
+                    <span class="profile-preview-card__badge"><i data-lucide="eye" class="w-3 h-3"></i> Live preview</span>
+                    <img id="profile-preview-avatar" data-profile-avatar src="${avatarUrl}" class="profile-preview-card__avatar" alt="${escapeHtml(displayName)} avatar">
+                    <h2 id="profile-customization-title" class="profile-preview-card__name">${escapeHtml(displayName)}</h2>
+                    <p class="profile-preview-card__handle">@${escapeHtml(username)}</p>
+                    <p id="profile-preview-bio" class="profile-preview-card__bio">${escapeHtml(bio || 'Add a bio to tell other anime fans a little about yourself.')}</p>
+                    <div class="profile-preview-card__footer"><span>${escapeHtml(theme.label)}</span><span>•</span><span>Public profile</span></div>
+                </div>
+            </div>
+
+            <div class="profile-customization__controls">
+                <div class="profile-editor-panel anim-slide-up anim-delay-1">
+                    <div class="profile-editor-panel__heading">
+                        <div><h3 class="profile-editor-panel__title"><i data-lucide="user-round"></i> Choose Avatar</h3><p class="profile-editor-panel__description">20 original anime-inspired avatars. Your choice appears across Anify.</p></div>
+                        <span class="text-xs text-gray-500">${escapeHtml(config.getAvatar(draft.avatarId).label)}</span>
+                    </div>
+                    ${renderAvatarPicker(draft.avatarId)}
+                </div>
+
+                <div class="profile-editor-panel anim-slide-up anim-delay-2">
+                    <div class="profile-editor-panel__heading">
+                        <div><h3 class="profile-editor-panel__title"><i data-lucide="sparkles"></i> About Me</h3><p class="profile-editor-panel__description">A short note for fellow anime fans.</p></div>
+                        ${draft.editingBio ? '' : '<button type="button" class="btn-secondary px-3 py-1.5 text-xs" onclick="beginBioEdit()">Edit</button>'}
+                    </div>
+                    ${draft.editingBio ? `
+                        <div class="profile-bio-editor">
+                            <label for="profile-bio-input" class="sr-only">About me</label>
+                            <textarea id="profile-bio-input" maxlength="160" class="input-field" aria-describedby="profile-bio-count" oninput="updateProfileBioCounter(this.value)">${escapeHtml(bio)}</textarea>
+                            <span id="profile-bio-count" class="profile-character-count">${bio.length} / 160 characters</span>
+                        </div>
+                        <div class="profile-customization__actions">
+                            <button type="button" class="btn-secondary px-4 py-2 text-xs" onclick="cancelBioEdit()">Cancel</button>
+                            <button type="button" class="btn-primary px-4 py-2 text-xs" onclick="saveProfileCustomization()">Save</button>
+                        </div>
+                    ` : `<p class="text-sm leading-6 text-gray-400">${escapeHtml(bio || 'Add a bio to tell other anime fans a little about yourself.')}</p>`}
+                </div>
+
+                <div class="profile-editor-panel anim-slide-up anim-delay-3">
+                    <div class="profile-editor-panel__heading">
+                        <div><h3 class="profile-editor-panel__title"><i data-lucide="palette"></i> Profile Theme</h3><p class="profile-editor-panel__description">Preview the entire Anify interface, not just this page.</p></div>
+                        <span class="text-xs text-gray-500">${escapeHtml(theme.label)}</span>
+                    </div>
+                    ${renderThemePicker(draft.profileTheme)}
+                    <p id="profile-customization-status" class="profile-customization__status" role="status" aria-live="polite"></p>
+                    <div class="profile-customization__actions">
+                        ${draft.editingBio ? '' : '<button type="button" class="btn-primary px-4 py-2 text-xs" onclick="saveProfileCustomization()">Save Changes</button>'}
+                    </div>
+                </div>
+
+                <div class="profile-editor-panel anim-slide-up anim-delay-4">
+                    <div class="profile-editor-panel__heading"><div><h3 class="profile-editor-panel__title"><i data-lucide="bar-chart-3"></i> Profile Stats</h3><p class="profile-editor-panel__description">Your personal Anify snapshot.</p></div></div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div class="rounded-xl bg-white/5 p-3 text-center"><p class="text-lg font-black text-primary">${watchedCount}</p><p class="text-[10px] text-gray-500 uppercase tracking-wide">Anime watched</p></div>
+                        <div class="rounded-xl bg-white/5 p-3 text-center"><p class="text-lg font-black text-primary">${totalEpisodes}</p><p class="text-[10px] text-gray-500 uppercase tracking-wide">Episodes watched</p></div>
+                        <div class="rounded-xl bg-white/5 p-3 text-center"><p class="text-lg font-black text-primary">${bookmarkCount}</p><p class="text-[10px] text-gray-500 uppercase tracking-wide">Bookmarks</p></div>
+                        <div class="rounded-xl bg-white/5 p-3 text-center"><p class="text-lg font-black text-primary">${favoriteCount}</p><p class="text-[10px] text-gray-500 uppercase tracking-wide">Favorites</p></div>
+                    </div>
+                </div>
+            </div>
+        </section>`;
+}
+
 // ============ RENDER: PROFILE ============
 function renderProfile() {
     const profile = authService.getCurrentUser();
@@ -2359,8 +2680,13 @@ function renderProfile() {
     const displayName = profile?.name || username;
     const userPlan = profile?.plan || 'Free';
     const userStatus = profile?.status || 'Active';
-    const avatarSeed = profile?.avatar || username || 'Anify';
-    const avatarUrl = avatarSeed.includes('dicebear') || avatarSeed.startsWith('http') ? avatarSeed : `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(avatarSeed)}`;
+    const profileConfig = getProfileConfig();
+    const draft = getProfileCustomizationDraft(profile);
+    const bio = draft.bio || '';
+    const profileTheme = resolveProfileThemeId(draft.profileTheme);
+    const themeAccents = profileConfig.PROFILE_THEMES[profileTheme]?.tokens || profileConfig.PROFILE_THEMES[profileConfig.DEFAULT_PROFILE_THEME].tokens;
+    const accent = themeAccents.primary;
+    const avatarUrl = getProfileAvatarUrl(draft.avatarId);
 
     const watchedCount = continueWatching.length;
     const favoriteCount = interactionService && typeof interactionService.getFavoriteCount === 'function'
@@ -2381,6 +2707,23 @@ function renderProfile() {
             })
             .filter(Boolean);
     })();
+    const totalEpisodes = continueWatching.reduce((total, item) => total + Math.max(0, Number(item.episode) || 0), 0);
+    const totalMinutes = Math.round(continueWatching.reduce((total, item) => total + Math.max(0, Number(item.time) || 0), 0) / 60);
+    const genreCounts = continueWatching.reduce((counts, item) => {
+        const anime = animeData.find(a => Number(a.id) === Number(item.id));
+        (anime?.genres || []).forEach(genre => { counts[genre] = (counts[genre] || 0) + 1; });
+        return counts;
+    }, {});
+    const preferredGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([genre]) => genre);
+    const pinnedIds = Array.isArray(profile?.pinnedAnimeIds) ? profile.pinnedAnimeIds.map(String) : [];
+    const pinnedAnime = pinnedIds.map(id => animeData.find(anime => String(anime.id) === id)).filter(Boolean);
+    const favoriteAnime = (interactionService?.getFavorites?.() || []).map(id => animeData.find(anime => Number(anime.id) === Number(id))).filter(Boolean);
+    const badges = [
+        totalEpisodes >= 100 && { icon: 'trophy', label: '100 Episodes' },
+        totalEpisodes >= 25 && { icon: 'clapperboard', label: 'Binge Starter' },
+        preferredGenres.length >= 3 && { icon: 'compass', label: 'Genre Explorer' },
+        favoriteCount >= 5 && { icon: 'heart', label: 'Top Picks' },
+    ].filter(Boolean);
 
     const isDarkMode = getCurrentTheme() === 'dark';
 
@@ -2389,21 +2732,26 @@ function renderProfile() {
         <div class="max-w-4xl mx-auto px-4 md:px-8">
             <!-- Profile Header -->
             <div class="glass-card rounded-3xl overflow-hidden anim-slide-up">
-                <div class="h-32 md:h-44 animated-gradient relative">
-                    <div class="floating-orb w-48 h-48 bg-gold-400 -top-24 -right-24" style="animation-delay: 1s;"></div>
+                <div class="h-32 md:h-44 animated-gradient relative" style="--tw-gradient-from: ${accent}; --tw-gradient-to: #111827;">
+                    <div class="floating-orb w-48 h-48 -top-24 -right-24" style="animation-delay: 1s; background-color: ${accent};"></div>
                 </div>
                 <div class="px-6 md:px-8 pb-6 -mt-14 relative">
                     <div class="flex items-end gap-4">
-                        <img src="${avatarUrl}" class="w-24 h-24 rounded-2xl border-4 border-dark-900 shadow-xl" alt="avatar">
+                        <img src="${avatarUrl}" data-profile-avatar class="profile-summary-avatar" alt="${escapeHtml(displayName)} avatar">
                         <div class="mb-1">
-                            <h1 class="text-2xl font-black">${displayName}</h1>
-                            <p class="text-sm text-gray-500">@${username}${userPlan === 'Premium' ? ' · Premium Member 👑' : ''}${userStatus ? ` · ${userStatus}` : ''}</p>
+                            <h1 class="text-2xl font-black">${escapeHtml(displayName)}</h1>
+                            <p class="text-sm text-gray-500">@${escapeHtml(username)}${userPlan === 'Premium' ? ' · Premium Member 👑' : ''}${userStatus ? ` · ${escapeHtml(userStatus)}` : ''}</p>
                         </div>
+                    </div>
+                    <p class="mt-4 max-w-2xl text-sm leading-6 text-gray-400">${bio ? escapeHtml(bio) : 'Add a bio to tell other anime fans a little about yourself.'}</p>
+                    <div class="flex flex-wrap items-center justify-between gap-3 mt-5">
+                        <span class="text-xs text-gray-500">Make your profile feel like yours.</span>
+                        <button type="button" class="btn-secondary px-4 py-2 text-xs" onclick="scrollToProfileCustomization()"><i data-lucide="palette" class="w-3.5 h-3.5 inline-block mr-1"></i> Customize Profile</button>
                     </div>
                     <div class="grid grid-cols-3 gap-4 mt-6">
                         <div class="text-center p-3 rounded-xl bg-white/5">
-                            <p class="text-xl font-bold text-gold-400">${watchedCount}</p>
-                            <p class="text-xs text-gray-500">Watched</p>
+                            <p class="text-xl font-bold" style="color:${accent}">${totalEpisodes}</p>
+                            <p class="text-xs text-gray-500">Episodes</p>
                         </div>
                         <div class="text-center p-3 rounded-xl bg-white/5">
                             <p class="text-xl font-bold text-gold-400">${watchlistService.getEntries().length}</p>
@@ -2416,6 +2764,8 @@ function renderProfile() {
                     </div>
                 </div>
             </div>
+
+            ${renderProfileCustomization(profile, draft, totalEpisodes, watchedCount, watchlistService.getEntries().length, favoriteCount)}
 
             <!-- Stats & Settings -->
             <div class="grid md:grid-cols-2 gap-6 mt-6">
@@ -2474,6 +2824,18 @@ function renderProfile() {
                 </div>
             </div>
 
+
+            <div class="glass-card rounded-2xl p-5 mt-6">
+                <div class="flex items-center justify-between gap-4 mb-4"><h3 class="font-bold flex items-center gap-2"><i data-lucide="pin" class="w-5 h-5" style="color:${accent}"></i> Pinned Favorites</h3><span class="text-xs text-gray-500">Pin up to 6 from your favorites</span></div>
+                ${favoriteAnime.length ? `<div class="flex flex-wrap gap-3">${favoriteAnime.map(anime => `<button onclick="togglePinnedAnime(${anime.id})" class="relative w-20 text-left"><img src="${ensureHttps(anime.image)}" alt="${escapeHtml(anime.title)}" class="h-28 w-20 object-cover rounded-lg ${pinnedIds.includes(String(anime.id)) ? 'ring-2 ring-gold-400' : ''}"><span class="block mt-1 truncate text-xs">${escapeHtml(anime.title)}</span></button>`).join('')}</div>` : '<p class="text-sm text-gray-500">Add anime to your favorites first, then pin them here.</p>'}
+                ${pinnedAnime.length ? `<p class="mt-4 text-xs text-gray-500">Pinned: ${pinnedAnime.map(anime => escapeHtml(anime.title)).join(', ')}</p>` : ''}
+            </div>
+
+            <div class="glass-card rounded-2xl p-5 mt-6">
+                <h3 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5" style="color:${accent}"></i> Activity Timeline</h3>
+                <div id="profile-activity-list" class="space-y-3 text-sm text-gray-500">Loading recent activity…</div>
+            </div>
+
             <!-- Subscription -->
             <div class="glass-card rounded-2xl p-6 mt-6 anim-slide-up anim-delay-3">
                 <div class="flex items-center justify-between flex-wrap gap-4">
@@ -2486,6 +2848,76 @@ function renderProfile() {
             </div>
         </div>
     </div>`;
+}
+
+async function saveProfileCustomization(overrides = {}) {
+    if (!isLoggedIn()) return navigate('login');
+    const current = authService.getCurrentUser() || {};
+    const draft = profileCustomizationDraft || getProfileCustomizationDraft(current);
+    const bioInput = document.getElementById('profile-bio-input');
+    const payload = {
+        avatarId: overrides.avatarId ?? draft.avatarId ?? current.avatarId ?? getProfileConfig().DEFAULT_AVATAR_ID,
+        bio: overrides.bio ?? bioInput?.value?.trim() ?? draft.bio ?? current.bio ?? '',
+        profileTheme: overrides.profileTheme ?? draft.profileTheme ?? current.profileTheme ?? getProfileConfig().DEFAULT_PROFILE_THEME,
+        pinnedAnimeIds: overrides.pinnedAnimeIds ?? current.pinnedAnimeIds ?? [],
+    };
+
+    try {
+        const response = await fetch('/api/profile', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Unable to save profile.');
+
+        profileCustomizationDraft = {
+            userId: String(data.user?.id || current.id || 'guest'),
+            avatarId: resolveProfileAvatarId(data.user?.avatarId),
+            bio: String(data.user?.bio || '').slice(0, 160),
+            profileTheme: resolveProfileThemeId(data.user?.profileTheme),
+            editingBio: false,
+        };
+        authService.updateCurrentUser(data.user);
+        applyProfileTheme(data.user?.profileTheme);
+        setProfileCustomizationStatus(overrides.silent ? 'Saved' : 'Profile saved', 'success');
+        if (!overrides.silent) showToast('Profile saved');
+    } catch (error) {
+        setProfileCustomizationStatus(error.message || 'Unable to save profile.', 'error');
+        if (!overrides.silent) showToast(error.message || 'Unable to save profile.');
+    }
+}
+
+function togglePinnedAnime(animeId) {
+    const current = authService.getCurrentUser() || {};
+    const id = String(animeId);
+    const pinned = Array.isArray(current.pinnedAnimeIds) ? current.pinnedAnimeIds.map(String) : [];
+    const next = pinned.includes(id) ? pinned.filter(item => item !== id) : [...pinned, id];
+    if (next.length > 6) return showToast('You can pin up to 6 favorites.');
+    saveProfileCustomization({ pinnedAnimeIds: next });
+}
+
+async function loadProfileActivity() {
+    const container = document.getElementById('profile-activity-list');
+    if (!container || !isLoggedIn()) return;
+    try {
+        const response = await fetch('/api/profile/activity', { headers: { Authorization: `Bearer ${getAuthToken()}` } });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Unable to load activity.');
+        const items = Array.isArray(data.activity) ? data.activity : [];
+        container.innerHTML = items.length ? items.map(item => {
+            const anime = animeData.find(entry => String(entry.id) === String(item.animeId));
+            const title = escapeHtml(anime?.title || 'an anime');
+            const time = timeAgo(item.createdAt);
+            const text = item.type === 'watched' ? `Watched episode ${Number(item.episode) || 1} of ${title}`
+                : item.type === 'commented' ? `Commented on ${title}`
+                : `Rated ${title} ${Number(item.rating) || 0}/10`;
+            return `<div class="flex items-start gap-3 rounded-xl bg-white/5 p-3"><i data-lucide="${item.type === 'watched' ? 'play-circle' : item.type === 'commented' ? 'message-circle' : 'star'}" class="w-4 h-4 mt-0.5 text-gold-400"></i><div><p class="text-sm text-gray-300">${text}</p><p class="text-xs text-gray-500 mt-1">${time}</p></div></div>`;
+        }).join('') : '<p>No activity yet. Watch, rate, or comment on an anime to build your timeline.</p>';
+        createLucideIconsSafe();
+    } catch (error) {
+        container.textContent = 'Your recent activity could not be loaded right now.';
+    }
 }
 
 // ============ RENDER: ADMIN DASHBOARD ============
@@ -3075,7 +3507,7 @@ async function loadAdminUsersTable() {
                         const plan = u.plan || 'Free';
                         const status = u.status || 'Active';
                         const name = u.username || u.name || 'User';
-                        const avatar = u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
+                        const avatar = typeof getProfileAvatarUrl === 'function' ? getProfileAvatarUrl(u.avatarId) : u.avatar;
                         return `
                             <tr class="border-b border-white/5 hover:bg-white/3 transition-colors">
                                 <td class="p-4">
@@ -3589,11 +4021,7 @@ function getCurrentUsername() {
 
 function getCurrentAvatarUrl() {
     const profile = authService.getCurrentUser ? authService.getCurrentUser() : null;
-    const seed = profile?.avatar || profile?.username || profile?.name || 'Anify';
-    const value = String(seed || 'Anify');
-    return value.startsWith('http') || value.includes('dicebear')
-        ? value
-        : `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(value)}`;
+    return getProfileAvatarUrl(profile?.avatarId || getProfileConfig().DEFAULT_AVATAR_ID);
 }
 
 function renderAuthNav() {

@@ -23,8 +23,13 @@ const userSchema = new mongoose.Schema({
     username: { type: String, trim: true, unique: true, sparse: true },
     email: { type: String, required: true, unique: true, index: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
+    // Built-in profile avatar id. Legacy uploaded avatar fields remain read-only for old records.
+    avatarId: { type: String, default: 'shadow', trim: true },
     avatar: String,
     avatarMetadata: { type: imageMetadataSchema, default: null },
+    bio: { type: String, trim: true, maxlength: 160, default: '' },
+    profileTheme: { type: String, enum: ['default', 'crimson', 'ocean', 'sakura', 'emerald', 'violet', 'azure', 'sunset', 'ice', 'cyber', 'royal'], default: 'default' },
+    pinnedAnimeIds: { type: [String], default: [] },
     plan: { type: String, default: 'Free' },
     // These fields control access to the application. They are required for
     // every new account and receive safe defaults during registration.

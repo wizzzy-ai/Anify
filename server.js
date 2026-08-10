@@ -28,6 +28,23 @@ import Announcement from './models/Announcement.js';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 
+const PROFILE_THEME_IDS = ['default', 'crimson', 'ocean', 'sakura', 'emerald', 'violet', 'azure', 'sunset', 'ice', 'cyber', 'royal'];
+const PROFILE_AVATAR_IDS = ['shadow', 'moon', 'ember', 'tide', 'orchid', 'solar', 'mask', 'ninja', 'samurai', 'chibi', 'nocturne', 'fae', 'storm', 'rosewood', 'starlight', 'rune', 'aqua', 'scarlet', 'sage', 'onyx'];
+const LEGACY_PROFILE_THEME_MAP = { gold: 'default', rose: 'sakura', violet: 'violet', ocean: 'ocean' };
+const DEFAULT_PROFILE_THEME = 'default';
+const DEFAULT_AVATAR_ID = 'shadow';
+
+function normalizeProfileTheme(value) {
+  const candidate = String(value || '').trim().toLowerCase();
+  const mapped = LEGACY_PROFILE_THEME_MAP[candidate] || candidate;
+  return PROFILE_THEME_IDS.includes(mapped) ? mapped : DEFAULT_PROFILE_THEME;
+}
+
+function normalizeAvatarId(value) {
+  const candidate = String(value || '').trim().toLowerCase();
+  return PROFILE_AVATAR_IDS.includes(candidate) ? candidate : DEFAULT_AVATAR_ID;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -775,30 +792,10 @@ app.post('/api/storage/upload/banner', requireAdmin, upload.single('file'), asyn
   }
 });
 
-app.post('/api/storage/upload/avatar', requireActiveUser, upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ ok: false, error: 'No file received' });
-    }
-
-    const userId = req.auth?.userId;
-    if (!userId) {
-      return res.status(401).json({ ok: false, error: 'User not authenticated' });
-    }
-
-    const result = await storageUploadFile(req.file, {
-      imageType: 'avatar',
-      metadata: { userId }
-    });
-
-    res.json({ ok: true, ...result });
-
-  } catch (e) {
-    console.error("Avatar Upload Error:", e);
-    const statusCode = getErrorStatusCode(e);
-    const errorMessage = getErrorMessage(e);
-    res.status(statusCode).json({ ok: false, error: errorMessage, code: e.code || 'UPLOAD_ERROR' });
-  }
+// Profile images are intentionally not user-uploadable. Users choose from the built-in
+// avatar catalog in the profile editor; keep this response explicit for old clients.
+app.post('/api/storage/upload/avatar', requireActiveUser, (req, res) => {
+  res.status(410).json({ ok: false, error: 'Profile image uploads are disabled. Choose a built-in avatar instead.' });
 });
 
 app.post('/api/storage/upload/video', requireAdmin, upload.single('file'), async (req, res) => {
@@ -2247,7 +2244,7 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
       username: normalizedUsername,
       email: normalizedEmail,
       passwordHash,
-      avatar: req.body.avatar || undefined,
+      avatarId: DEFAULT_AVATAR_ID,
       plan: req.body.plan || 'Free',
       isVerified: true, // Auto-verify users
       status: 'active',
@@ -2576,19 +2573,7 @@ app.get('/api/auth/user', requireDb, requireAuth, async (req, res) => {
       return res.status(404).json({ ok: false, error: 'User not found' });
     }
 
-    res.json({
-      ok: true,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        name: user.name,
-        roles: user.roles,
-        plan: user.plan,
-        status: user.status,
-        banInfo: user.banInfo
-      }
-    });
+    res.json({ ok: true, user: publicProfile(user) });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e?.message || e) });
   }
@@ -2684,17 +2669,7 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
       return res.json({
         ok: true,
         token,
-        user: { 
-          id: user._id, 
-          username: user.username, 
-          email: user.email, 
-          name: user.name, 
-          roles: user.roles, 
-          plan: user.plan, 
-          status: user.status,
-          isVerified: true,
-          banInfo: user.banInfo
-        },
+        user: publicProfile(user),
         banned: true,
       });
     }
@@ -2714,7 +2689,7 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
     res.json({
       ok: true,
       token,
-      user: { id: user._id, username: user.username, email: user.email, name: user.name, roles: user.roles, plan: user.plan, status: user.status, isVerified: user.isVerified, banInfo: user.banInfo },
+      user: publicProfile(user),
     });
   } catch (e) {
     console.error('[Auth] Login error:', e);
@@ -2793,6 +2768,65 @@ function requireActiveUser(req, res, next) {
   });
 }
 
+function publicProfile(user) {
+  return {
+    id: String(user._id), username: user.username, name: user.name, email: user.email,
+    roles: user.roles, plan: user.plan, status: user.status, isVerified: user.isVerified,
+    banInfo: user.banInfo,
+    // avatar is retained only as a read-only legacy field for old records.
+    avatar: user.avatar || null,
+    avatarId: normalizeAvatarId(user.avatarId),
+    bio: String(user.bio || '').slice(0, 160),
+    profileTheme: normalizeProfileTheme(user.profileTheme),
+    pinnedAnimeIds: Array.isArray(user.pinnedAnimeIds) ? user.pinnedAnimeIds.map(String) : [],
+  };
+}
+
+app.get('/api/profile', requireActiveUser, async (req, res) => {
+  res.json({ ok: true, user: publicProfile(req.user) });
+});
+
+app.put('/api/profile', requireActiveUser, async (req, res) => {
+  const bio = String(req.body?.bio || '').trim();
+  const profileTheme = normalizeProfileTheme(req.body?.profileTheme);
+  const avatarId = normalizeAvatarId(req.body?.avatarId);
+  const requestedTheme = String(req.body?.profileTheme || '').trim().toLowerCase();
+  const requestedAvatar = String(req.body?.avatarId || '').trim().toLowerCase();
+  const pinnedAnimeIds = Array.isArray(req.body?.pinnedAnimeIds)
+    ? [...new Set(req.body.pinnedAnimeIds.map(String).filter(Boolean))].slice(0, 6)
+    : [];
+
+  if (bio.length > 160) return res.status(400).json({ ok: false, error: 'Bio must be 160 characters or fewer.' });
+  if (requestedTheme && !PROFILE_THEME_IDS.includes(LEGACY_PROFILE_THEME_MAP[requestedTheme] || requestedTheme)) {
+    return res.status(400).json({ ok: false, error: 'Invalid profile theme.' });
+  }
+  if (requestedAvatar && !PROFILE_AVATAR_IDS.includes(requestedAvatar)) {
+    return res.status(400).json({ ok: false, error: 'Invalid profile avatar.' });
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.auth.userId,
+    { $set: { bio, profileTheme, avatarId, pinnedAnimeIds } },
+    { new: true, runValidators: true }
+  );
+  res.json({ ok: true, user: publicProfile(user) });
+});
+
+app.get('/api/profile/activity', requireActiveUser, async (req, res) => {
+  const userId = String(req.auth.userId);
+  const [watching, comments, ratings] = await Promise.all([
+    WatchProgress.find({ userId }).sort({ updatedAt: -1 }).limit(10).lean(),
+    Comment.find({ userId }).sort({ createdAt: -1 }).limit(10).lean(),
+    Rating.find({ userId }).sort({ updatedAt: -1 }).limit(10).lean(),
+  ]);
+  const activity = [
+    ...watching.map(item => ({ type: 'watched', animeId: item.animeId, episode: item.episode, createdAt: item.updatedAt })),
+    ...comments.map(item => ({ type: 'commented', animeId: item.animeId, text: item.text, createdAt: item.createdAt })),
+    ...ratings.map(item => ({ type: 'rated', animeId: item.animeId, rating: item.rating, createdAt: item.updatedAt })),
+  ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 12);
+  res.json({ ok: true, activity });
+});
+
 // Middleware to check if user is banned and redirect to banned page
 function checkBanStatus(req, res, next) {
   requireAuth(req, res, async () => {
@@ -2852,6 +2886,7 @@ app.get('/api/anime/:id/comments', async (req, res) => {
     return {
       ...comment,
       username: user?.username || user?.name || 'Unknown User',
+      avatarId: normalizeAvatarId(user?.avatarId),
     };
   }));
 
