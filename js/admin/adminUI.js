@@ -76,9 +76,6 @@
                     <button onclick="switchAdminTab('anime')" class="admin-nav-item" data-admin-nav="anime">
                         <i data-lucide="tv" class="w-4 h-4"></i> Anime Management
                     </button>
-                    <button onclick="switchAdminTab('movies')" class="admin-nav-item" data-admin-nav="movies">
-                        <i data-lucide="film" class="w-4 h-4"></i> Movie Management
-                    </button>
                     <button onclick="switchAdminTab('users')" class="admin-nav-item" data-admin-nav="users">
                         <i data-lucide="users" class="w-4 h-4"></i> User Management
                     </button>
@@ -127,9 +124,6 @@
                 <button onclick="switchAdminTab('analytics')" class="flex flex-col items-center gap-0.5 p-2 text-gray-500" data-admin-nav-mobile="analytics">
                     <i data-lucide="bar-chart-3" class="w-5 h-5"></i><span class="text-[10px]">Analytics</span>
                 </button>
-                <button onclick="switchAdminTab('movies')" class="flex flex-col items-center gap-0.5 p-2 text-gray-500" data-admin-nav-mobile="movies">
-                    <i data-lucide="film" class="w-5 h-5"></i><span class="text-[10px]">Movies</span>
-                </button>
                 <button onclick="switchAdminTab('settings')" class="flex flex-col items-center gap-0.5 p-2 text-gray-500" data-admin-nav-mobile="settings">
                     <i data-lucide="settings" class="w-5 h-5"></i><span class="text-[10px]">Settings</span>
                 </button>
@@ -175,10 +169,6 @@
                 await renderAdminDashboard();
                 break;
             case 'anime': content.innerHTML = renderAdminAnime(); break;
-            case 'movies':
-                content.innerHTML = renderAdminMovies();
-                bindAdminMoviesActions();
-                break;
             case 'users':
                 content.innerHTML = renderAdminUsers();
                 setTimeout(loadAdminUsersTable, 0);
@@ -253,13 +243,6 @@
                     <i data-lucide="tv" class="w-5 h-5 text-gold-400"></i>
                 </div>
                 <span class="text-xs font-semibold text-gray-300">Manage Anime</span>
-            </button>
-            
-            <button onclick="switchAdminTab('movies')" class="flex flex-col items-center gap-2 p-3 rounded-xl bg-purple-400/10 hover:bg-purple-400/20 transition-all group">
-                <div class="w-10 h-10 rounded-lg bg-purple-400/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <i data-lucide="film" class="w-5 h-5 text-purple-400"></i>
-                </div>
-                <span class="text-xs font-semibold text-gray-300">Manage Movies</span>
             </button>
             
             <button onclick="switchAdminTab('users')" class="flex flex-col items-center gap-2 p-3 rounded-xl bg-blue-400/10 hover:bg-blue-400/20 transition-all group">
@@ -2117,7 +2100,7 @@
             
             saveAdminAnimeData();
             hideUploadModal();
-            switchAdminTab('movies');
+            switchAdminTab('anime');
             
             if (isMovieEdit) {
                 alertGold('Movie updated successfully.');
@@ -2220,6 +2203,7 @@ function editAdminAnime(id) {
         if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
     }
 
+    /* Movie management has been retired.
     function renderAdminMovies() {
         const movies = animeData.filter(a => (a?.type || 'anime') !== 'anime');
 
@@ -2338,6 +2322,7 @@ function editAdminAnime(id) {
         }
     }
 
+    */
     function renderAdminAnime() {
         const list = (Array.isArray(animeData) ? animeData : [])
             .filter(a => (a?.type || 'anime') === 'anime');
@@ -3349,11 +3334,7 @@ function editAdminAnime(id) {
     global.uploadAdminEpisode = uploadAdminEpisode;
     global.deleteAdminAnime = deleteAdminAnime;
     global.bindAdminAnimeActions = bindAdminAnimeActions;
-    global.bindAdminMoviesActions = bindAdminMoviesActions;
-    global.editAdminMovie = editAdminMovie;
-    global.deleteAdminMovie = deleteAdminMovie;
     global.renderAdminDashboard = renderAdminDashboard;
-    global.renderAdminMovies = renderAdminMovies;
     global.renderAdminAnime = renderAdminAnime;
     global.renderAdminUsers = renderAdminUsers;
     global.handleAdminUserAction = handleAdminUserAction;

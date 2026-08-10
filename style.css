@@ -10,8 +10,9 @@
     --modal-background: Canvas;
     --modal-inner: linear-gradient(180deg, color-mix(in srgb, Highlight 10%, transparent), transparent 50%);
     --border-color: color-mix(in srgb, CanvasText 12%, transparent);
-    --accent-gold: Highlight;
-    --accent-purple: Highlight;
+    /* Runtime profile aliases; concrete values are injected by script.js. */
+    --accent-gold: var(--primary);
+    --accent-purple: var(--accent);
     --hover-background: color-mix(in srgb, CanvasText 8%, transparent);
     --shadow-color: color-mix(in srgb, CanvasText 24%, transparent);
     --primary: Highlight;
@@ -2713,12 +2714,83 @@ html { scroll-behavior: smooth; }
 
 @media (max-width: 768px) {
     #anify-persistent-player.mini-player {
-        width: 200px;
-        height: 112px;
-        bottom: 5rem !important; /* Above bottom nav */
-        right: 1.25rem !important;
+        width: min(220px, calc(100vw - 2rem));
+        height: auto;
+        aspect-ratio: 16 / 9;
+        bottom: calc(5rem + env(safe-area-inset-bottom)) !important;
+        right: 1rem !important;
+        overflow: hidden;
+        border: 1px solid color-mix(in srgb, var(--text-primary) 18%, transparent);
+        border-radius: 0.85rem;
+        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42);
     }
     #mini-player-dock { display: none !important; }
+
+    /* Keep the mobile floating player focused: one play/pause action, one
+       close action, and a visible seek position instead of a desktop toolbar. */
+    #anify-persistent-player.mini-player #play-overlay { display: none !important; }
+    #anify-persistent-player.mini-player .video-controls {
+        display: block;
+        padding: 0;
+        opacity: 1;
+        background: transparent;
+        pointer-events: none;
+    }
+    #anify-persistent-player.mini-player .video-controls > .progress-bar {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 30;
+        height: 3px;
+        border-radius: 0;
+        pointer-events: auto;
+    }
+    #anify-persistent-player.mini-player .video-controls > div:last-child { display: none !important; }
+    #anify-persistent-player.mini-player .mini-mobile-actions {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        background: linear-gradient(90deg, rgba(0, 0, 0, 0.18), transparent 32%, transparent 68%, rgba(0, 0, 0, 0.18));
+    }
+    #anify-persistent-player.mini-player .mini-mobile-play,
+    #anify-persistent-player.mini-player .mini-mobile-close {
+        display: grid;
+        place-items: center;
+        border: 0;
+        color: #FFFFFF;
+        background: rgba(0, 0, 0, 0.56);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        pointer-events: auto;
+        -webkit-tap-highlight-color: transparent;
+    }
+    #anify-persistent-player.mini-player .mini-mobile-play {
+        width: 2.8rem;
+        height: 2.8rem;
+        border-radius: 50%;
+        font-size: 1.1rem;
+        line-height: 1;
+    }
+    #anify-persistent-player.mini-player .mini-mobile-play:active {
+        transform: scale(0.92);
+        background: color-mix(in srgb, var(--primary) 75%, rgba(0, 0, 0, 0.56));
+    }
+    #anify-persistent-player.mini-player .mini-mobile-close {
+        position: absolute;
+        top: 0.45rem;
+        right: 0.45rem;
+        width: 1.8rem;
+        height: 1.8rem;
+        border-radius: 50%;
+        font-size: 1.45rem;
+        font-weight: 300;
+        line-height: 1;
+    }
 }
 
 /* ============ HUB INTERFACE ============ */
@@ -6132,13 +6204,14 @@ html[data-theme] .genre-card-icon {
 }
 
 html[data-theme] .progress-fill,
-html[data-theme] .cw-progress-fill,
-html[data-theme] .profile-theme-card__button,
-html[data-theme] .profile-theme-card__mock::before {
+html[data-theme] .cw-progress-fill {
     background: linear-gradient(90deg, var(--primary-light), var(--primary-hover)) !important;
 }
 html[data-theme] .auto-next-circle .progress { stroke: var(--primary) !important; }
-html[data-theme] .profile-theme-card__check { background: var(--profile-preview-primary); }
+html[data-theme] .profile-theme-card__check {
+    background: var(--profile-preview-primary) !important;
+    color: var(--profile-preview-button-text) !important;
+}
 
 html[data-theme] .genre-showcase,
 html[data-theme] .premium-genre-card,
@@ -6326,16 +6399,92 @@ html[data-theme] .player-control-btn:active { color: var(--primary) !important; 
 .profile-avatar-grid-wrap { padding-bottom: 0.45rem; }
 
 .profile-theme-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.7rem; }
-.profile-theme-card { position: relative; min-height: 8.4rem; overflow: hidden; padding: 0.65rem; border: 2px solid transparent; border-radius: 1rem; background: var(--profile-preview-bg, var(--surface-hover)); color: var(--text-primary); text-align: left; cursor: pointer; transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease; }
-.profile-theme-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--profile-preview-primary) 70%, transparent); }
-.profile-theme-card[aria-pressed="true"] { border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent), 0 12px 28px color-mix(in srgb, var(--primary) 14%, transparent); }
-.profile-theme-card__mock { position: relative; display: flex; align-items: flex-end; justify-content: space-between; height: 4.35rem; padding: 0.45rem; border-radius: 0.7rem; background: var(--profile-preview-bg); border: 1px solid color-mix(in srgb, var(--profile-preview-primary) 22%, transparent); }
-.profile-theme-card__mock::before { content: ''; position: absolute; inset: 0 0 auto; height: 0.35rem; background: var(--profile-preview-primary); }
-.profile-theme-card__avatar { width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--profile-preview-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--profile-preview-primary) 22%, transparent); }
-.profile-theme-card__button { width: 2.5rem; height: 0.55rem; border-radius: 999px; background: var(--profile-preview-primary); }
-.profile-theme-card__title { display: block; margin-top: 0.55rem; color: var(--text-primary); font-size: 0.76rem; font-weight: 800; }
-.profile-theme-card__description { display: block; margin-top: 0.12rem; overflow: hidden; color: var(--text-tertiary); font-size: 0.62rem; text-overflow: ellipsis; white-space: nowrap; }
-.profile-theme-card__check { position: absolute; top: 0.55rem; right: 0.55rem; display: grid; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: 50%; background: var(--profile-preview-primary); color: var(--profile-preview-button-text); opacity: 0; transform: scale(0.75); transition: opacity 180ms ease, transform 180ms ease; }
+.profile-theme-card {
+    --profile-preview-background: var(--surface-hover);
+    --profile-preview-surface: var(--surface);
+    --profile-preview-surface-hover: var(--surface-hover);
+    --profile-preview-primary: var(--primary);
+    --profile-preview-primary-hover: var(--primary-hover);
+    --profile-preview-primary-light: var(--primary-light);
+    --profile-preview-accent: var(--accent);
+    --profile-preview-border: var(--border);
+    --profile-preview-button-text: var(--button-text);
+    --profile-preview-text-primary: var(--text-primary);
+    --profile-preview-text-secondary: var(--text-secondary);
+    --profile-preview-text-tertiary: var(--text-tertiary);
+    position: relative;
+    min-height: 8.4rem;
+    overflow: hidden;
+    padding: 0.65rem;
+    border: 2px solid color-mix(in srgb, var(--profile-preview-border) 72%, transparent);
+    border-radius: 1rem;
+    background: var(--profile-preview-background);
+    color: var(--profile-preview-text-primary);
+    text-align: left;
+    cursor: pointer;
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.profile-theme-card:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--profile-preview-primary) 70%, transparent);
+}
+.profile-theme-card:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--profile-preview-primary) 55%, transparent);
+    outline-offset: 3px;
+}
+.profile-theme-card[aria-pressed="true"] {
+    border-color: var(--profile-preview-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--profile-preview-primary) 20%, transparent), 0 12px 28px color-mix(in srgb, var(--profile-preview-primary) 14%, transparent);
+}
+.profile-theme-card__mock {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 4.35rem;
+    padding: 0.45rem;
+    border-radius: 0.7rem;
+    background: var(--profile-preview-surface);
+    border: 1px solid var(--profile-preview-border);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--profile-preview-primary) 10%, transparent);
+}
+.profile-theme-card__mock::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 0.35rem;
+    background: linear-gradient(90deg, var(--profile-preview-primary-light), var(--profile-preview-primary-hover));
+}
+.profile-theme-card__avatar {
+    width: 1.4rem;
+    height: 1.4rem;
+    border: 3px solid var(--profile-preview-primary-light);
+    border-radius: 50%;
+    background: var(--profile-preview-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--profile-preview-primary) 22%, transparent);
+}
+.profile-theme-card__surface-hover {
+    position: absolute;
+    right: 0.45rem;
+    bottom: 0.45rem;
+    width: 2.45rem;
+    height: 0.42rem;
+    border-radius: 999px;
+    background: var(--profile-preview-surface-hover);
+    opacity: 0.85;
+}
+.profile-theme-card__button {
+    position: relative;
+    z-index: 1;
+    width: 2.5rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--profile-preview-primary-light), var(--profile-preview-primary-hover));
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--profile-preview-primary) 26%, transparent);
+}
+.profile-theme-card__title { display: block; margin-top: 0.55rem; color: var(--profile-preview-text-primary); font-size: 0.76rem; font-weight: 800; }
+.profile-theme-card__description { display: block; margin-top: 0.12rem; overflow: hidden; color: var(--profile-preview-text-secondary); font-size: 0.62rem; text-overflow: ellipsis; white-space: nowrap; }
+.profile-theme-card__check { position: absolute; top: 0.55rem; right: 0.55rem; display: grid; place-items: center; width: 1.25rem; height: 1.25rem; border: 1px solid var(--profile-preview-border); border-radius: 50%; background: var(--profile-preview-primary); color: var(--profile-preview-button-text); opacity: 0; transform: scale(0.75); transition: opacity 180ms ease, transform 180ms ease; }
 .profile-theme-card[aria-pressed="true"] .profile-theme-card__check { opacity: 1; transform: scale(1); }
 .profile-theme-card__check svg { width: 0.78rem; height: 0.78rem; stroke-width: 3; }
 
@@ -6901,3 +7050,204 @@ html[data-theme] .player-control-btn:active { color: var(--primary) !important; 
     .review-comments-heading { align-items: flex-start; flex-direction: column; gap: .25rem; }
     .review-comment-row { padding: .875rem; }
 }
+
+/* ============ THEME TOKEN ENFORCEMENT ============
+   Profile colors are authored in js/profile/profileConfig.js. These final
+   selectors keep legacy components on semantic tokens for every profile. */
+html[data-theme] .genre-showcase .home-section-icon,
+html[data-theme] .home-section-icon {
+    color: var(--primary) !important;
+    background: var(--accent-soft) !important;
+    border-color: color-mix(in srgb, var(--primary) 24%, transparent) !important;
+}
+
+html[data-theme] .home-section-title,
+html[data-theme] .genre-showcase-title,
+html[data-theme] .coming-card h3,
+html[data-theme] .news-card,
+html[data-theme] .activity-card,
+html[data-theme] .coming-empty h3,
+html[data-theme] .news-card-placeholder h3,
+html[data-theme] .genre-card-name,
+html[data-theme] .surprise-fab-text {
+    color: var(--text-primary) !important;
+}
+
+html[data-theme] .home-section-desc,
+html[data-theme] .coming-card p,
+html[data-theme] .coming-empty p,
+html[data-theme] .news-card-placeholder p,
+html[data-theme] .studio-chip small,
+html[data-theme] .genre-card-count {
+    color: var(--text-secondary) !important;
+}
+
+html[data-theme] .genre-card-action,
+html[data-theme] .coming-count,
+html[data-theme] .surprise-fab-icon,
+html[data-theme] .btn-premium-large,
+html[data-theme] .mini-dock-cta {
+    color: var(--button-text) !important;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-hover)) !important;
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 22%, transparent) !important;
+}
+
+html[data-theme] .voice-row span,
+html[data-theme] .mood-btn.active,
+html[data-theme] .discovery-card-main,
+html[data-theme] .mobile-bottom-link.active {
+    color: var(--primary) !important;
+    background: var(--accent-soft) !important;
+    border-color: color-mix(in srgb, var(--primary) 38%, transparent) !important;
+}
+
+html[data-theme] .premium-banner,
+html[data-theme] .premium-feature {
+    border-color: color-mix(in srgb, var(--primary) 28%, transparent) !important;
+}
+html[data-theme] .premium-feature {
+    color: var(--text-primary) !important;
+    background: color-mix(in srgb, var(--surface) 72%, transparent) !important;
+}
+html[data-theme] .premium-feature i,
+html[data-theme] .premium-feature svg,
+html[data-theme] .voice-row span { color: var(--primary) !important; }
+html[data-theme] .premium-shine {
+    background:
+        conic-gradient(from 120deg, transparent, color-mix(in srgb, var(--primary) 22%, transparent), transparent 35%),
+        radial-gradient(circle at 70% 35%, color-mix(in srgb, var(--primary) 28%, transparent), transparent 16rem);
+}
+
+html[data-theme] .surprise-fab {
+    background: color-mix(in srgb, var(--surface) 86%, transparent) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 20px 40px var(--shadow-color) !important;
+}
+html[data-theme] .skip-cue-btn,
+html[data-theme] .btn-auto-cancel {
+    color: var(--text-primary) !important;
+    background: color-mix(in srgb, var(--surface-strong) 86%, transparent) !important;
+    border-color: color-mix(in srgb, var(--primary) 42%, transparent) !important;
+}
+html[data-theme] .skip-cue-btn:hover,
+html[data-theme] .btn-auto-cancel:hover {
+    background: var(--accent-soft) !important;
+    border-color: var(--primary) !important;
+}
+html[data-theme] .skip-cue-btn i,
+html[data-theme] .auto-next-subtitle { color: var(--primary) !important; }
+html[data-theme] .auto-next-number,
+html[data-theme] .auto-next-content { color: var(--text-primary); }
+html[data-theme] .mini-player.mini-settings-open #player-speed-select,
+html[data-theme] .mini-player.mini-settings-open #player-quality-select {
+    background: color-mix(in srgb, var(--surface-strong) 95%, transparent) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 18px 40px var(--shadow-color) !important;
+}
+
+html[data-theme] .hero-stream,
+html[data-theme] #anime-detail-root,
+html[data-theme] .verify-container {
+    background: var(--background) !important;
+    color: var(--text-primary) !important;
+}
+html[data-theme] .hero-stream-overlay,
+html[data-theme] #anime-detail-root .hero-stream-overlay {
+    background:
+        linear-gradient(to right, color-mix(in srgb, var(--background) 92%, transparent), color-mix(in srgb, var(--background) 68%, transparent), transparent),
+        linear-gradient(to bottom, color-mix(in srgb, var(--background) 88%, transparent), transparent) !important;
+}
+html[data-theme] .hero-stream .hero-movie-badge,
+html[data-theme] #anime-detail-root .hero-movie-badge,
+html[data-theme] .verify-btn {
+    color: var(--button-text) !important;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-hover)) !important;
+}
+html[data-theme] .hero-stream .hero-status-badge,
+html[data-theme] .hero-stream .hero-studio-badge,
+html[data-theme] .hero-stream .hero-tag,
+html[data-theme] .hero-stream .hero-info-card,
+html[data-theme] #anime-detail-root .detail-movie-card,
+html[data-theme] #anime-detail-root .recommend-card {
+    color: var(--text-primary) !important;
+    background: color-mix(in srgb, var(--surface) 82%, transparent) !important;
+    border-color: var(--border) !important;
+}
+html[data-theme] .hero-stream .hero-native-title,
+html[data-theme] .hero-stream .hero-meta-strip,
+html[data-theme] .hero-stream .hero-desc,
+html[data-theme] .hero-stream .hero-info-label,
+html[data-theme] .hero-stream .hero-subtitle,
+html[data-theme] .hero-stream .hero-tag,
+html[data-theme] #anime-detail-root .detail-overview p,
+html[data-theme] #anime-detail-root .recommend-meta,
+html[data-theme] #anime-detail-root .detail-movie-card p {
+    color: var(--text-secondary) !important;
+}
+html[data-theme] .hero-stream .hero-rating-inline,
+html[data-theme] #anime-detail-root .hero-rating-inline,
+html[data-theme] #anime-detail-root .detail-see-all:hover { color: var(--primary) !important; }
+html[data-theme] #anime-detail-root .hero-info-value,
+html[data-theme] #anime-detail-root .hero-title,
+html[data-theme] #anime-detail-root .detail-overview h2,
+html[data-theme] #anime-detail-root .detail-section-head h2,
+html[data-theme] #anime-detail-root .detail-movie-card h3,
+html[data-theme] #anime-detail-root .recommend-title { color: var(--text-primary) !important; }
+html[data-theme] #anime-detail-root .hero-progress { background: var(--surface-muted) !important; border-color: var(--border) !important; }
+html[data-theme] #anime-detail-root .hero-progress-fill { background: linear-gradient(90deg, var(--primary-light), var(--primary-hover)) !important; }
+html[data-theme] #anime-detail-root .detail-rec-arrow { color: var(--text-primary) !important; background: var(--surface-muted) !important; border-color: var(--border) !important; }
+html[data-theme] #anime-detail-root .detail-rec-arrow:hover { color: var(--primary) !important; background: var(--accent-soft) !important; border-color: var(--primary) !important; }
+
+html[data-theme] .verify-card,
+html[data-theme] .banned-card {
+    background: color-mix(in srgb, var(--surface) 92%, transparent) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 24px 70px var(--shadow-color) !important;
+}
+html[data-theme] .verify-logo-text,
+html[data-theme] .banned-logo-text {
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-hover)) !important;
+}
+html[data-theme] .verify-title,
+html[data-theme] .verify-description,
+html[data-theme] .verify-otp-input,
+html[data-theme] .banned-info-value,
+html[data-theme] .banned-rules-title { color: var(--text-primary) !important; }
+html[data-theme] .verify-subtitle,
+html[data-theme] .verify-email,
+html[data-theme] .verify-timer-time,
+html[data-theme] .verify-resend-btn,
+html[data-theme] .verify-back-link:hover { color: var(--primary) !important; }
+html[data-theme] .verify-otp-input,
+html[data-theme] .verify-change-email-btn { background: var(--surface-muted) !important; border-color: var(--border) !important; }
+html[data-theme] .verify-otp-input:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px var(--focus-ring) !important; background: var(--accent-soft) !important; }
+html[data-theme] .verify-error { color: var(--danger) !important; }
+html[data-theme] .verify-success-icon,
+html[data-theme] .verify-success-title { color: var(--success) !important; }
+html[data-theme] .verify-spinner { border-color: color-mix(in srgb, var(--button-text) 30%, transparent); border-top-color: var(--button-text); }
+
+html[data-theme] #maintenance-screen,
+html[data-theme] #maintenance-screen main,
+html[data-theme] #ban-user-modal form,
+html[data-theme] #admin-user-details-modal > div {
+    color: var(--text-primary) !important;
+    background: color-mix(in srgb, var(--surface) 92%, transparent) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 30px 100px var(--shadow-color) !important;
+}
+html[data-theme] #maintenance-screen .text-white,
+html[data-theme] #maintenance-screen .text-gray-300,
+html[data-theme] #maintenance-screen .text-gray-400,
+html[data-theme] #ban-user-modal .text-gray-300,
+html[data-theme] #admin-user-details-modal .text-gray-400,
+html[data-theme] #admin-user-details-modal .text-gray-500 { color: var(--text-secondary) !important; }
+html[data-theme] #maintenance-screen .text-gold-300,
+html[data-theme] #maintenance-screen .text-gold-400,
+html[data-theme] #maintenance-screen .text-gold-500,
+html[data-theme] #ban-user-modal .text-gold-400 { color: var(--primary) !important; }
+html[data-theme] #maintenance-screen .bg-gold-400,
+html[data-theme] #maintenance-screen .from-gold-300,
+html[data-theme] #maintenance-screen .to-gold-500,
+html[data-theme] #maintenance-login-button,
+html[data-theme] #ban-user-modal button[type="submit"] { background: linear-gradient(135deg, var(--primary-light), var(--primary-hover)) !important; color: var(--button-text) !important; }
+html[data-theme] #maintenance-screen .text-\[\#1b1100\] { color: var(--button-text) !important; }

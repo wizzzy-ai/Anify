@@ -161,6 +161,61 @@ function resolveThemeTokens(theme, mode = getCurrentTheme()) {
     return normalizedMode === 'light' && theme.lightTokens ? theme.lightTokens : theme.tokens;
 }
 
+function resolveThemeTokenSet(theme, mode = getCurrentTheme()) {
+    const tokens = resolveThemeTokens(theme, mode);
+    if (!tokens) return null;
+    return {
+        ...tokens,
+        accentGold: tokens.accentGold || tokens.primary,
+        accentPurple: tokens.accentPurple || tokens.accent,
+    };
+}
+
+const PROFILE_PREVIEW_CSS_TOKEN_MAP = {
+    background: '--profile-preview-background',
+    surface: '--profile-preview-surface',
+    surfaceHover: '--profile-preview-surface-hover',
+    primary: '--profile-preview-primary',
+    primaryHover: '--profile-preview-primary-hover',
+    primaryLight: '--profile-preview-primary-light',
+    accent: '--profile-preview-accent',
+    border: '--profile-preview-border',
+    buttonText: '--profile-preview-button-text',
+    textPrimary: '--profile-preview-text-primary',
+    textSecondary: '--profile-preview-text-secondary',
+    textTertiary: '--profile-preview-text-tertiary',
+};
+
+function getProfilePreviewStyle(tokens) {
+    return Object.entries(PROFILE_PREVIEW_CSS_TOKEN_MAP)
+        .filter(([token]) => tokens?.[token])
+        .map(([token, property]) => `${property}:${tokens[token]}`)
+        .join(';');
+}
+
+function applyProfilePreviewTokens(element, tokens) {
+    if (!element || !tokens) return;
+    Object.entries(PROFILE_PREVIEW_CSS_TOKEN_MAP).forEach(([token, property]) => {
+        if (tokens[token]) element.style.setProperty(property, tokens[token]);
+    });
+}
+
+function updateProfileThemePreviews(mode = getCurrentTheme()) {
+    const config = getProfileConfig();
+    document.querySelectorAll('[data-profile-theme-option]').forEach((option) => {
+        const theme = config.PROFILE_THEMES[option.dataset.themeId];
+        const tokens = resolveThemeTokenSet(theme, mode) || theme?.tokens;
+        applyProfilePreviewTokens(option, tokens);
+    });
+}
+
+function updateThemeFavicon(tokens) {
+    const favicon = document.getElementById('app-favicon');
+    if (!favicon || !tokens) return;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="${tokens.background}"/><text x="50" y="50" font-size="60" font-family="Outfit, sans-serif" font-weight="900" fill="${tokens.primary}" text-anchor="middle" dy=".3em">A</text></svg>`;
+    favicon.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
 function applyProfileTheme(themeId, mode = getCurrentTheme()) {
     const config = getProfileConfig();
     const normalizedTheme = resolveProfileThemeId(themeId || config.DEFAULT_PROFILE_THEME);
@@ -171,9 +226,12 @@ function applyProfileTheme(themeId, mode = getCurrentTheme()) {
     root.dataset.colorMode = normalizeThemeMode(mode);
 
     if (tokens) {
+        const resolvedTokens = resolveThemeTokenSet(theme, mode);
         Object.entries(PROFILE_THEME_CSS_TOKEN_MAP).forEach(([token, property]) => {
-            if (tokens[token]) root.style.setProperty(property, tokens[token]);
+            if (resolvedTokens[token]) root.style.setProperty(property, resolvedTokens[token]);
         });
+        updateThemeFavicon(resolvedTokens);
+        updateProfileThemePreviews(mode);
     }
 
     return normalizedTheme;
@@ -2612,23 +2670,36 @@ function renderAvatarPicker(selectedAvatarId) {
         </div>`;
 }
 
+function renderThemePreviewCard(themeId, selectedThemeId, mode = getCurrentTheme()) {
+    const config = getProfileConfig();
+    const theme = config.PROFILE_THEMES[themeId];
+    if (!theme) return '';
+
+    const selected = themeId === selectedThemeId;
+    const tokens = resolveThemeTokenSet(theme, mode) || theme.tokens;
+    const previewStyle = getProfilePreviewStyle(tokens);
+    const safeThemeId = escapeHtml(themeId);
+
+    return `
+        <button type="button" class="profile-theme-card" data-profile-theme-option data-theme-id="${safeThemeId}" aria-label="${escapeHtml(theme.label)} theme" aria-pressed="${selected}" style="${previewStyle}" onclick="selectProfileTheme('${safeThemeId}')">
+            <span class="profile-theme-card__mock" aria-hidden="true">
+                <span class="profile-theme-card__avatar"></span>
+                <span class="profile-theme-card__surface-hover"></span>
+                <span class="profile-theme-card__button"></span>
+            </span>
+            <span class="profile-theme-card__title">${escapeHtml(theme.label)}</span>
+            <span class="profile-theme-card__description">${escapeHtml(theme.description)}</span>
+            <span class="profile-theme-card__check" aria-hidden="true"><i data-lucide="check"></i></span>
+        </button>
+    `;
+}
+
 function renderThemePicker(selectedThemeId) {
     const config = getProfileConfig();
+    const mode = getCurrentTheme();
     return `
         <div class="profile-theme-grid" role="group" aria-label="Choose a profile theme">
-            ${config.PROFILE_THEME_IDS.map((themeId) => {
-                const theme = config.PROFILE_THEMES[themeId];
-                const selected = themeId === selectedThemeId;
-                const tokens = resolveThemeTokens(theme, getCurrentTheme()) || theme.tokens;
-                return `
-                    <button type="button" class="profile-theme-card" data-profile-theme-option data-theme-id="${themeId}" aria-label="${escapeHtml(theme.label)} theme" aria-pressed="${selected}" style="--profile-preview-bg:${tokens.background};--profile-preview-primary:${tokens.primary};--profile-preview-accent:${tokens.accent};--profile-preview-button-text:${tokens.buttonText}" onclick="selectProfileTheme('${themeId}')">
-                        <span class="profile-theme-card__mock" aria-hidden="true"><span class="profile-theme-card__avatar"></span><span class="profile-theme-card__button"></span></span>
-                        <span class="profile-theme-card__title">${escapeHtml(theme.label)}</span>
-                        <span class="profile-theme-card__description">${escapeHtml(theme.description)}</span>
-                        <span class="profile-theme-card__check" aria-hidden="true"><i data-lucide="check"></i></span>
-                    </button>
-                `;
-            }).join('')}
+            ${config.PROFILE_THEME_IDS.map((themeId) => renderThemePreviewCard(themeId, selectedThemeId, mode)).join('')}
         </div>`;
 }
 
@@ -2766,7 +2837,7 @@ function renderProfile() {
         <div class="max-w-4xl mx-auto px-4 md:px-8">
             <!-- Profile Header -->
             <div class="glass-card rounded-3xl overflow-hidden anim-slide-up">
-                <div class="h-32 md:h-44 animated-gradient relative" style="--tw-gradient-from: ${accent}; --tw-gradient-to: #111827;">
+                <div class="h-32 md:h-44 animated-gradient relative" style="--tw-gradient-from: ${accent}; --tw-gradient-to: var(--surface-strong);">
                     <div class="floating-orb w-48 h-48 -top-24 -right-24" style="animation-delay: 1s; background-color: ${accent};"></div>
                 </div>
                 <div class="px-6 md:px-8 pb-6 -mt-14 relative">
@@ -2999,10 +3070,6 @@ function switchAdminTab(tab) {
     switch(tab) {
         case 'dashboard': content.innerHTML = renderAdminDashboard(); break;
         case 'anime': content.innerHTML = renderAdminAnime(); break;
-        case 'movies':
-            content.innerHTML = renderAdminMovies();
-            bindAdminMoviesActions();
-            break;
         case 'users':
             content.innerHTML = renderAdminUsers();
             // load real users after markup is injected
@@ -3238,6 +3305,7 @@ async function deleteGenreFromManager(id) {
     }
 }
 
+/* Movie management has been retired.
 function renderAdminMovies() {
     const movies = animeData.filter(a => (a?.type || 'anime') !== 'anime');
 
@@ -3334,6 +3402,7 @@ async function deleteAdminMovie(id) {
     await switchAdminTab('movies');
 }
 
+*/
 function renderAdminAnime() {
     // Strict separation: Anime Management must show ONLY series.
     // A record is considered an anime series when type === 'anime' (legacy field).
@@ -4348,7 +4417,7 @@ function alertGold(message) {
     overlay.style.position = 'fixed';
     overlay.style.inset = '0';
     overlay.style.zIndex = '10000';
-    overlay.style.background = 'rgba(0,0,0,0.45)';
+    overlay.style.background = 'var(--overlay)';
     overlay.style.backdropFilter = 'blur(6px)';
     overlay.style.display = 'flex';
     overlay.style.alignItems = 'center';
@@ -4359,10 +4428,10 @@ function alertGold(message) {
     card.id = 'anify-alert';
     card.style.maxWidth = 'min(90vw, 520px)';
     card.style.borderRadius = '0.95rem';
-    card.style.background = 'rgba(10, 10, 28, 0.96)';
-    card.style.border = '1px solid rgba(251, 191, 36, 0.35)';
-    card.style.boxShadow = '0 18px 45px rgba(0, 0, 0, 0.45)';
-    card.style.color = 'white';
+    card.style.background = 'var(--modal-background)';
+    card.style.border = '1px solid var(--border)';
+    card.style.boxShadow = '0 18px 45px var(--shadow-color)';
+    card.style.color = 'var(--text-primary)';
     card.style.padding = '1rem 1.1rem';
     card.style.fontFamily = 'inherit';
 
@@ -4387,8 +4456,8 @@ function alertGold(message) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = 'OK';
-    btn.style.background = 'linear-gradient(135deg, #FBBF24, #F59E0B)';
-    btn.style.color = '#000';
+    btn.style.background = 'linear-gradient(135deg, var(--primary-light), var(--primary-hover))';
+    btn.style.color = 'var(--button-text)';
     btn.style.fontWeight = '900';
     btn.style.border = 'none';
     btn.style.padding = '0.55rem 1rem';
@@ -4499,6 +4568,8 @@ function updatePlayerUI() {
 
         if (playIcon) playIcon.setAttribute('data-lucide', state.isPlaying ? 'pause' : 'play');
         if (overlay) overlay.classList.toggle('hidden', state.isPlaying);
+        const miniPlaySymbol = document.getElementById('mini-mobile-play-symbol');
+        if (miniPlaySymbol) miniPlaySymbol.textContent = state.isPlaying ? 'Ⅱ' : '▶';
         
         // Sync volume UI with actual video state
         syncVolumeUI();
@@ -5438,6 +5509,12 @@ function createPersistentPlayer() {
             <div class="anime-play-core w-20 h-20 rounded-full flex items-center justify-center hover:scale-110 transition-transform cursor-pointer">
                 <i data-lucide="play" class="w-10 h-10 text-black fill-black ml-1"></i>
             </div>
+        </div>
+        <div class="mini-mobile-actions mini-only" aria-label="Mini player controls">
+            <button type="button" class="mini-mobile-play" onclick="event.stopPropagation(); togglePlay();" aria-label="Play or pause">
+                <span id="mini-mobile-play-symbol" aria-hidden="true">▶</span>
+            </button>
+            <button type="button" class="mini-mobile-close" onclick="event.stopPropagation(); hideMiniPlayer();" aria-label="Close mini player">×</button>
         </div>
         
         <!-- Mini Player Dock Overlay (Hidden in Full) -->

@@ -28,7 +28,14 @@ const userSchema = new mongoose.Schema({
     avatar: String,
     avatarMetadata: { type: imageMetadataSchema, default: null },
     bio: { type: String, trim: true, maxlength: 160, default: '' },
-    profileTheme: { type: String, enum: ['default', 'crimson', 'ocean', 'sakura', 'emerald', 'violet', 'azure', 'sunset', 'ice', 'cyber', 'royal'], default: 'default' },
+    profileTheme: {
+        type: String,
+        enum: [
+            'default', 'crimson', 'ocean', 'sakura', 'emerald', 'violet', 'azure', 'sunset', 'ice', 'cyber', 'royal',
+            'blush', 'peony', 'fuchsia', 'berry', 'coral', 'ash-plum', 'pink', 'obsidian', 'red', 'cobalt-sand', 'ink-peach', 'khaki-violet', 'rosewood-sage-navy', 'cotton-candy', 'rose-gold',
+        ],
+        default: 'default',
+    },
     pinnedAnimeIds: { type: [String], default: [] },
     plan: { type: String, default: 'Free' },
     // These fields control access to the application. They are required for

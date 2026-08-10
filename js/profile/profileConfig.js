@@ -6,6 +6,8 @@
     const PROFILE_THEME_IDS = [
         'default', 'crimson', 'ocean', 'sakura', 'emerald',
         'violet', 'azure', 'sunset', 'ice', 'cyber', 'royal',
+        'blush', 'peony', 'fuchsia', 'berry', 'coral', 'ash-plum', 'pink',
+        'obsidian', 'red', 'cobalt-sand', 'ink-peach', 'khaki-violet', 'rosewood-sage-navy', 'cotton-candy', 'rose-gold',
     ];
 
     // Light variants intentionally keep the same semantic token shape as dark
@@ -34,6 +36,8 @@
             primaryDark,
             accent,
             accentSoft: `color-mix(in srgb, ${accent} 16%, transparent)`,
+            accentGold: primary,
+            accentPurple: accent,
             background,
             surface,
             surfaceHover,
@@ -207,6 +211,201 @@
                 background: '#F8FAFC', surface: '#FFFFFF', surfaceHover: '#EFF6FF', surfaceStrong: '#FEF3C7', buttonText: '#1C1917',
             }),
         },
+        blush: {
+            id: 'blush', label: 'Blush', description: 'Rosy pink light over a deep berry lounge.',
+            tokens: {
+                primary: '#FB7185', primaryHover: '#F43F5E', primaryLight: '#FDA4AF', primaryDark: '#BE123C',
+                accent: '#F9A8D4', accentSoft: 'rgba(251, 113, 133, 0.17)', background: '#18070F', surface: '#2B0D1B', surfaceHover: '#45152B', surfaceStrong: '#37101F',
+                border: 'rgba(251, 113, 133, 0.24)', textPrimary: '#FFF1F2', textSecondary: '#FECDD3', textTertiary: '#FDA4AF',
+                success: '#86EFAC', danger: '#FB7185', shadow: 'rgba(30, 3, 13, 0.62)', scrollbarThumb: 'rgba(251, 113, 133, 0.34)', scrollbarThumbHover: 'rgba(251, 113, 133, 0.62)', buttonText: '#3B0715',
+            },
+            lightTokens: createLightTokens({
+                primary: '#E11D48', primaryHover: '#BE123C', primaryLight: '#FDA4AF', primaryDark: '#9F1239', accent: '#DB2777',
+                background: '#FFF1F2', surface: '#FFFFFF', surfaceHover: '#FFE4E6', surfaceStrong: '#FCE7F3', buttonText: '#FFFFFF',
+            }),
+        },
+        peony: {
+            id: 'peony', label: 'Peony', description: 'Lush peony pink with vivid violet sparks.',
+            tokens: {
+                primary: '#EC4899', primaryHover: '#DB2777', primaryLight: '#F9A8D4', primaryDark: '#9D174D',
+                accent: '#D946EF', accentSoft: 'rgba(236, 72, 153, 0.17)', background: '#200A1B', surface: '#38122F', surfaceHover: '#551946', surfaceStrong: '#46143A',
+                border: 'rgba(244, 114, 182, 0.25)', textPrimary: '#FFF7FB', textSecondary: '#FCE7F3', textTertiary: '#F9A8D4',
+                success: '#86EFAC', danger: '#FB7185', shadow: 'rgba(31, 3, 23, 0.62)', scrollbarThumb: 'rgba(236, 72, 153, 0.34)', scrollbarThumbHover: 'rgba(236, 72, 153, 0.62)', buttonText: '#430A2A',
+            },
+            lightTokens: createLightTokens({
+                primary: '#DB2777', primaryHover: '#BE185D', primaryLight: '#F9A8D4', primaryDark: '#9D174D', accent: '#C026D3',
+                background: '#FFF7FB', surface: '#FFFFFF', surfaceHover: '#FCE7F3', surfaceStrong: '#FAE8FF', buttonText: '#FFFFFF',
+            }),
+        },
+        fuchsia: {
+            id: 'fuchsia', label: 'Fuchsia', description: 'Electric magenta energy in a neon orchid room.',
+            tokens: {
+                primary: '#E879F9', primaryHover: '#D946EF', primaryLight: '#F5D0FE', primaryDark: '#A21CAF',
+                accent: '#C026D3', accentSoft: 'rgba(232, 121, 249, 0.18)', background: '#17061A', surface: '#2B0F31', surfaceHover: '#43174C', surfaceStrong: '#37123E',
+                border: 'rgba(232, 121, 249, 0.24)', textPrimary: '#FDF4FF', textSecondary: '#F5D0FE', textTertiary: '#E879F9',
+                success: '#5EEAD4', danger: '#FB7185', shadow: 'rgba(24, 1, 28, 0.68)', scrollbarThumb: 'rgba(232, 121, 249, 0.36)', scrollbarThumbHover: 'rgba(217, 70, 239, 0.66)', buttonText: '#3B0642',
+            },
+            lightTokens: createLightTokens({
+                primary: '#C026D3', primaryHover: '#A21CAF', primaryLight: '#E879F9', primaryDark: '#86198F', accent: '#A21CAF',
+                background: '#FDF4FF', surface: '#FFFFFF', surfaceHover: '#FAE8FF', surfaceStrong: '#F5D0FE', buttonText: '#FFFFFF',
+            }),
+        },
+        berry: {
+            id: 'berry', label: 'Berry', description: 'Deep raspberry and violet tones with a rich finish.',
+            tokens: {
+                primary: '#C026D3', primaryHover: '#A21CAF', primaryLight: '#F0ABFC', primaryDark: '#86198F',
+                accent: '#BE185D', accentSoft: 'rgba(192, 38, 211, 0.18)', background: '#18071E', surface: '#2F1039', surfaceHover: '#471852', surfaceStrong: '#3B1246',
+                border: 'rgba(240, 171, 252, 0.23)', textPrimary: '#FDF4FF', textSecondary: '#F5D0FE', textTertiary: '#E9D5FF',
+                success: '#86EFAC', danger: '#FB7185', shadow: 'rgba(22, 2, 31, 0.66)', scrollbarThumb: 'rgba(192, 38, 211, 0.36)', scrollbarThumbHover: 'rgba(190, 24, 93, 0.66)', buttonText: '#300535',
+            },
+            lightTokens: createLightTokens({
+                primary: '#A21CAF', primaryHover: '#86198F', primaryLight: '#E879F9', primaryDark: '#701A75', accent: '#BE185D',
+                background: '#FAF5FF', surface: '#FFFFFF', surfaceHover: '#F5D0FE', surfaceStrong: '#FCE7F3', buttonText: '#FFFFFF',
+            }),
+        },
+        coral: {
+            id: 'coral', label: 'Coral', description: 'Warm coral glow balanced with ember-red depth.',
+            tokens: {
+                primary: '#FB7185', primaryHover: '#F43F5E', primaryLight: '#FECDD3', primaryDark: '#BE123C',
+                accent: '#FB923C', accentSoft: 'rgba(251, 113, 133, 0.17)', background: '#1C0A0A', surface: '#351512', surfaceHover: '#4C211A', surfaceStrong: '#401A15',
+                border: 'rgba(253, 186, 116, 0.24)', textPrimary: '#FFF7ED', textSecondary: '#FFEDD5', textTertiary: '#FDBA74',
+                success: '#86EFAC', danger: '#F43F5E', shadow: 'rgba(30, 5, 1, 0.64)', scrollbarThumb: 'rgba(251, 113, 133, 0.34)', scrollbarThumbHover: 'rgba(251, 146, 60, 0.64)', buttonText: '#3B0715',
+            },
+            lightTokens: createLightTokens({
+                primary: '#E11D48', primaryHover: '#BE123C', primaryLight: '#FDA4AF', primaryDark: '#9F1239', accent: '#EA580C',
+                background: '#FFF7ED', surface: '#FFFFFF', surfaceHover: '#FFEDD5', surfaceStrong: '#FFE4E6', buttonText: '#FFFFFF',
+            }),
+        },
+        'ash-plum': {
+            id: 'ash-plum', label: 'Ash Plum', description: 'Ash gray layers with plum depth and pale-pink highlights.',
+            tokens: {
+                primary: '#D8B4D0', primaryHover: '#B779A9', primaryLight: '#F3D6EA', primaryDark: '#7C4A70',
+                accent: '#C4B5C7', accentSoft: 'rgba(216, 180, 208, 0.16)', background: '#161519', surface: '#29262D', surfaceHover: '#3A3540', surfaceStrong: '#211E25',
+                border: 'rgba(243, 214, 234, 0.20)', textPrimary: '#FFF7FC', textSecondary: '#EBDCE8', textTertiary: '#D8B4D0',
+                success: '#A7F3D0', danger: '#FDA4AF', shadow: 'rgba(10, 8, 12, 0.68)', scrollbarThumb: 'rgba(216, 180, 208, 0.36)', scrollbarThumbHover: 'rgba(243, 214, 234, 0.66)', buttonText: '#321B2D',
+            },
+            lightTokens: createLightTokens({
+                primary: '#8C4C7A', primaryHover: '#703B61', primaryLight: '#D8B4D0', primaryDark: '#5A2E4C', accent: '#A78B9B',
+                background: '#F7F4F7', surface: '#FFFFFF', surfaceHover: '#EEE8EF', surfaceStrong: '#F3D6EA', buttonText: '#FFFFFF',
+            }),
+        },
+        pink: {
+            id: 'pink', label: 'Pink', description: 'A sweet candy-pink glow with a deep rose finish.',
+            tokens: {
+                primary: '#F472B6', primaryHover: '#EC4899', primaryLight: '#F9A8D4', primaryDark: '#BE185D',
+                accent: '#FDA4AF', accentSoft: 'rgba(244, 114, 182, 0.18)', background: '#1A0713', surface: '#321126', surfaceHover: '#4A1938', surfaceStrong: '#3D1530',
+                border: 'rgba(249, 168, 212, 0.25)', textPrimary: '#FFF7FB', textSecondary: '#FCE7F3', textTertiary: '#F9A8D4',
+                success: '#86EFAC', danger: '#FB7185', shadow: 'rgba(30, 3, 21, 0.66)', scrollbarThumb: 'rgba(244, 114, 182, 0.38)', scrollbarThumbHover: 'rgba(249, 168, 212, 0.68)', buttonText: '#500724',
+            },
+            lightTokens: createLightTokens({
+                primary: '#DB2777', primaryHover: '#BE185D', primaryLight: '#F9A8D4', primaryDark: '#9D174D', accent: '#F472B6',
+                background: '#FFF5FA', surface: '#FFFFFF', surfaceHover: '#FCE7F3', surfaceStrong: '#FDE2EF', buttonText: '#FFFFFF',
+            }),
+        },
+        obsidian: {
+            id: 'obsidian', label: 'Obsidian', description: 'Minimal black, graphite, and silver for a quiet, focused look.',
+            tokens: {
+                primary: '#D1D5DB', primaryHover: '#F3F4F6', primaryLight: '#E5E7EB', primaryDark: '#9CA3AF',
+                accent: '#6B7280', accentSoft: 'rgba(209, 213, 219, 0.12)', background: '#09090B', surface: '#18181B', surfaceHover: '#27272A', surfaceStrong: '#111113',
+                border: 'rgba(209, 213, 219, 0.18)', textPrimary: '#FAFAFA', textSecondary: '#D4D4D8', textTertiary: '#A1A1AA',
+                success: '#A7F3D0', danger: '#FDA4AF', shadow: 'rgba(0, 0, 0, 0.72)', scrollbarThumb: 'rgba(161, 161, 170, 0.42)', scrollbarThumbHover: 'rgba(228, 228, 231, 0.68)', buttonText: '#18181B',
+            },
+            lightTokens: createLightTokens({
+                primary: '#3F3F46', primaryHover: '#18181B', primaryLight: '#A1A1AA', primaryDark: '#27272A', accent: '#71717A',
+                background: '#F4F4F5', surface: '#FFFFFF', surfaceHover: '#E4E4E7', surfaceStrong: '#D4D4D8', buttonText: '#FFFFFF',
+            }),
+        },
+        red: {
+            id: 'red', label: 'Red', description: 'A bold, pure red theme with deep red layers.',
+            tokens: {
+                primary: '#EF4444', primaryHover: '#DC2626', primaryLight: '#FCA5A5', primaryDark: '#B91C1C',
+                accent: '#F87171', accentSoft: 'rgba(239, 68, 68, 0.18)', background: '#160606', surface: '#2B0D0D', surfaceHover: '#431515', surfaceStrong: '#350C0C',
+                border: 'rgba(252, 165, 165, 0.24)', textPrimary: '#FFF5F5', textSecondary: '#FECACA', textTertiary: '#FCA5A5',
+                success: '#FCA5A5', danger: '#EF4444', shadow: 'rgba(24, 0, 0, 0.70)', scrollbarThumb: 'rgba(239, 68, 68, 0.38)', scrollbarThumbHover: 'rgba(252, 165, 165, 0.68)', buttonText: '#450A0A',
+            },
+            lightTokens: createLightTokens({
+                primary: '#DC2626', primaryHover: '#B91C1C', primaryLight: '#FCA5A5', primaryDark: '#991B1B', accent: '#EF4444',
+                background: '#FFF5F5', surface: '#FFFFFF', surfaceHover: '#FEE2E2', surfaceStrong: '#FECACA', buttonText: '#FFFFFF',
+            }),
+        },
+        'cobalt-sand': {
+            id: 'cobalt-sand', label: 'Cobalt Sand', description: 'Cobalt blue contrast over warm sand and dark-brown layers.',
+            tokens: {
+                primary: '#60A5FA', primaryHover: '#3B82F6', primaryLight: '#93C5FD', primaryDark: '#1D4ED8',
+                accent: '#FCD34D', accentSoft: 'rgba(96, 165, 250, 0.17)', background: '#160F0A', surface: '#2B1B12', surfaceHover: '#402A1A', surfaceStrong: '#23150D',
+                border: 'rgba(252, 211, 77, 0.22)', textPrimary: '#FFF7ED', textSecondary: '#FDE7C3', textTertiary: '#FCD34D',
+                success: '#86EFAC', danger: '#FDA4AF', shadow: 'rgba(15, 8, 2, 0.68)', scrollbarThumb: 'rgba(96, 165, 250, 0.38)', scrollbarThumbHover: 'rgba(252, 211, 77, 0.68)', buttonText: '#0C1D3A',
+            },
+            lightTokens: createLightTokens({
+                primary: '#2563EB', primaryHover: '#1D4ED8', primaryLight: '#93C5FD', primaryDark: '#1E40AF', accent: '#D97706',
+                background: '#FFFBEB', surface: '#FFFFFF', surfaceHover: '#FEF3C7', surfaceStrong: '#FDE7C3', buttonText: '#FFFFFF',
+            }),
+        },
+        'ink-peach': {
+            id: 'ink-peach', label: 'Ink Peach', description: 'Quiet ink blue balanced by muted peach and soft gray.',
+            tokens: {
+                primary: '#93C5FD', primaryHover: '#60A5FA', primaryLight: '#BFDBFE', primaryDark: '#2563EB',
+                accent: '#FDBA9A', accentSoft: 'rgba(147, 197, 253, 0.16)', background: '#0C1422', surface: '#1C2735', surfaceHover: '#2A3746', surfaceStrong: '#15202D',
+                border: 'rgba(203, 213, 225, 0.20)', textPrimary: '#F8FAFC', textSecondary: '#D6DEE8', textTertiary: '#B8C3D1',
+                success: '#86EFAC', danger: '#FDA4AF', shadow: 'rgba(2, 8, 18, 0.68)', scrollbarThumb: 'rgba(147, 197, 253, 0.36)', scrollbarThumbHover: 'rgba(253, 186, 154, 0.66)', buttonText: '#10233B',
+            },
+            lightTokens: createLightTokens({
+                primary: '#2563EB', primaryHover: '#1D4ED8', primaryLight: '#93C5FD', primaryDark: '#1E40AF', accent: '#D97757',
+                background: '#F6F7F9', surface: '#FFFFFF', surfaceHover: '#E5E7EB', surfaceStrong: '#FDE2D4', buttonText: '#FFFFFF',
+            }),
+        },
+        'khaki-violet': {
+            id: 'khaki-violet', label: 'Khaki Violet', description: 'Earthy khaki and vivid violet over a deep navy base.',
+            tokens: {
+                primary: '#C4B58A', primaryHover: '#A99A70', primaryLight: '#DED4B6', primaryDark: '#85764F',
+                accent: '#C4B5FD', accentSoft: 'rgba(196, 181, 253, 0.17)', background: '#0A1024', surface: '#17203A', surfaceHover: '#25304E', surfaceStrong: '#10182E',
+                border: 'rgba(196, 181, 253, 0.22)', textPrimary: '#F8FAFC', textSecondary: '#E3E5EF', textTertiary: '#C4B5FD',
+                success: '#86EFAC', danger: '#FDA4AF', shadow: 'rgba(2, 5, 18, 0.70)', scrollbarThumb: 'rgba(196, 181, 253, 0.36)', scrollbarThumbHover: 'rgba(222, 212, 182, 0.66)', buttonText: '#25203A',
+            },
+            lightTokens: createLightTokens({
+                primary: '#887747', primaryHover: '#6E6038', primaryLight: '#C4B58A', primaryDark: '#5D512F', accent: '#7C3AED',
+                background: '#FAFAF7', surface: '#FFFFFF', surfaceHover: '#F0EEDF', surfaceStrong: '#EDE9FE', buttonText: '#FFFFFF',
+            }),
+        },
+        'rosewood-sage-navy': {
+            id: 'rosewood-sage-navy', label: 'Rosewood Sage Navy', description: 'Rosewood warmth and calm sage over an inky navy base.',
+            tokens: {
+                primary: '#C98F9A', primaryHover: '#AF7180', primaryLight: '#E8BAC3', primaryDark: '#824B59',
+                accent: '#A7C4AC', accentSoft: 'rgba(167, 196, 172, 0.16)', background: '#0B1325', surface: '#19243A', surfaceHover: '#28354D', surfaceStrong: '#111C31',
+                border: 'rgba(167, 196, 172, 0.21)', textPrimary: '#F9FAFB', textSecondary: '#DFE6E7', textTertiary: '#A7C4AC',
+                success: '#A7E3B0', danger: '#FDA4AF', shadow: 'rgba(2, 7, 19, 0.70)', scrollbarThumb: 'rgba(201, 143, 154, 0.36)', scrollbarThumbHover: 'rgba(167, 196, 172, 0.66)', buttonText: '#361C29',
+            },
+            lightTokens: createLightTokens({
+                primary: '#9B5666', primaryHover: '#824B59', primaryLight: '#E8BAC3', primaryDark: '#703D4A', accent: '#5F8A69',
+                background: '#F7F8F6', surface: '#FFFFFF', surfaceHover: '#E8EEE7', surfaceStrong: '#EAF0FA', buttonText: '#FFFFFF',
+            }),
+        },
+        'cotton-candy': {
+            id: 'cotton-candy', label: 'Cotton Candy', description: 'Dreamy candy pink with a cool periwinkle lift.',
+            tokens: {
+                primary: '#F9A8D4', primaryHover: '#F472B6', primaryLight: '#FCE7F3', primaryDark: '#BE185D',
+                accent: '#A5B4FC', accentSoft: 'rgba(249, 168, 212, 0.18)', background: '#160C1A', surface: '#2A1730', surfaceHover: '#432345', surfaceStrong: '#351D3A',
+                border: 'rgba(249, 168, 212, 0.24)', textPrimary: '#FFF7FB', textSecondary: '#FCE7F3', textTertiary: '#F9A8D4',
+                success: '#86EFAC', danger: '#FB7185', shadow: 'rgba(20, 4, 25, 0.64)', scrollbarThumb: 'rgba(249, 168, 212, 0.36)', scrollbarThumbHover: 'rgba(165, 180, 252, 0.64)', buttonText: '#3B1028',
+            },
+            lightTokens: createLightTokens({
+                primary: '#DB2777', primaryHover: '#BE185D', primaryLight: '#F9A8D4', primaryDark: '#9D174D', accent: '#818CF8',
+                background: '#FFF7FB', surface: '#FFFFFF', surfaceHover: '#FCE7F3', surfaceStrong: '#E0E7FF', buttonText: '#FFFFFF',
+            }),
+        },
+        'rose-gold': {
+            id: 'rose-gold', label: 'Rose Gold', description: 'Polished rose metal with a warm champagne glow.',
+            tokens: {
+                primary: '#F9A8D4', primaryHover: '#F472B6', primaryLight: '#FBCFE8', primaryDark: '#BE185D',
+                accent: '#FDE68A', accentSoft: 'rgba(249, 168, 212, 0.18)', background: '#1A0D13', surface: '#34201F', surfaceHover: '#4C2B2A', surfaceStrong: '#402523',
+                border: 'rgba(253, 186, 116, 0.23)', textPrimary: '#FFF7ED', textSecondary: '#FFEDD5', textTertiary: '#FDBA74',
+                success: '#86EFAC', danger: '#FB7185', shadow: 'rgba(25, 7, 10, 0.64)', scrollbarThumb: 'rgba(249, 168, 212, 0.36)', scrollbarThumbHover: 'rgba(253, 230, 138, 0.64)', buttonText: '#421328',
+            },
+            lightTokens: createLightTokens({
+                primary: '#BE185D', primaryHover: '#9D174D', primaryLight: '#F9A8D4', primaryDark: '#831843', accent: '#D97706',
+                background: '#FFF7ED', surface: '#FFFFFF', surfaceHover: '#FCE7F3', surfaceStrong: '#FEF3C7', buttonText: '#FFFFFF',
+            }),
+        },
     };
 
     const PROFILE_AVATARS = [
@@ -232,7 +431,7 @@
         { id: 'onyx', label: 'Onyx', category: 'Dark fantasy', seed: 'anify-onyx', background: '171717' },
     ];
 
-    const LEGACY_THEME_MAP = { gold: 'default', rose: 'sakura', violet: 'violet', ocean: 'ocean' };
+    const LEGACY_THEME_MAP = { gold: 'default', rose: 'sakura', violet: 'violet', ocean: 'ocean', watermelon: 'obsidian', plum: 'ash-plum' };
 
     function normalizeThemeId(value) {
         const candidate = String(value || '').trim().toLowerCase();

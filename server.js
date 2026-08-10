@@ -28,9 +28,12 @@ import Announcement from './models/Announcement.js';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 
-const PROFILE_THEME_IDS = ['default', 'crimson', 'ocean', 'sakura', 'emerald', 'violet', 'azure', 'sunset', 'ice', 'cyber', 'royal'];
+const PROFILE_THEME_IDS = [
+  'default', 'crimson', 'ocean', 'sakura', 'emerald', 'violet', 'azure', 'sunset', 'ice', 'cyber', 'royal',
+  'blush', 'peony', 'fuchsia', 'berry', 'coral', 'ash-plum', 'pink', 'obsidian', 'red', 'cobalt-sand', 'ink-peach', 'khaki-violet', 'rosewood-sage-navy', 'cotton-candy', 'rose-gold',
+];
 const PROFILE_AVATAR_IDS = ['shadow', 'moon', 'ember', 'tide', 'orchid', 'solar', 'mask', 'ninja', 'samurai', 'chibi', 'nocturne', 'fae', 'storm', 'rosewood', 'starlight', 'rune', 'aqua', 'scarlet', 'sage', 'onyx'];
-const LEGACY_PROFILE_THEME_MAP = { gold: 'default', rose: 'sakura', violet: 'violet', ocean: 'ocean' };
+const LEGACY_PROFILE_THEME_MAP = { gold: 'default', rose: 'sakura', violet: 'violet', ocean: 'ocean', watermelon: 'obsidian', plum: 'ash-plum' };
 const DEFAULT_PROFILE_THEME = 'default';
 const DEFAULT_AVATAR_ID = 'shadow';
 
