@@ -200,6 +200,228 @@ html { scroll-behavior: smooth; }
     border-color: var(--border);
 }
 
+/* ============ MOBILE SEARCH RESPONSIVE ============ */
+#search-backdrop {
+    display: none;
+}
+
+#search-backdrop:not(.hidden) {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    #search-panel {
+        position: fixed !important;
+        top: auto !important;
+        bottom: auto !important;
+        right: 50% !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: calc(100vw - 32px) !important;
+        max-width: calc(100vw - 32px) !important;
+        border-radius: 1rem !important;
+        max-height: 60vh !important;
+        overflow-y: auto !important;
+        margin: 0 !important;
+        padding: 1rem !important;
+        z-index: 1000 !important;
+    }
+
+    /* Dynamically set top position based on search button location */
+    #search-panel.positioned {
+        top: var(--search-top, 80px) !important;
+        transform: translateX(-50%) !important;
+    }
+
+    #search-results {
+        max-height: calc(60vh - 100px) !important;
+        overflow-y: auto !important;
+    }
+
+    /* Mobile search result cards */
+    #search-results button {
+        padding: 0.875rem !important;
+        gap: 0.75rem !important;
+    }
+
+    #search-results button img {
+        width: 2.5rem !important;
+        height: 3.5rem !important;
+        min-width: 2.5rem;
+    }
+
+    #search-results button p.font-semibold {
+        font-size: 0.875rem !important;
+        line-height: 1.2;
+    }
+
+    #search-results button .text-xs {
+        font-size: 0.75rem !important;
+    }
+
+    /* Hide genre text on mobile to save space */
+    #search-results button p.text-gray-500 {
+        display: none;
+    }
+
+    /* Ensure search container has relative positioning for absolute dropdown */
+    #navbar > div > div:nth-child(2) > div:first-child {
+        position: relative !important;
+    }
+
+    /* Mobile navbar optimization */
+    .nav-glass {
+        padding: 0.75rem 1rem !important;
+        margin: 0.5rem !important;
+    }
+
+    /* Right side items spacing */
+    #navbar > div > div:last-child {
+        gap: 0.5rem !important;
+    }
+
+    #navbar button {
+        padding: 0.5rem !important;
+    }
+
+    #navbar i[data-lucide] {
+        width: 1.125rem !important;
+        height: 1.125rem !important;
+    }
+
+    /* Logo optimization */
+    #navbar .w-9.h-9 {
+        width: 2rem !important;
+        height: 2rem !important;
+    }
+
+    #navbar .text-lg {
+        font-size: 1rem !important;
+    }
+
+    #navbar .text-xl {
+        font-size: 1.125rem !important;
+    }
+
+    /* Notification badge */
+    #notification-badge {
+        width: 0.875rem !important;
+        height: 0.875rem !important;
+        font-size: 0.625rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    #search-panel {
+        padding: 1rem !important;
+        border-radius: 1.25rem 1.25rem 0 0 !important;
+    }
+
+    #search-results button {
+        padding: 0.75rem !important;
+        gap: 0.625rem !important;
+    }
+
+    #search-results button img {
+        width: 2.25rem !important;
+        height: 3.25rem !important;
+        min-width: 2.25rem;
+    }
+
+    #search-results button p.font-semibold {
+        font-size: 0.8125rem !important;
+    }
+
+    /* Further navbar compaction */
+    .nav-glass {
+        padding: 0.625rem 0.875rem !important;
+        margin: 0.375rem !important;
+    }
+
+    #navbar > div > div:last-child {
+        gap: 0.375rem !important;
+    }
+
+    #navbar button {
+        padding: 0.375rem !important;
+    }
+
+    #navbar i[data-lucide] {
+        width: 1rem !important;
+        height: 1rem !important;
+    }
+
+    #navbar .w-9.h-9 {
+        width: 1.75rem !important;
+        height: 1.75rem !important;
+    }
+
+    #navbar .text-lg {
+        font-size: 0.875rem !important;
+    }
+
+    #navbar .text-xl {
+        font-size: 1rem !important;
+    }
+}
+
+@media (max-width: 375px) {
+    #search-panel {
+        padding: 0.875rem !important;
+    }
+
+    #search-results button img {
+        width: 2rem !important;
+        height: 3rem !important;
+        min-width: 2rem;
+    }
+
+    #search-results button p.font-semibold {
+        font-size: 0.75rem !important;
+    }
+
+    #search-results button .text-xs {
+        font-size: 0.6875rem !important;
+    }
+
+    /* Maximum navbar compaction */
+    .nav-glass {
+        padding: 0.5rem 0.75rem !important;
+        margin: 0.25rem !important;
+    }
+
+    #navbar > div > div:last-child {
+        gap: 0.25rem !important;
+    }
+
+    #navbar button {
+        padding: 0.25rem !important;
+    }
+
+    #navbar i[data-lucide] {
+        width: 0.875rem !important;
+        height: 0.875rem !important;
+    }
+
+    #navbar .w-9.h-9 {
+        width: 1.5rem !important;
+        height: 1.5rem !important;
+    }
+
+    #navbar .text-lg {
+        font-size: 0.75rem !important;
+    }
+
+    #navbar .text-xl {
+        font-size: 0.875rem !important;
+    }
+
+    /* Hide country code on very small screens */
+    #country-code {
+        display: none !important;
+    }
+}
+
 .glass-card {
     background: color-mix(in srgb, var(--surface) 94%, transparent);
 }

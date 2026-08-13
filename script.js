@@ -1277,11 +1277,19 @@ function setupHeroLiveWallpapers() {
     }, 9000);
 }
 
+// Centralized search state
+let isSearchOpen = false;
+
 function navigate(page, data, options = {}) {
     const { replace = false } = options;
     let hash = `#/${page}`;
     if (data) {
         hash += `/${data}`;
+    }
+
+    // Close search when navigating
+    if (isSearchOpen) {
+        closeSearchPanel();
     }
 
     // Guest preview check before allowing player navigation
@@ -1314,6 +1322,11 @@ function handleRouteChange() {
 
     currentPage = page;
     const content = document.getElementById('main-content');
+
+    // Close search on route change
+    if (isSearchOpen) {
+        closeSearchPanel();
+    }
 
     document.querySelectorAll('[data-nav]').forEach(l => l.classList.remove('active'));
     document.querySelectorAll(`[data-nav="${page}"]`).forEach(l => l.classList.add('active'));
@@ -4219,11 +4232,121 @@ function signOut() {
     navigate('home');
 }
 
+function removeSearchEventListeners() {
+    if (window.searchClickOutsideHandler) {
+        document.removeEventListener('click', window.searchClickOutsideHandler);
+        window.searchClickOutsideHandler = null;
+    }
+    if (window.searchEscapeHandler) {
+        document.removeEventListener('keydown', window.searchEscapeHandler);
+        window.searchEscapeHandler = null;
+    }
+    if (window.searchResizeHandler) {
+        window.removeEventListener('resize', window.searchResizeHandler);
+        window.searchResizeHandler = null;
+    }
+}
+
+function setupSearchEventListeners() {
+    // Remove existing listeners to prevent duplicates
+    removeSearchEventListeners();
+    
+    // Click outside handler - works on both mobile and desktop
+    window.searchClickOutsideHandler = (e) => {
+        const panel = document.getElementById('search-panel');
+        const searchContainer = document.getElementById('search-container');
+        
+        // Check if click is outside search component
+        if (panel && !panel.contains(e.target) && !searchContainer.contains(e.target)) {
+            closeSearchPanel();
+        }
+    };
+    
+    // Escape key handler
+    window.searchEscapeHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeSearchPanel();
+        }
+    };
+    
+    // Window resize handler to recalculate position
+    window.searchResizeHandler = () => {
+        const panel = document.getElementById('search-panel');
+        if (!panel.classList.contains('hidden') && window.innerWidth < 768) {
+            const searchButton = document.querySelector('#search-container button');
+            if (searchButton) {
+                const buttonRect = searchButton.getBoundingClientRect();
+                const topPosition = buttonRect.bottom + 8;
+                document.documentElement.style.setProperty('--search-top', `${topPosition}px`);
+            }
+        }
+    };
+    
+    document.addEventListener('click', window.searchClickOutsideHandler);
+    document.addEventListener('keydown', window.searchEscapeHandler);
+    window.addEventListener('resize', window.searchResizeHandler);
+}
+
+function closeSearchPanel() {
+    const panel = document.getElementById('search-panel');
+    const backdrop = document.getElementById('search-backdrop');
+    
+    if (panel) {
+        panel.classList.add('hidden');
+        panel.classList.remove('positioned');
+    }
+    if (backdrop) {
+        backdrop.classList.add('hidden');
+    }
+    
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    
+    if (searchInput) searchInput.value = '';
+    if (searchResults) {
+        searchResults.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">Start typing to search...</p>';
+    }
+    
+    document.body.style.overflow = ''; // Restore scrolling
+    isSearchOpen = false;
+    removeSearchEventListeners();
+}
+
 function toggleSearch() {
     const panel = document.getElementById('search-panel');
-    panel.classList.toggle('hidden');
-    if (!panel.classList.contains('hidden')) {
-        document.getElementById('search-input').focus();
+    const backdrop = document.getElementById('search-backdrop');
+    const searchButton = document.querySelector('#search-container button');
+    
+    if (!panel) return;
+    
+    const isHidden = panel.classList.contains('hidden');
+    
+    if (isHidden) {
+        // Open search
+        panel.classList.remove('hidden');
+        isSearchOpen = true;
+        
+        // Calculate position for mobile
+        if (window.innerWidth < 768 && searchButton) {
+            const buttonRect = searchButton.getBoundingClientRect();
+            const topPosition = buttonRect.bottom + 8;
+            document.documentElement.style.setProperty('--search-top', `${topPosition}px`);
+            panel.classList.add('positioned');
+            
+            // Show backdrop on mobile
+            if (backdrop) {
+                backdrop.classList.remove('hidden');
+            }
+        }
+        
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) searchInput.focus();
+        
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling on mobile
+        setupSearchEventListeners();
+    } else {
+        // Close search
+        closeSearchPanel();
     }
 }
 
@@ -4493,6 +4616,8 @@ function alertGold(message) {
 
 function handleSearch(query) {
     const results = document.getElementById('search-results');
+    if (!results) return;
+    
     if (!query) {
         results.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">Start typing to search...</p>';
         return;
@@ -4503,17 +4628,17 @@ function handleSearch(query) {
         return;
     }
    results.innerHTML = filtered.slice(0, 5).map(a => `
-    <button onclick="navigate('anime', ${a.id})"
-        class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-all text-left">
+    <button onclick="handleSearchResultClick(${a.id})"
+        class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-all text-left search-result-item">
 
         <img src="${a.image}"
-            class="w-12 h-16 rounded-lg object-cover"
+            class="w-12 h-16 md:w-12 md:h-16 rounded-lg object-cover flex-shrink-0"
             alt="${a.title}">
 
         <div class="flex-1 min-w-0">
-            <p class="font-semibold text-sm truncate">${a.title}</p>
+            <p class="font-semibold text-sm truncate" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${a.title}</p>
 
-            <div class="flex items-center gap-2 mt-1">
+            <div class="flex items-center gap-2 mt-1 flex-wrap">
                 <span class="text-xs text-gray-400">${a.year}</span>
 
                 <span class="text-gray-600">•</span>
@@ -4523,7 +4648,7 @@ function handleSearch(query) {
                 </span>
             </div>
 
-            <p class="text-xs text-gray-500 truncate mt-1">
+            <p class="text-xs text-gray-500 truncate mt-1 hidden md:block search-genre-text">
                 ${Array.isArray(a.genres) ? a.genres.join(', ') : 'Unknown'}
             </p>
         </div>
@@ -4532,6 +4657,11 @@ function handleSearch(query) {
 `).join('');
 
 lucide.createIcons();
+}
+
+function handleSearchResultClick(animeId) {
+    closeSearchPanel();
+    navigate('anime', animeId);
 }
 
 function getPlayerVideo() {
@@ -4578,15 +4708,19 @@ function updatePlayerUI() {
         const outroBtn = document.getElementById('skip-outro-btn');
         const anime = playerService.getAnime();
         
+        // Initialize timing variables with defaults
+        let introStart = 0, introEnd = 90, outroStart = 0, outroEnd = 0;
+        
         if (anime) {
             const epNum = Number(video.dataset.episodeNumber || 1);
             const timing = typeof getTimingConfig === 'function'
                 ? getTimingConfig(anime, epNum)
                 : { introStart: 0, introEnd: 90, outroStart: 0, outroEnd: 0 };
-            const introStart = timing.introStart;
-            const introEnd = timing.introEnd;
-            const outroStart = timing.outroStart || Math.max(0, video.duration - 120);
-            const outroEnd = timing.outroEnd || video.duration;
+            introStart = timing.introStart;
+            introEnd = timing.introEnd;
+            outroStart = timing.outroStart || Math.max(0, video.duration - 120);
+            outroEnd = timing.outroEnd || video.duration;
+        }
 
         if (introBtn) {
             const isVisible = !introBtn.classList.contains('hidden');
@@ -4611,7 +4745,6 @@ function updatePlayerUI() {
             triggerAutoNext();
         }
     }
-}
 }
 
 function saveCurrentVideoProgress() {
