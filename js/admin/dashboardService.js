@@ -30,6 +30,38 @@
             }));
     }
 
+    // Support/Donation statistics
+    async function getSupportStats() {
+        try {
+            const token = localStorage.getItem('anify-token') || '';
+            const response = await fetch('/api/admin/donations/stats', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const result = await response.json();
+            if (result.ok) {
+                return result.stats;
+            }
+            return {
+                totalSupporters: 0,
+                totalDonations: 0,
+                totalAmount: 0,
+                thisMonthAmount: 0,
+                thisMonthDonations: 0
+            };
+        } catch (error) {
+            console.error('Failed to fetch support stats:', error);
+            return {
+                totalSupporters: 0,
+                totalDonations: 0,
+                totalAmount: 0,
+                thisMonthAmount: 0,
+                thisMonthDonations: 0
+            };
+        }
+    }
+
     const dashboardService = {
         getTotalUsers,
         getDailyViews,
@@ -37,6 +69,7 @@
         getMonthlyRevenue,
         getTrendingAnime,
         getGenreDistribution,
+        getSupportStats
     };
 
     global.dashboardService = dashboardService;

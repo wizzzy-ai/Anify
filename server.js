@@ -25,6 +25,7 @@ import Anime from './models/Anime.js'; // Import the canonical Anime model
 import Rating from './models/Rating.js'; // Import the Rating model
 import PlatformSettings from './models/PlatformSettings.js';
 import Announcement from './models/Announcement.js';
+import Donation from './Donation.js';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 
@@ -60,11 +61,17 @@ app.use(express.static(__dirname));
 // switch back off.
 let maintenanceModeEnabled = false;
 let maintenanceModeLastChecked = 0;
+let supportEnabled = false;
+let supportEnabledLastChecked = 0;
 const maintenanceEvents = new EventEmitter();
 maintenanceEvents.setMaxListeners(0);
 
 function broadcastMaintenanceMode() {
-  maintenanceEvents.emit('change', { maintenanceMode: maintenanceModeEnabled });
+  maintenanceEvents.emit('change', { maintenanceMode: maintenanceModeEnabled, supportEnabled });
+}
+
+function broadcastSupportEnabled() {
+  maintenanceEvents.emit('change', { maintenanceMode: maintenanceModeEnabled, supportEnabled });
 }
 
 async function getMaintenanceMode() {
@@ -75,6 +82,16 @@ async function getMaintenanceMode() {
   maintenanceModeEnabled = settings?.maintenanceMode === true;
   maintenanceModeLastChecked = Date.now();
   return maintenanceModeEnabled;
+}
+
+async function getSupportEnabled() {
+  if (!dbReady) return false;
+  if (Date.now() - supportEnabledLastChecked < 5000) return supportEnabled;
+
+  const settings = await PlatformSettings.findOne({ key: 'platform' }).lean();
+  supportEnabled = settings?.supportEnabled === true;
+  supportEnabledLastChecked = Date.now();
+  return supportEnabled;
 }
 
 function requestHasAdminToken(req) {
@@ -299,6 +316,8 @@ if (hasMongo) {
     .then((settings) => {
       maintenanceModeEnabled = settings?.maintenanceMode === true;
       maintenanceModeLastChecked = Date.now();
+      supportEnabled = settings?.supportEnabled === true;
+      supportEnabledLastChecked = Date.now();
       console.log('MongoDB connected');
       console.log('MongoDB database name:', mongoose.connection.name);
       console.log('Database:', mongoose.connection.name);
@@ -345,11 +364,12 @@ const Genre = mongoose.models.Genre || mongoose.model('Genre', genreSchema);
 app.get('/api/platform-settings', async (req, res) => {
   try {
     const maintenanceMode = await getMaintenanceMode();
+    const supportEnabled = await getSupportEnabled();
     // This switch must always reflect the latest admin change. A cached
     // "false" response would allow the UI to show fallback content while the
     // API itself is already in maintenance mode.
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-    res.json({ ok: true, maintenanceMode });
+    res.json({ ok: true, maintenanceMode, supportEnabled });
   } catch (error) {
     res.status(500).json({ ok: false, error: String(error?.message || error) });
   }
@@ -366,7 +386,7 @@ app.get('/api/platform-settings/stream', async (req, res) => {
   res.flushHeaders();
 
   const send = (state) => res.write(`data: ${JSON.stringify(state)}\n\n`);
-  send({ maintenanceMode: await getMaintenanceMode() });
+  send({ maintenanceMode: await getMaintenanceMode(), supportEnabled: await getSupportEnabled() });
 
   const onChange = (state) => send(state);
   maintenanceEvents.on('change', onChange);
@@ -379,21 +399,38 @@ app.get('/api/platform-settings/stream', async (req, res) => {
 });
 
 app.put('/api/admin/platform-settings', requireDb, requireAdmin, async (req, res) => {
-  const { maintenanceMode } = req.body || {};
-  if (typeof maintenanceMode !== 'boolean') {
-    return res.status(400).json({ ok: false, error: 'maintenanceMode must be true or false.' });
+  const { maintenanceMode, supportEnabled } = req.body || {};
+  if (typeof maintenanceMode !== 'boolean' && typeof supportEnabled !== 'boolean') {
+    return res.status(400).json({ ok: false, error: 'maintenanceMode or supportEnabled must be true or false.' });
   }
 
   try {
+    const updateData = {};
+    if (typeof maintenanceMode === 'boolean') {
+      updateData.maintenanceMode = maintenanceMode;
+    }
+    if (typeof supportEnabled === 'boolean') {
+      updateData.supportEnabled = supportEnabled;
+    }
+
     await PlatformSettings.findOneAndUpdate(
       { key: 'platform' },
-      { $set: { maintenanceMode } },
+      { $set: updateData },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
-    maintenanceModeEnabled = maintenanceMode;
-    maintenanceModeLastChecked = Date.now();
-    broadcastMaintenanceMode();
-    res.json({ ok: true, maintenanceMode });
+    
+    if (typeof maintenanceMode === 'boolean') {
+      maintenanceModeEnabled = maintenanceMode;
+      maintenanceModeLastChecked = Date.now();
+      broadcastMaintenanceMode();
+    }
+    if (typeof supportEnabled === 'boolean') {
+      supportEnabled = supportEnabled;
+      supportEnabledLastChecked = Date.now();
+      broadcastSupportEnabled();
+    }
+    
+    res.json({ ok: true, maintenanceMode: maintenanceModeEnabled, supportEnabled });
   } catch (error) {
     res.status(500).json({ ok: false, error: String(error?.message || error) });
   }
@@ -2981,6 +3018,346 @@ app.get('/api/admin/check-user/:email', requireDb, async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+// ============ DONATION/SUPPORT SYSTEM ============
+
+// Initialize donation payment
+app.post('/api/donations/initialize', requireDb, async (req, res) => {
+  try {
+    const { amount, email } = req.body || {};
+    
+    // Validate amount
+    const amountNum = Number(amount);
+    if (!amountNum || amountNum <= 0) {
+      return res.status(400).json({ ok: false, error: 'Invalid amount. Amount must be greater than 0.' });
+    }
+    
+    if (amountNum < 500) {
+      return res.status(400).json({ ok: false, error: 'Minimum donation amount is ₦500.' });
+    }
+    
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ ok: false, error: 'Valid email is required.' });
+    }
+    
+    const normalizedEmail = String(email).toLowerCase().trim();
+    
+    // Generate unique reference
+    const reference = `ANIFY-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    
+    // Create pending donation record
+    const donation = await Donation.create({
+      email: normalizedEmail,
+      amount: amountNum,
+      currency: 'NGN',
+      reference,
+      status: 'pending',
+      provider: 'paystack',
+      userId: req.auth?.userId || null,
+      metadata: {
+        initiatedAt: new Date().toISOString()
+      }
+    });
+    
+    // Initialize Paystack transaction
+    const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+    if (!paystackSecretKey) {
+      return res.status(500).json({ ok: false, error: 'Payment system not configured. Please contact support.' });
+    }
+    
+    const paystackUrl = 'https://api.paystack.co/transaction/initialize';
+    const paystackData = {
+      amount: amountNum * 100, // Paystack expects amount in kobo (multiply by 100)
+      email: normalizedEmail,
+      reference,
+      callback_url: `${process.env.BASE_URL || 'http://localhost:3000'}/?support=success&reference=${reference}`,
+      metadata: {
+        donationId: String(donation._id),
+        custom_fields: [
+          {
+            display_name: 'Donation ID',
+            variable_name: 'donation_id',
+            value: String(donation._id)
+          }
+        ]
+      }
+    };
+    
+    const paystackResponse = await fetch(paystackUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${paystackSecretKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(paystackData)
+    });
+    
+    const paystackResult = await paystackResponse.json();
+    
+    if (!paystackResult.status) {
+      console.error('Paystack initialization failed:', paystackResult);
+      await Donation.findByIdAndUpdate(donation._id, { 
+        $set: { status: 'failed' } 
+      });
+      return res.status(500).json({ 
+        ok: false, 
+        error: 'Failed to initialize payment. Please try again.' 
+      });
+    }
+    
+    res.json({
+      ok: true,
+      authorization_url: paystackResult.data.authorization_url,
+      reference: paystackResult.data.reference,
+      access_code: paystackResult.data.access_code
+    });
+    
+  } catch (error) {
+    console.error('Donation initialization error:', error);
+    res.status(500).json({ ok: false, error: 'Failed to initialize donation. Please try again.' });
+  }
+});
+
+// Verify donation (webhook and callback)
+app.post('/api/donations/verify', requireDb, async (req, res) => {
+  try {
+    const { reference, trxref } = req.body || {};
+    const ref = reference || trxref;
+    
+    console.log('[Donation Verify] Verification request received:', { reference, trxref, ref });
+    
+    if (!ref) {
+      console.log('[Donation Verify] No reference provided');
+      return res.status(400).json({ ok: false, error: 'Transaction reference is required.' });
+    }
+    
+    // Find donation record
+    const donation = await Donation.findOne({ reference: ref });
+    if (!donation) {
+      console.log('[Donation Verify] Donation not found for reference:', ref);
+      return res.status(404).json({ ok: false, error: 'Donation record not found.' });
+    }
+    
+    console.log('[Donation Verify] Donation found:', { id: donation._id, status: donation.status, amount: donation.amount });
+    
+    // If already verified, return success
+    if (donation.status === 'success') {
+      console.log('[Donation Verify] Donation already verified');
+      return res.json({ ok: true, message: 'Donation already verified', donation });
+    }
+    
+    // Verify with Paystack
+    const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+    const verifyUrl = `https://api.paystack.co/transaction/verify/${ref}`;
+    
+    console.log('[Donation Verify] Verifying with Paystack...');
+    const paystackResponse = await fetch(verifyUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${paystackSecretKey}`
+      }
+    });
+    
+    const paystackResult = await paystackResponse.json();
+    console.log('[Donation Verify] Paystack response:', { status: paystackResult.status, dataStatus: paystackResult.data?.status });
+    
+    if (!paystackResult.status || paystackResult.data.status !== 'success') {
+      console.log('[Donation Verify] Payment verification failed');
+      await Donation.findByIdAndUpdate(donation._id, { 
+        $set: { status: 'failed' } 
+      });
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'Payment verification failed or payment was not successful.' 
+      });
+    }
+    
+    // Update donation record
+    const updatedDonation = await Donation.findByIdAndUpdate(donation._id, {
+      $set: {
+        status: 'success',
+        verifiedAt: new Date(),
+        metadata: {
+          ...donation.metadata,
+          paystackData: paystackResult.data
+        }
+      }
+    }, { new: true });
+    
+    console.log('[Donation Verify] Donation updated to success');
+    
+    // Update user supporter status if userId exists
+    if (donation.userId) {
+      console.log('[Donation Verify] Updating user supporter status for userId:', donation.userId);
+      const user = await User.findById(donation.userId);
+      if (user) {
+        const totalDonated = (user.totalDonated || 0) + donation.amount;
+        await User.findByIdAndUpdate(donation.userId, {
+          $set: {
+            isSupporter: true,
+            supporterSince: user.supporterSince || new Date(),
+            totalDonated
+          }
+        });
+        console.log('[Donation Verify] User supporter status updated');
+      } else {
+        console.log('[Donation Verify] User not found for userId:', donation.userId);
+      }
+    } else {
+      console.log('[Donation Verify] No userId associated with donation (guest donation)');
+    }
+    
+    res.json({
+      ok: true,
+      message: 'Donation verified successfully',
+      donation: updatedDonation
+    });
+    
+  } catch (error) {
+    console.error('[Donation Verify] Error:', error);
+    res.status(500).json({ ok: false, error: 'Failed to verify donation.' });
+  }
+});
+
+// Get user donation history
+app.get('/api/donations/history', requireDb, requireAuth, async (req, res) => {
+  try {
+    const donations = await Donation.find({ 
+      userId: req.auth.userId 
+    }).sort({ createdAt: -1 }).limit(20);
+    
+    res.json({ ok: true, donations });
+  } catch (error) {
+    console.error('Get donation history error:', error);
+    res.status(500).json({ ok: false, error: 'Failed to fetch donation history.' });
+  }
+});
+
+// Admin: Get all donations
+app.get('/api/admin/donations', requireDb, requireAdmin, async (req, res) => {
+  try {
+    const { status, limit = 50, skip = 0 } = req.query || {};
+    
+    const filter = {};
+    if (status) {
+      filter.status = status;
+    }
+    
+    const donations = await Donation.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(Number(limit))
+      .skip(Number(skip))
+      .lean();
+    
+    const total = await Donation.countDocuments(filter);
+    const totalAmount = await Donation.aggregate([
+      { $match: { status: 'success' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    
+    const thisMonth = await Donation.aggregate([
+      { 
+        $match: { 
+          status: 'success',
+          createdAt: { $gte: new Date(new Date().setDate(1)) }
+        } 
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    
+    res.json({
+      ok: true,
+      donations,
+      total,
+      totalAmount: totalAmount[0]?.total || 0,
+      thisMonthAmount: thisMonth[0]?.total || 0
+    });
+  } catch (error) {
+    console.error('Get admin donations error:', error);
+    res.status(500).json({ ok: false, error: 'Failed to fetch donations.' });
+  }
+});
+
+// Admin: Get donation statistics
+app.get('/api/admin/donations/stats', requireDb, requireAdmin, async (req, res) => {
+  try {
+    const totalSupporters = await User.countDocuments({ isSupporter: true });
+    const totalDonations = await Donation.countDocuments({ status: 'success' });
+    
+    const totalAmount = await Donation.aggregate([
+      { $match: { status: 'success' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    
+    const thisMonth = await Donation.aggregate([
+      { 
+        $match: { 
+          status: 'success',
+          createdAt: { $gte: new Date(new Date().setDate(1)) }
+        } 
+      },
+      { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
+    ]);
+    
+    res.json({
+      ok: true,
+      stats: {
+        totalSupporters,
+        totalDonations,
+        totalAmount: totalAmount[0]?.total || 0,
+        thisMonthAmount: thisMonth[0]?.total || 0,
+        thisMonthDonations: thisMonth[0]?.count || 0
+      }
+    });
+  } catch (error) {
+    console.error('Get donation stats error:', error);
+    res.status(500).json({ ok: false, error: 'Failed to fetch donation statistics.' });
+  }
+});
+
+// Admin: Manually verify donation
+app.post('/api/admin/donations/:donationId/verify', requireDb, requireAdmin, async (req, res) => {
+  try {
+    const donation = await Donation.findById(req.params.donationId);
+    if (!donation) {
+      return res.status(404).json({ ok: false, error: 'Donation not found.' });
+    }
+    
+    if (donation.status === 'success') {
+      return res.status(400).json({ ok: false, error: 'Donation already verified.' });
+    }
+    
+    const updatedDonation = await Donation.findByIdAndUpdate(donation._id, {
+      $set: {
+        status: 'success',
+        verifiedAt: new Date(),
+        manuallyVerified: true,
+        manuallyVerifiedBy: req.auth.userId,
+        manuallyVerifiedAt: new Date()
+      }
+    }, { new: true });
+    
+    // Update user supporter status
+    if (donation.userId) {
+      const user = await User.findById(donation.userId);
+      if (user) {
+        const totalDonated = (user.totalDonated || 0) + donation.amount;
+        await User.findByIdAndUpdate(donation.userId, {
+          $set: {
+            isSupporter: true,
+            supporterSince: user.supporterSince || new Date(),
+            totalDonated
+          }
+        });
+      }
+    }
+    
+    res.json({ ok: true, donation: updatedDonation });
+  } catch (error) {
+    console.error('Manual verification error:', error);
+    res.status(500).json({ ok: false, error: 'Failed to manually verify donation.' });
   }
 });
 

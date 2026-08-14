@@ -58,6 +58,9 @@ const userSchema = new mongoose.Schema({
         banEnds: { type: Date },
         bannedBy: { type: String },
     },
+    isSupporter: { type: Boolean, default: false },
+    supporterSince: { type: Date },
+    totalDonated: { type: Number, default: 0 },
 }, { timestamps: true });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

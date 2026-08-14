@@ -1280,6 +1280,16 @@ function setupHeroLiveWallpapers() {
 // Centralized search state
 let isSearchOpen = false;
 
+// Support modal state
+let selectedAmount = null;
+let isProcessingDonation = false;
+
+// Platform settings
+let supportEnabled = false;
+
+// Current page tracking
+let currentPage = 'home';
+
 function navigate(page, data, options = {}) {
     const { replace = false } = options;
     let hash = `#/${page}`;
@@ -2730,9 +2740,10 @@ function renderProfileCustomization(profile, draft, totalEpisodes, watchedCount,
                 <div class="profile-preview-card__banner"></div>
                 <div class="profile-preview-card__body">
                     <span class="profile-preview-card__badge"><i data-lucide="eye" class="w-3 h-3"></i> Live preview</span>
+                    ${profile?.isSupporter ? '<span class="profile-preview-card__badge text-gold-400"><i data-lucide="heart" class="w-3 h-3"></i> Supporter</span>' : ''}
                     <img id="profile-preview-avatar" data-profile-avatar src="${avatarUrl}" class="profile-preview-card__avatar" alt="${escapeHtml(displayName)} avatar">
                     <h2 id="profile-customization-title" class="profile-preview-card__name">${escapeHtml(displayName)}</h2>
-                    <p class="profile-preview-card__handle">@${escapeHtml(username)}</p>
+                    <p class="profile-preview-card__handle">@${escapeHtml(username)}${profile?.isSupporter ? ' · ❤️ Supporter' : ''}</p>
                     <p id="profile-preview-bio" class="profile-preview-card__bio">${escapeHtml(bio || 'Add a bio to tell other anime fans a little about yourself.')}</p>
                     <div class="profile-preview-card__footer"><span>${escapeHtml(theme.label)}</span><span>•</span><span>Public profile</span></div>
                 </div>
@@ -2837,6 +2848,7 @@ function renderProfile() {
     const pinnedAnime = pinnedIds.map(id => animeData.find(anime => String(anime.id) === id)).filter(Boolean);
     const favoriteAnime = (interactionService?.getFavorites?.() || []).map(id => animeData.find(anime => Number(anime.id) === Number(id))).filter(Boolean);
     const badges = [
+        profile?.isSupporter && { icon: 'heart', label: '❤️ Anify Supporter', color: 'text-gold-400' },
         totalEpisodes >= 100 && { icon: 'trophy', label: '100 Episodes' },
         totalEpisodes >= 25 && { icon: 'clapperboard', label: 'Binge Starter' },
         preferredGenres.length >= 3 && { icon: 'compass', label: 'Genre Explorer' },
@@ -2858,7 +2870,7 @@ function renderProfile() {
                         <img src="${avatarUrl}" data-profile-avatar class="profile-summary-avatar" alt="${escapeHtml(displayName)} avatar">
                         <div class="mb-1">
                             <h1 class="text-2xl font-black">${escapeHtml(displayName)}</h1>
-                            <p class="text-sm text-gray-500">@${escapeHtml(username)}${userPlan === 'Premium' ? ' · Premium Member 👑' : ''}${userStatus ? ` · ${escapeHtml(userStatus)}` : ''}</p>
+                            <p class="text-sm text-gray-500">@${escapeHtml(username)}${userPlan === 'Premium' ? ' · Premium Member 👑' : ''}${profile?.isSupporter ? ' · ❤️ Anify Supporter' : ''}${userStatus ? ` · ${escapeHtml(userStatus)}` : ''}</p>
                         </div>
                     </div>
                     <p class="mt-4 max-w-2xl text-sm leading-6 text-gray-400">${bio ? escapeHtml(bio) : 'Add a bio to tell other anime fans a little about yourself.'}</p>
@@ -3040,14 +3052,14 @@ async function loadProfileActivity() {
 
 // ============ RENDER: ADMIN DASHBOARD ============
 function renderAdmin() {
-    return (typeof window !== 'undefined' && typeof window.renderAdmin === 'function')
-        ? window.renderAdmin()
-        : `<div class="pt-24 pb-20 min-h-screen flex items-center justify-center">
-            <div class="text-center glass-card rounded-2xl p-8 max-w-md">
-                <h1 class="text-2xl font-black mb-2">Admin UI not loaded</h1>
-                <p class="text-gray-500">Check that js/admin/adminUI.js is included.</p>
-            </div>
-        </div>`;
+    // Admin rendering is handled by js/admin/adminUI.js
+    // This is just a fallback if the admin UI isn't loaded
+    return `<div class="pt-24 pb-20 min-h-screen flex items-center justify-center">
+        <div class="text-center glass-card rounded-2xl p-8 max-w-md">
+            <h1 class="text-2xl font-black mb-2">Admin UI not loaded</h1>
+            <p class="text-gray-500">Check that js/admin/adminUI.js is included.</p>
+        </div>
+    </div>`;
 }
 
 
@@ -4183,10 +4195,26 @@ function renderAuthNav() {
         } else {
             if (variant === 'compact') {
                 el.innerHTML = `
-                    <button onclick="toggleMobileMenu()" class="mobile-profile-trigger" aria-label="Open profile menu" title="Profile menu">
+                    <button onclick="toggleProfileDropdown()" class="mobile-profile-trigger" aria-label="Open profile menu" title="Profile menu">
                         <img src="${getCurrentAvatarUrl()}" class="mobile-profile-avatar" alt="${getCurrentUsername()}">
                         <i data-lucide="chevron-down" class="mobile-profile-chevron w-4 h-4"></i>
                     </button>
+                    <div class="mobile-profile-dropdown hidden absolute right-0 top-full mt-2 w-48 bg-dark-800 border border-white/10 rounded-xl p-2 shadow-xl z-50">
+                        <button onclick="navigate('profile'); toggleProfileDropdown()" class="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-all text-left">
+                            <i data-lucide="user" class="w-4 h-4"></i>
+                            <span class="text-sm">Profile</span>
+                        </button>
+                        ${supportEnabled ? `
+                        <button onclick="showSupportModal(); toggleProfileDropdown()" class="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-all text-left">
+                            <i data-lucide="heart" class="w-4 h-4 text-gold-400"></i>
+                            <span class="text-sm">❤️ Support Anify</span>
+                        </button>
+                        ` : ''}
+                        <button onclick="signOut(); toggleProfileDropdown()" class="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-all text-left">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>
+                            <span class="text-sm">Sign Out</span>
+                        </button>
+                    </div>
                 `;
                 return;
             }
@@ -4196,6 +4224,12 @@ function renderAuthNav() {
                         <img src="${getCurrentAvatarUrl()}" class="w-8 h-8 rounded-lg" alt="avatar">
                         <span class="text-sm font-medium leading-tight">${getCurrentUsername()}</span>
                     </button>
+                    ${supportEnabled ? `
+                    <button onclick="showSupportModal(); toggleMobileMenu()" class="w-full flex items-center gap-2 p-2 rounded-xl hover:bg-white/10 transition-all">
+                        <i data-lucide="heart" class="w-4 h-4 text-gold-400"></i>
+                        <span class="text-sm font-medium leading-tight">❤️ Support Anify</span>
+                    </button>
+                    ` : ''}
                     <button onclick="signOut(); toggleMobileMenu()" class="w-full px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-sm font-medium">
                         <i data-lucide="log-out" class="w-4 h-4 inline-block mr-2"></i> Sign Out
                     </button>
@@ -4209,6 +4243,11 @@ function renderAuthNav() {
                         </div>
                         <i data-lucide="chevron-down" class="w-4 h-4 hidden md:block"></i>
                     </button>
+                    ${supportEnabled ? `
+                    <button onclick="showSupportModal()" class="px-3 py-1.5 rounded-xl bg-gold-400/20 text-gold-400 hover:bg-gold-400/30 transition-all text-sm font-medium">
+                        <i data-lucide="heart" class="w-4 h-4 inline-block mr-2"></i> ❤️ Support Anify
+                    </button>
+                    ` : ''}
                     <button onclick="signOut()" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-sm font-medium">
                         <i data-lucide="log-out" class="w-4 h-4 inline-block mr-2"></i> Sign Out
                     </button>
@@ -6119,4 +6158,252 @@ function renderStars(rating) {
         html += `<i data-lucide="star" class="w-5 h-5 ${i <= stars ? 'fill-gold-400 text-gold-400' : 'text-white/10'}"></i>`;
     }
     return html;
+}
+
+// ============ SUPPORT ANIFY MODAL ============
+
+function showSupportModal() {
+    const modal = document.getElementById('support-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        
+        // Pre-fill email if user is logged in
+        const userEmail = getCurrentUserEmail();
+        if (userEmail) {
+            const emailInput = document.getElementById('support-email');
+            if (emailInput) emailInput.value = userEmail;
+        }
+        
+        createLucideIconsSafe();
+    }
+}
+
+function closeSupportModal() {
+    const modal = document.getElementById('support-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+        
+        // Reset form
+        selectedAmount = null;
+        document.querySelectorAll('.amount-btn').forEach(btn => btn.classList.remove('selected'));
+        document.getElementById('custom-amount').value = '';
+        document.getElementById('support-error').classList.add('hidden');
+        document.getElementById('support-error').textContent = '';
+    }
+}
+
+function selectAmount(amount) {
+    selectedAmount = amount;
+    
+    // Update UI
+    document.querySelectorAll('.amount-btn').forEach(btn => {
+        btn.classList.remove('selected');
+        if (parseInt(btn.dataset.amount) === amount) {
+            btn.classList.add('selected');
+        }
+    });
+    
+    // Clear custom amount
+    document.getElementById('custom-amount').value = '';
+}
+
+function handleCustomAmount(value) {
+    if (value) {
+        selectedAmount = parseInt(value);
+        
+        // Remove selection from preset buttons
+        document.querySelectorAll('.amount-btn').forEach(btn => btn.classList.remove('selected'));
+    }
+}
+
+function getCurrentUserEmail() {
+    const token = localStorage.getItem('anify-token');
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.email || null;
+        } catch (e) {
+            return null;
+        }
+    }
+    return null;
+}
+
+async function processDonation() {
+    if (isProcessingDonation) return;
+    
+    const errorDiv = document.getElementById('support-error');
+    const supportBtn = document.getElementById('support-btn');
+    const emailInput = document.getElementById('support-email');
+    
+    // Validate amount
+    if (!selectedAmount || selectedAmount < 500) {
+        errorDiv.textContent = 'Please select an amount of at least ₦500';
+        errorDiv.classList.remove('hidden');
+        return;
+    }
+    
+    // Validate email
+    const email = emailInput.value.trim();
+    if (!email || !email.includes('@')) {
+        errorDiv.textContent = 'Please enter a valid email address';
+        errorDiv.classList.remove('hidden');
+        return;
+    }
+    
+    // Start processing
+    isProcessingDonation = true;
+    supportBtn.disabled = true;
+    supportBtn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Processing...';
+    errorDiv.classList.add('hidden');
+    createLucideIconsSafe();
+    
+    try {
+        const response = await fetch('/api/donations/initialize', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('anify-token') || ''}`
+            },
+            body: JSON.stringify({
+                amount: selectedAmount,
+                email: email
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.ok && result.authorization_url) {
+            // Redirect to Paystack
+            window.location.href = result.authorization_url;
+        } else {
+            throw new Error(result.error || 'Failed to initialize payment');
+        }
+    } catch (error) {
+        console.error('Donation error:', error);
+        errorDiv.textContent = error.message || 'Failed to process donation. Please try again.';
+        errorDiv.classList.remove('hidden');
+    } finally {
+        isProcessingDonation = false;
+        supportBtn.disabled = false;
+        supportBtn.innerHTML = '<i data-lucide="heart" class="w-5 h-5"></i> <span>Support Anify</span>';
+        createLucideIconsSafe();
+    }
+}
+
+function showSupportSuccessModal(amount, reference) {
+    const modal = document.getElementById('support-success-modal');
+    if (modal) {
+        document.getElementById('success-amount').textContent = `₦${Number(amount).toLocaleString()}`;
+        document.getElementById('success-reference').textContent = reference;
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        createLucideIconsSafe();
+    }
+}
+
+function closeSupportSuccessModal() {
+    const modal = document.getElementById('support-success-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+}
+
+// Check if returning from successful payment
+function checkDonationSuccess() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const reference = urlParams.get('reference');
+    const supportSuccess = urlParams.get('support');
+    
+    if (supportSuccess === 'success' && reference) {
+        // Verify the donation
+        fetch('/api/donations/verify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reference })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.ok && result.donation) {
+                showSupportSuccessModal(result.donation.amount, result.donation.reference);
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else {
+                console.error('Donation verification failed:', result.error);
+                alert('Payment verification failed. Please contact support if you completed the payment.');
+            }
+        })
+        .catch(error => {
+            console.error('Donation verification error:', error);
+            alert('Failed to verify donation. Please contact support if you completed the payment.');
+        });
+    }
+}
+
+// Check donation success on page load
+document.addEventListener('DOMContentLoaded', checkDonationSuccess);
+
+// Fetch platform settings
+async function fetchPlatformSettings() {
+    try {
+        const response = await fetch('/api/platform-settings');
+        const data = await response.json();
+        if (data.ok) {
+            supportEnabled = data.supportEnabled === true;
+            renderAuthNav();
+        }
+    } catch (error) {
+        console.error('Failed to fetch platform settings:', error);
+    }
+}
+
+// Listen for platform settings changes
+const platformSettingsEventSource = new EventSource('/api/platform-settings/stream');
+platformSettingsEventSource.onmessage = (event) => {
+    try {
+        const data = JSON.parse(event.data);
+        if (data.supportEnabled !== undefined) {
+            supportEnabled = data.supportEnabled === true;
+            updateSupportButtonsVisibility();
+            // Re-render auth nav to show/hide support buttons
+            renderAuthNav();
+        }
+    } catch (error) {
+        console.error('Failed to parse platform settings:', error);
+    }
+};
+
+// Fetch settings on load
+fetchPlatformSettings();
+
+// Mobile profile dropdown toggle
+let isProfileDropdownOpen = false;
+
+function toggleMobileMenu() {
+    const mobileMenu = document.getElementById('mobile-menu');
+    const profileDropdown = document.querySelector('.mobile-profile-dropdown');
+    
+    if (mobileMenu) {
+        mobileMenu.classList.toggle('hidden');
+    }
+    
+    // Close profile dropdown when opening mobile menu
+    if (profileDropdown && !mobileMenu.classList.contains('hidden')) {
+        profileDropdown.classList.add('hidden');
+        isProfileDropdownOpen = false;
+    }
+}
+
+// Toggle profile dropdown for mobile compact view
+function toggleProfileDropdown() {
+    const profileDropdown = document.querySelector('.mobile-profile-dropdown');
+    if (profileDropdown) {
+        profileDropdown.classList.toggle('hidden');
+        isProfileDropdownOpen = !profileDropdown.classList.contains('hidden');
+    }
 }

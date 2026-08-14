@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 const platformSettingsSchema = new mongoose.Schema({
   key: { type: String, required: true, unique: true, default: 'platform' },
   maintenanceMode: { type: Boolean, default: false },
+  supportEnabled: { type: Boolean, default: false },
 }, { timestamps: true });
 
 export default mongoose.models.PlatformSettings

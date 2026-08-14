@@ -303,6 +303,131 @@
         <!-- Discovery Hub Modal Mount Point -->
         <div id="surprise-modal" class="hidden fixed inset-0 z-[10001] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"></div>
 
+        <!-- Support Anify Modal -->
+        <div id="support-modal" class="hidden fixed inset-0 z-[10002] bg-black/70 backdrop-blur-lg flex items-center justify-center p-4">
+            <div class="support-modal-content relative w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                <!-- Close Button -->
+                <button onclick="closeSupportModal()" class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+
+                <!-- Modal Content -->
+                <div class="support-modal-inner p-8">
+                    <!-- Header -->
+                    <div class="text-center mb-6">
+                        <div class="flex justify-center mb-4">
+                            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center">
+                                <i data-lucide="heart" class="w-8 h-8 text-black"></i>
+                            </div>
+                        </div>
+                        <h2 class="text-2xl md:text-3xl font-black text-center mb-2 bg-gradient-to-r from-gold-300 to-gold-500 bg-clip-text text-transparent">
+                            ❤️ Support Anify
+                        </h2>
+                        <p class="text-center text-sm md:text-base mb-4" style="color: var(--text-secondary);">
+                            Help us keep Anify growing and improving.
+                        </p>
+                        <p class="text-center text-xs md:text-sm max-w-sm mx-auto" style="color: var(--text-tertiary);">
+                            Your support helps us improve Anify, maintain our infrastructure, and build new features for the community.
+                        </p>
+                    </div>
+
+                    <!-- Amount Selection -->
+                    <div class="mb-6">
+                        <p class="text-sm font-semibold mb-3" style="color: var(--text-primary);">Select Amount</p>
+                        <div class="grid grid-cols-3 gap-3 mb-4">
+                            <button onclick="selectAmount(500)" class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center" data-amount="500">
+                                <span class="font-bold text-lg">₦500</span>
+                            </button>
+                            <button onclick="selectAmount(1000)" class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center" data-amount="1000">
+                                <span class="font-bold text-lg">₦1,000</span>
+                            </button>
+                            <button onclick="selectAmount(2000)" class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center" data-amount="2000">
+                                <span class="font-bold text-lg">₦2,000</span>
+                            </button>
+                            <button onclick="selectAmount(5000)" class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center" data-amount="5000">
+                                <span class="font-bold text-lg">₦5,000</span>
+                            </button>
+                            <button onclick="selectAmount(10000)" class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center" data-amount="10000">
+                                <span class="font-bold text-lg">₦10,000</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Custom Amount -->
+                        <div class="relative">
+                            <p class="text-sm font-semibold mb-2" style="color: var(--text-primary);">Custom Amount</p>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gold-400 font-bold">₦</span>
+                                <input type="number" id="custom-amount" placeholder="Enter custom amount" 
+                                    class="w-full bg-white/10 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30 transition-all"
+                                    oninput="handleCustomAmount(this.value)"
+                                    min="500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Email Input -->
+                    <div class="mb-6">
+                        <p class="text-sm font-semibold mb-2" style="color: var(--text-primary);">Email for Receipt</p>
+                        <input type="email" id="support-email" placeholder="your@email.com" 
+                            class="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30 transition-all">
+                    </div>
+
+                    <!-- Support Button -->
+                    <button onclick="processDonation()" id="support-btn" class="w-full btn-primary py-4 text-base font-bold flex items-center justify-center gap-2">
+                        <i data-lucide="heart" class="w-5 h-5"></i> 
+                        <span>Support Anify</span>
+                    </button>
+
+                    <!-- Error Message -->
+                    <div id="support-error" class="hidden mt-4 p-3 rounded-xl bg-red-500/20 border border-red-500/50 text-red-400 text-sm text-center"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Support Success Modal -->
+        <div id="support-success-modal" class="hidden fixed inset-0 z-[10002] bg-black/70 backdrop-blur-lg flex items-center justify-center p-4">
+            <div class="support-modal-content relative w-full max-w-md">
+                <!-- Close Button -->
+                <button onclick="closeSupportSuccessModal()" class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+
+                <!-- Success Content -->
+                <div class="support-modal-inner p-8 text-center">
+                    <div class="flex justify-center mb-6">
+                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center animate-bounce">
+                            <i data-lucide="check" class="w-10 h-10 text-black"></i>
+                        </div>
+                    </div>
+                    <h2 class="text-2xl md:text-3xl font-black text-center mb-2 bg-gradient-to-r from-green-300 to-green-500 bg-clip-text text-transparent">
+                        ❤️ Thank You!
+                    </h2>
+                    <p class="text-center text-base mb-6" style="color: var(--text-secondary);">
+                        Thank you for supporting Anify ❤️
+                    </p>
+                    <p class="text-center text-sm mb-6" style="color: var(--text-tertiary);">
+                        Your support helps us continue improving the platform.
+                    </p>
+
+                    <!-- Donation Details -->
+                    <div class="bg-white/5 rounded-xl p-4 mb-6">
+                        <div class="mb-3">
+                            <p class="text-xs uppercase tracking-wider mb-1" style="color: var(--text-tertiary);">Supported Amount</p>
+                            <p class="text-xl font-bold text-gold-400" id="success-amount">₦0</p>
+                        </div>
+                        <div>
+                            <p class="text-xs uppercase tracking-wider mb-1" style="color: var(--text-tertiary);">Reference</p>
+                            <p class="text-sm font-mono" id="success-reference" style="color: var(--text-secondary);">ANIFY-XXXXXX</p>
+                        </div>
+                    </div>
+
+                    <button onclick="closeSupportSuccessModal()" class="w-full btn-primary py-3 text-base font-bold">
+                        Continue to Anify
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Persistent Player Container (Hidden by default, used for Mini Player) -->
         <div id="persistent-player-wrapper" class="hidden"></div>
 

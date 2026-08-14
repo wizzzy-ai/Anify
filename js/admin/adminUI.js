@@ -73,6 +73,9 @@
                     <button onclick="switchAdminTab('dashboard')" class="admin-nav-item active" data-admin-nav="dashboard">
                         <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
                     </button>
+                    <button onclick="switchAdminTab('support')" class="admin-nav-item" data-admin-nav="support">
+                        <i data-lucide="heart" class="w-4 h-4"></i> Support
+                    </button>
                     <button onclick="switchAdminTab('anime')" class="admin-nav-item" data-admin-nav="anime">
                         <i data-lucide="tv" class="w-4 h-4"></i> Anime Management
                     </button>
@@ -167,6 +170,10 @@
         switch(tab) {
             case 'dashboard': 
                 await renderAdminDashboard();
+                break;
+            case 'support':
+                content.innerHTML = renderAdminSupport();
+                setTimeout(loadAdminSupportTable, 0);
                 break;
             case 'anime': content.innerHTML = renderAdminAnime(); break;
             case 'users':
@@ -710,6 +717,216 @@
                 </div>
                 <button onclick="switchAdminTab('dashboard')" class="btn-primary">Retry</button>
             `;
+        }
+    }
+
+    async function renderAdminSupport() {
+        const content = document.getElementById('admin-content');
+        if (!content) return;
+
+        // Show loading state
+        content.innerHTML = `
+            <div class="mb-6">
+                <h1 class="text-2xl md:text-3xl font-black">Support / Donations</h1>
+                <p class="text-gray-500 text-sm mt-1">Loading donation statistics...</p>
+            </div>
+        `;
+
+        try {
+            const token = localStorage.getItem('anify-token') || '';
+            const [statsResponse, donationsResponse] = await Promise.all([
+                fetch('/api/admin/donations/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }),
+                fetch('/api/admin/donations?limit=20', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+            ]);
+
+            console.log('Stats response status:', statsResponse.status);
+            console.log('Donations response status:', donationsResponse.status);
+
+            const statsResult = await statsResponse.json();
+            const donationsResult = await donationsResponse.json();
+
+            console.log('Stats result:', statsResult);
+            console.log('Donations result:', donationsResult);
+
+            const stats = statsResult.stats || {};
+            const donations = donationsResult.donations || [];
+
+            console.log('Donations count:', donations.length);
+            console.log('Donations:', donations);
+
+            content.innerHTML = `
+    <div class="mb-6">
+        <h1 class="text-2xl md:text-3xl font-black">Support / Donations</h1>
+        <p class="text-gray-500 text-sm mt-1">Manage community support and donations</p>
+    </div>
+
+    <!-- Support Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="stat-card">
+            <div class="w-10 h-10 rounded-xl bg-gold-400/10 flex items-center justify-center mb-3">
+                <i data-lucide="heart" class="w-5 h-5 text-gold-400"></i>
+            </div>
+            <p class="text-2xl font-black">${stats.totalSupporters || 0}</p>
+            <p class="text-xs text-gray-500">Total Supporters</p>
+        </div>
+        <div class="stat-card">
+            <div class="w-10 h-10 rounded-xl bg-green-400/10 flex items-center justify-center mb-3">
+                <i data-lucide="users" class="w-5 h-5 text-green-400"></i>
+            </div>
+            <p class="text-2xl font-black">${stats.totalDonations || 0}</p>
+            <p class="text-xs text-gray-500">Successful Donations</p>
+        </div>
+        <div class="stat-card">
+            <div class="w-10 h-10 rounded-xl bg-blue-400/10 flex items-center justify-center mb-3">
+                <i data-lucide="naira-sign" class="w-5 h-5 text-blue-400"></i>
+            </div>
+            <p class="text-2xl font-black">₦${(stats.totalAmount || 0).toLocaleString()}</p>
+            <p class="text-xs text-gray-500">Total Support</p>
+        </div>
+        <div class="stat-card">
+            <div class="w-10 h-10 rounded-xl bg-purple-400/10 flex items-center justify-center mb-3">
+                <i data-lucide="calendar" class="w-5 h-5 text-purple-400"></i>
+            </div>
+            <p class="text-2xl font-black">₦${(stats.thisMonthAmount || 0).toLocaleString()}</p>
+            <p class="text-xs text-gray-500">This Month</p>
+        </div>
+    </div>
+
+    <!-- Recent Donations -->
+    <div class="glass-card rounded-2xl p-6">
+        <h3 class="font-bold mb-4">Recent Donations</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="border-b border-white/10">
+                        <th class="pb-3 text-xs font-semibold text-gray-400">Email</th>
+                        <th class="pb-3 text-xs font-semibold text-gray-400">Amount</th>
+                        <th class="pb-3 text-xs font-semibold text-gray-400">Status</th>
+                        <th class="pb-3 text-xs font-semibold text-gray-400">Date</th>
+                        <th class="pb-3 text-xs font-semibold text-gray-400">Reference</th>
+                        <th class="pb-3 text-xs font-semibold text-gray-400">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="support-table-body">
+                    <!-- Populated by loadAdminSupportTable -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+`;
+
+            // Store donations for table rendering
+            window.currentDonations = donations;
+            
+            if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+
+            // Wait for DOM to be ready, then render table
+            setTimeout(() => {
+                loadAdminSupportTable();
+            }, 100);
+
+        } catch (error) {
+            console.error('Failed to load support data:', error);
+            content.innerHTML = `
+                <div class="mb-6">
+                    <h1 class="text-2xl md:text-3xl font-black">Support / Donations</h1>
+                    <p class="text-gray-500 text-sm mt-1">Failed to load donation data. Please try again.</p>
+                </div>
+                <button onclick="switchAdminTab('support')" class="btn-primary">Retry</button>
+            `;
+        }
+    }
+
+    function loadAdminSupportTable() {
+        const tableBody = document.getElementById('support-table-body');
+        console.log('Loading admin support table...');
+        console.log('Table body element:', tableBody);
+        console.log('Current donations:', window.currentDonations);
+        
+        if (!tableBody) {
+            console.error('Table body element not found!');
+            return;
+        }
+        
+        if (!window.currentDonations) {
+            console.error('No current donations data!');
+            return;
+        }
+
+        const donations = window.currentDonations;
+        console.log('Rendering donations:', donations);
+        
+        if (donations.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="py-8 text-center text-gray-500">No donations yet</td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = donations.map(donation => `
+            <tr class="border-b border-white/5 hover:bg-white/5">
+                <td class="py-3 text-sm">${donation.email || 'N/A'}</td>
+                <td class="py-3 text-sm font-bold text-gold-400">₦${donation.amount.toLocaleString()}</td>
+                <td class="py-3">
+                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${
+                        donation.status === 'success' ? 'bg-green-400/20 text-green-400' :
+                        donation.status === 'pending' ? 'bg-yellow-400/20 text-yellow-400' :
+                        donation.status === 'failed' ? 'bg-red-400/20 text-red-400' :
+                        'bg-gray-400/20 text-gray-400'
+                    }">
+                        ${donation.status.charAt(0).toUpperCase() + donation.status.slice(1)}
+                    </span>
+                </td>
+                <td class="py-3 text-sm text-gray-400">${new Date(donation.createdAt).toLocaleDateString()}</td>
+                <td class="py-3 text-sm font-mono text-gray-400">${donation.reference}</td>
+                <td class="py-3">
+                    ${donation.status !== 'success' ? `
+                        <button onclick="manuallyVerifyDonation('${donation._id}')" class="text-xs text-gold-400 hover:text-gold-300 mr-2">Verify</button>
+                    ` : ''}
+                    ${donation.manuallyVerified ? '<span class="text-xs text-gray-500">(Manual)</span>' : ''}
+                </td>
+            </tr>
+        `).join('');
+        
+        console.log('Table rendered successfully');
+    }
+
+    async function manuallyVerifyDonation(donationId) {
+        if (!confirm('Are you sure you want to manually verify this donation? This should only be done for donations that were successfully processed but not automatically verified.')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/admin/donations/${donationId}/verify`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('anify-token') || ''}`
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.ok) {
+                alert('Donation verified successfully');
+                // Reload the support section
+                switchAdminTab('support');
+            } else {
+                alert('Failed to verify donation: ' + result.error);
+            }
+        } catch (error) {
+            console.error('Manual verification error:', error);
+            alert('Failed to verify donation. Please try again.');
         }
     }
 
@@ -2881,6 +3098,7 @@ function editAdminAnime(id) {
         const currentLimit = global.guestPreviewService ? global.guestPreviewService.getGuestLimit() : 4;
 
         setTimeout(loadMaintenanceMode, 0);
+        setTimeout(loadSupportEnabled, 0);
         return `
     <div class="mb-6">
         <h1 class="text-2xl md:text-3xl font-black">Settings</h1>
@@ -2943,6 +3161,15 @@ function editAdminAnime(id) {
                         Loading...
                     </button>
                 </div>
+                <div class="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                    <div>
+                        <p class="font-medium">Support / Donations</p>
+                        <p class="text-xs text-gray-500">Enable or disable the support feature on frontend</p>
+                    </div>
+                    <button id="support-enabled-toggle" onclick="toggleSupportEnabled()" class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-all">
+                        Loading...
+                    </button>
+                </div>
             </div>
         </div>
     </div>`;
@@ -2985,6 +3212,49 @@ function editAdminAnime(id) {
             await loadMaintenanceMode();
         } catch (error) {
             alert(error.message || 'Could not update maintenance mode.');
+        } finally {
+            button.dataset.saving = 'false';
+            button.disabled = false;
+        }
+    }
+
+    async function loadSupportEnabled() {
+        const button = document.getElementById('support-enabled-toggle');
+        if (!button) return;
+        try {
+            const response = await fetch('/api/platform-settings');
+            const data = await response.json();
+            const enabled = data?.supportEnabled === true;
+            button.textContent = enabled ? 'Enabled' : 'Disabled';
+            button.className = `px-4 py-2 rounded-lg text-sm font-medium transition-all ${enabled ? 'bg-green-500 text-black hover:bg-green-400' : 'bg-white/10 hover:bg-white/20'}`;
+            button.dataset.enabled = String(enabled);
+        } catch (error) {
+            button.textContent = 'Unavailable';
+            console.error('Could not load support enabled:', error);
+        }
+    }
+
+    async function toggleSupportEnabled() {
+        const button = document.getElementById('support-enabled-toggle');
+        if (!button || button.dataset.saving === 'true') return;
+        const current = button.dataset.enabled === 'true';
+        const token = global.authService?.getToken?.();
+        if (!token) return alert('Your admin session has expired. Please sign in again.');
+
+        button.dataset.saving = 'true';
+        button.disabled = true;
+        try {
+            const response = await fetch('/api/admin/platform-settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ supportEnabled: !current })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) throw new Error(data.error || 'Could not update support settings.');
+            if (typeof showToast === 'function') showToast(`Support ${data.supportEnabled ? 'enabled' : 'disabled'}`);
+            await loadSupportEnabled();
+        } catch (error) {
+            alert(error.message || 'Could not update support settings.');
         } finally {
             button.dataset.saving = 'false';
             button.disabled = false;
@@ -3359,8 +3629,11 @@ function editAdminAnime(id) {
     global.renderAdminSubscriptions = renderAdminSubscriptions;
     global.renderAdminReports = renderAdminReports;
     global.renderAdminSettings = renderAdminSettings;
+    global.renderAdminSupport = renderAdminSupport;
+    global.loadAdminSupportTable = loadAdminSupportTable;
     global.saveGuestLimit = saveGuestLimit;
     global.toggleMaintenanceMode = toggleMaintenanceMode;
+    global.toggleSupportEnabled = toggleSupportEnabled;
     global.refreshDashboard = refreshDashboard;
     global.exportDashboardData = exportDashboardData;
 
@@ -3375,4 +3648,5 @@ function editAdminAnime(id) {
     global.loadEpisodeIntoWorkspace = loadEpisodeIntoWorkspace;
     global.deleteHubEpisode = deleteHubEpisode;
     global.updateHubProgress = updateHubProgress;
+    global.manuallyVerifyDonation = manuallyVerifyDonation;
 })(window);
