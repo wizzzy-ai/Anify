@@ -6433,7 +6433,6 @@ platformSettingsEventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.supportEnabled !== undefined) {
             supportEnabled = data.supportEnabled === true;
-            updateSupportButtonsVisibility();
             // Re-render auth nav to show/hide support buttons
             renderAuthNav();
         }
