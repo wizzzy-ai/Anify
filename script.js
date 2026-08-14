@@ -4846,14 +4846,22 @@ function changePlayerQuality(quality) {
 }
 
 function downloadCurrentVideo() {
+    // Check if user is logged in first
+    if (!isLoggedIn()) {
+        console.log('User not logged in, showing download auth modal');
+        showDownloadAuthModal();
+        return;
+    }
+
     const video = getPlayerVideo();
     const anime = getCurrentPlayerAnime();
     const url = video?.currentSrc || video?.src;
-    if (!url) return alert('No video is available to download yet.');
-    
-    // Check if user is logged in
-    if (!isLoggedIn()) {
-        showDownloadAuthModal();
+    if (!url) {
+        if (typeof showToast === 'function') {
+            showToast('No video is available to download yet.');
+        } else {
+            alertGold('No video is available to download yet.');
+        }
         return;
     }
 
@@ -6363,8 +6371,11 @@ function showDownloadAuthModal() {
     const modal = document.getElementById('download-auth-modal');
     if (modal) {
         modal.classList.remove('hidden');
+        modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
         createLucideIconsSafe();
+    } else {
+        console.error('Download auth modal element not found!');
     }
 }
 
@@ -6372,6 +6383,7 @@ function closeDownloadAuthModal() {
     const modal = document.getElementById('download-auth-modal');
     if (modal) {
         modal.classList.add('hidden');
+        modal.style.display = 'none';
         document.body.style.overflow = '';
     }
 }
@@ -6381,20 +6393,14 @@ function handleDownloadAuthSignIn() {
     navigate('login');
 }
 
-// Close download auth modal on click outside and ESC (add once)
+function handleDownloadAuthRegister() {
+    closeDownloadAuthModal();
+    navigate('register');
+}
+
+// Close download auth modal on ESC key
 function addDownloadAuthModalListeners() {
     if (downloadAuthModalListenersAdded) return;
-    
-    // Click outside handler
-    document.addEventListener('click', (e) => {
-        const modal = document.getElementById('download-auth-modal');
-        if (modal && !modal.classList.contains('hidden')) {
-            const modalContent = modal.querySelector('.download-auth-modal-content');
-            if (modalContent && !modalContent.contains(e.target)) {
-                closeDownloadAuthModal();
-            }
-        }
-    });
     
     // ESC key handler
     document.addEventListener('keydown', (e) => {

@@ -520,40 +520,67 @@
         </div>
 
         <!-- Download Authentication Modal -->
-        <div id="download-auth-modal" class="hidden fixed inset-0 z-[10003] bg-black/70 backdrop-blur-lg flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="download-auth-title">
-            <div class="download-auth-modal-content relative w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div id="download-auth-modal" class="hidden fixed inset-0 z-[10003] bg-black/75 backdrop-blur-md flex items-center justify-center p-4" onclick="if (event.target === this) closeDownloadAuthModal()" role="dialog" aria-modal="true" aria-labelledby="download-auth-title">
+            <div class="download-auth-modal-content relative w-full max-w-md max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
                 <!-- Close Button -->
-                <button onclick="closeDownloadAuthModal()" class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all" style="color: var(--text-primary);">
+                <button onclick="closeDownloadAuthModal()" class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all" style="color: var(--text-primary);" aria-label="Close download restriction modal">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
 
                 <!-- Modal Content -->
-                <div class="download-auth-modal-inner p-8 text-center">
-                    <!-- Lock Icon -->
-                    <div class="flex justify-center mb-6">
-                        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
-                            <i data-lucide="lock" class="w-8 h-8 text-white"></i>
+                <div class="download-auth-modal-inner p-7 sm:p-8 text-center">
+                    <!-- Icon / Lock + Download Badge -->
+                    <div class="flex justify-center mb-5">
+                        <div class="relative w-18 h-18 p-4 rounded-2xl bg-gradient-to-br from-gold-400/20 via-purple-500/20 to-purple-700/30 border border-gold-400/30 flex items-center justify-center shadow-lg shadow-gold-400/10">
+                            <i data-lucide="download" class="w-10 h-10 text-gold-400"></i>
+                            <div class="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 border-2 border-dark-900 flex items-center justify-center shadow-md">
+                                <i data-lucide="lock" class="w-3.5 h-3.5 text-white"></i>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Title -->
-                    <h2 id="download-auth-title" class="text-2xl md:text-3xl font-black text-center mb-2" style="color: var(--text-primary);">
-                        Download Restricted
+                    <h2 id="download-auth-title" class="text-2xl sm:text-3xl font-black text-center mb-2 bg-gradient-to-r from-gold-300 via-gold-400 to-amber-500 bg-clip-text text-transparent">
+                        Sign In to Download
                     </h2>
 
                     <!-- Subtitle -->
-                    <p class="text-center text-sm md:text-base mb-8 max-w-sm mx-auto" style="color: var(--text-secondary);">
-                        Sign in to your Anify account to download this video.
+                    <p class="text-center text-sm mb-6 max-w-sm mx-auto" style="color: var(--text-secondary);">
+                        Offline downloading is reserved for Anify members. Sign in or create a free account to download episodes in full 1080p HD.
                     </p>
+
+                    <!-- Feature Perks List -->
+                    <div class="space-y-2.5 mb-6 text-left">
+                        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs text-gray-300">
+                            <i data-lucide="check-circle-2" class="w-4 h-4 text-gold-400 flex-shrink-0"></i>
+                            <span>Download full episodes in 1080p HD</span>
+                        </div>
+                        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs text-gray-300">
+                            <i data-lucide="check-circle-2" class="w-4 h-4 text-gold-400 flex-shrink-0"></i>
+                            <span>Watch offline anytime, on any device</span>
+                        </div>
+                        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs text-gray-300">
+                            <i data-lucide="check-circle-2" class="w-4 h-4 text-gold-400 flex-shrink-0"></i>
+                            <span>100% Free — No subscription required</span>
+                        </div>
+                    </div>
 
                     <!-- Action Buttons -->
                     <div class="flex flex-col gap-3 justify-center">
-                        <button onclick="handleDownloadAuthSignIn()" class="btn-primary px-8 py-3 text-base font-bold flex items-center justify-center gap-2">
+                        <button onclick="handleDownloadAuthSignIn()" class="btn-primary px-8 py-3.5 text-base font-bold flex items-center justify-center gap-2 w-full">
                             <i data-lucide="log-in" class="w-5 h-5"></i>
                             Sign In
                         </button>
-                        <button onclick="closeDownloadAuthModal()" class="btn-secondary px-8 py-3 text-base font-bold flex items-center justify-center gap-2">
-                            Cancel
+                        <button onclick="handleDownloadAuthRegister()" class="btn-secondary px-8 py-3 text-sm font-bold flex items-center justify-center gap-2 w-full border border-gold-400/30 text-gold-400 hover:bg-gold-400/10">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i>
+                            Create Free Account
+                        </button>
+                    </div>
+
+                    <!-- Continue Browsing / Close -->
+                    <div class="mt-4 text-center">
+                        <button onclick="closeDownloadAuthModal()" class="text-xs transition-colors" style="color: var(--text-tertiary);" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-tertiary)'">
+                            Maybe Later
                         </button>
                     </div>
                 </div>
