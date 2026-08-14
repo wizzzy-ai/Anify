@@ -519,6 +519,47 @@
             </div>
         </div>
 
+        <!-- Download Authentication Modal -->
+        <div id="download-auth-modal" class="hidden fixed inset-0 z-[10003] bg-black/70 backdrop-blur-lg flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="download-auth-title">
+            <div class="download-auth-modal-content relative w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <!-- Close Button -->
+                <button onclick="closeDownloadAuthModal()" class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all" style="color: var(--text-primary);">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+
+                <!-- Modal Content -->
+                <div class="download-auth-modal-inner p-8 text-center">
+                    <!-- Lock Icon -->
+                    <div class="flex justify-center mb-6">
+                        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
+                            <i data-lucide="lock" class="w-8 h-8 text-white"></i>
+                        </div>
+                    </div>
+
+                    <!-- Title -->
+                    <h2 id="download-auth-title" class="text-2xl md:text-3xl font-black text-center mb-2" style="color: var(--text-primary);">
+                        Download Restricted
+                    </h2>
+
+                    <!-- Subtitle -->
+                    <p class="text-center text-sm md:text-base mb-8 max-w-sm mx-auto" style="color: var(--text-secondary);">
+                        Sign in to your Anify account to download this video.
+                    </p>
+
+                    <!-- Action Buttons -->
+                    <div class="flex flex-col gap-3 justify-center">
+                        <button onclick="handleDownloadAuthSignIn()" class="btn-primary px-8 py-3 text-base font-bold flex items-center justify-center gap-2">
+                            <i data-lucide="log-in" class="w-5 h-5"></i>
+                            Sign In
+                        </button>
+                        <button onclick="closeDownloadAuthModal()" class="btn-secondary px-8 py-3 text-base font-bold flex items-center justify-center gap-2">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Floating Discovery Button -->
         <button onclick="showDiscoveryHub()" class="surprise-fab group" aria-label="Surprise Me">
             <div class="surprise-fab-icon">

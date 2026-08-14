@@ -1287,6 +1287,9 @@ let isProcessingDonation = false;
 // Platform settings
 let supportEnabled = false;
 
+// Download auth modal listeners flag
+let downloadAuthModalListenersAdded = false;
+
 // Current page tracking
 let currentPage = 'home';
 
@@ -4847,6 +4850,12 @@ function downloadCurrentVideo() {
     const anime = getCurrentPlayerAnime();
     const url = video?.currentSrc || video?.src;
     if (!url) return alert('No video is available to download yet.');
+    
+    // Check if user is logged in
+    if (!isLoggedIn()) {
+        showDownloadAuthModal();
+        return;
+    }
 
     const link = document.createElement('a');
     link.href = url;
@@ -6347,6 +6356,61 @@ function checkDonationSuccess() {
 
 // Check donation success on page load
 document.addEventListener('DOMContentLoaded', checkDonationSuccess);
+
+// ============ DOWNLOAD AUTH MODAL ============
+
+function showDownloadAuthModal() {
+    const modal = document.getElementById('download-auth-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        createLucideIconsSafe();
+    }
+}
+
+function closeDownloadAuthModal() {
+    const modal = document.getElementById('download-auth-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+}
+
+function handleDownloadAuthSignIn() {
+    closeDownloadAuthModal();
+    navigate('login');
+}
+
+// Close download auth modal on click outside and ESC (add once)
+function addDownloadAuthModalListeners() {
+    if (downloadAuthModalListenersAdded) return;
+    
+    // Click outside handler
+    document.addEventListener('click', (e) => {
+        const modal = document.getElementById('download-auth-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            const modalContent = modal.querySelector('.download-auth-modal-content');
+            if (modalContent && !modalContent.contains(e.target)) {
+                closeDownloadAuthModal();
+            }
+        }
+    });
+    
+    // ESC key handler
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('download-auth-modal');
+            if (modal && !modal.classList.contains('hidden')) {
+                closeDownloadAuthModal();
+            }
+        }
+    });
+    
+    downloadAuthModalListenersAdded = true;
+}
+
+// Add listeners when DOM is ready
+document.addEventListener('DOMContentLoaded', addDownloadAuthModalListeners);
 
 // Fetch platform settings
 async function fetchPlatformSettings() {

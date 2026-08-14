@@ -399,8 +399,8 @@ app.get('/api/platform-settings/stream', async (req, res) => {
 });
 
 app.put('/api/admin/platform-settings', requireDb, requireAdmin, async (req, res) => {
-  const { maintenanceMode, supportEnabled } = req.body || {};
-  if (typeof maintenanceMode !== 'boolean' && typeof supportEnabled !== 'boolean') {
+  const { maintenanceMode, supportEnabled: newSupportEnabled } = req.body || {};
+  if (typeof maintenanceMode !== 'boolean' && typeof newSupportEnabled !== 'boolean') {
     return res.status(400).json({ ok: false, error: 'maintenanceMode or supportEnabled must be true or false.' });
   }
 
@@ -409,8 +409,8 @@ app.put('/api/admin/platform-settings', requireDb, requireAdmin, async (req, res
     if (typeof maintenanceMode === 'boolean') {
       updateData.maintenanceMode = maintenanceMode;
     }
-    if (typeof supportEnabled === 'boolean') {
-      updateData.supportEnabled = supportEnabled;
+    if (typeof newSupportEnabled === 'boolean') {
+      updateData.supportEnabled = newSupportEnabled;
     }
 
     await PlatformSettings.findOneAndUpdate(
@@ -424,8 +424,8 @@ app.put('/api/admin/platform-settings', requireDb, requireAdmin, async (req, res
       maintenanceModeLastChecked = Date.now();
       broadcastMaintenanceMode();
     }
-    if (typeof supportEnabled === 'boolean') {
-      supportEnabled = supportEnabled;
+    if (typeof newSupportEnabled === 'boolean') {
+      supportEnabled = newSupportEnabled;
       supportEnabledLastChecked = Date.now();
       broadcastSupportEnabled();
     }
