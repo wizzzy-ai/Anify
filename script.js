@@ -250,7 +250,7 @@ function renderThemeFavicon(tokens) {
         canvas.height = size;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
-            applyFaviconDataUrl('/pictures/logo2.png?v=2');
+            applyFaviconDataUrl('/pictures/logo2.png');
             return;
         }
 
@@ -287,10 +287,10 @@ function renderThemeFavicon(tokens) {
             const dataUrl = canvas.toDataURL('image/png');
             applyFaviconDataUrl(dataUrl);
         } else {
-            applyFaviconDataUrl('/pictures/logo2.png?v=2');
+            applyFaviconDataUrl('/pictures/logo2.png');
         }
     } catch (e) {
-        applyFaviconDataUrl('/pictures/logo2.png?v=2');
+        applyFaviconDataUrl('/pictures/logo2.png');
     }
 }
 
@@ -306,9 +306,9 @@ function updateThemeFavicon(tokens) {
             }
         };
         faviconLogoImage.onerror = () => {
-            applyFaviconDataUrl('/pictures/logo2.png?v=2');
+            applyFaviconDataUrl('/pictures/logo2.png');
         };
-        faviconLogoImage.src = '/pictures/logo2.png?v=2';
+        faviconLogoImage.src = '/pictures/logo2.png';
     } else if (faviconLogoLoaded) {
         renderThemeFavicon(tokens);
     }
