@@ -209,11 +209,90 @@ function updateProfileThemePreviews(mode = getCurrentTheme()) {
     });
 }
 
-function updateThemeFavicon(tokens) {
+let faviconLogoImage = null;
+let faviconLogoLoaded = false;
+let latestFaviconTokens = null;
+
+function renderThemeFavicon(tokens) {
     const favicon = document.getElementById('app-favicon');
-    if (!favicon || !tokens) return;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="${tokens.background}"/><text x="50" y="50" font-size="60" font-family="Outfit, sans-serif" font-weight="900" fill="${tokens.primary}" text-anchor="middle" dy=".3em">A</text></svg>`;
-    favicon.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    if (!favicon) return;
+
+    const bgColor = tokens?.background || '#01010C';
+    const borderColor = tokens?.border || 'rgba(255, 255, 255, 0.12)';
+
+    try {
+        const size = 128;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            favicon.href = 'pictures/logo2.png';
+            return;
+        }
+
+        // Draw rounded square background with current active tokens.background
+        const radius = 28;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(0, 0, size, size, radius);
+        } else {
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(size - radius, 0);
+            ctx.quadraticCurveTo(size, 0, size, radius);
+            ctx.lineTo(size, size - radius);
+            ctx.quadraticCurveTo(size, size, size - radius, size);
+            ctx.lineTo(radius, size);
+            ctx.quadraticCurveTo(0, size, 0, size - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+        }
+        ctx.fillStyle = bgColor;
+        ctx.fill();
+
+        // Draw subtle border matching theme
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Draw logo2.png centered with comfortable padding
+        if (faviconLogoImage && faviconLogoLoaded) {
+            const padding = 12;
+            const logoSize = size - padding * 2;
+            ctx.drawImage(faviconLogoImage, padding, padding, logoSize, logoSize);
+            const dataUrl = canvas.toDataURL('image/png');
+            favicon.href = dataUrl;
+
+            const shortcutIcon = document.querySelector('link[rel="shortcut icon"]');
+            if (shortcutIcon) shortcutIcon.href = dataUrl;
+            const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+            if (appleIcon) appleIcon.href = dataUrl;
+        }
+    } catch (e) {
+        favicon.href = 'pictures/logo2.png';
+    }
+}
+
+function updateThemeFavicon(tokens) {
+    latestFaviconTokens = tokens;
+    if (!faviconLogoImage) {
+        faviconLogoImage = new Image();
+        faviconLogoImage.crossOrigin = 'anonymous';
+        faviconLogoImage.onload = () => {
+            faviconLogoLoaded = true;
+            if (latestFaviconTokens) {
+                renderThemeFavicon(latestFaviconTokens);
+            }
+        };
+        faviconLogoImage.onerror = () => {
+            const favicon = document.getElementById('app-favicon');
+            if (favicon) favicon.href = 'pictures/logo2.png';
+        };
+        faviconLogoImage.src = 'pictures/logo2.png';
+    } else if (faviconLogoLoaded) {
+        renderThemeFavicon(tokens);
+    }
 }
 
 function applyProfileTheme(themeId, mode = getCurrentTheme()) {

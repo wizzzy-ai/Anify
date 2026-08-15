@@ -188,6 +188,19 @@ html { scroll-behavior: smooth; }
     -webkit-backdrop-filter: blur(20px);
 }
 
+.nav-logo-wrapper {
+    background: var(--background, #01010C);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+    box-shadow: 0 4px 14px var(--shadow-color, rgba(0, 0, 0, 0.35));
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.light .nav-logo-wrapper {
+    background: var(--background, #FFFDF8);
+    border-color: var(--border, rgba(0, 0, 0, 0.08));
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--shadow-color, rgba(0, 0, 0, 0.2)) 20%, transparent);
+}
+
 .search-glass {
     background: color-mix(in srgb, var(--surface) 90%, transparent);
     backdrop-filter: blur(30px);
