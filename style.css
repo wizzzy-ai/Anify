@@ -231,14 +231,14 @@ html { scroll-behavior: smooth; }
 @media (max-width: 768px) {
     .nav-logo-wrapper {
         min-width: 140px;
-        height: 11;
+        height: 3rem;
     }
 }
 
 @media (max-width: 480px) {
     .nav-logo-wrapper {
         min-width: 120px;
-        height: 10;
+        height: 2.5rem;
     }
 }
 
