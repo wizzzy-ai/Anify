@@ -230,15 +230,15 @@ html { scroll-behavior: smooth; }
 /* Responsive logo sizing */
 @media (max-width: 768px) {
     .nav-logo-wrapper {
-        min-width: 140px;
-        height: 3rem;
+        min-width: 180px;
+        height: 4rem;
     }
 }
 
 @media (max-width: 480px) {
     .nav-logo-wrapper {
-        min-width: 120px;
-        height: 2.5rem;
+        min-width: 160px;
+        height: 3.5rem;
     }
 }
 
