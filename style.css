@@ -195,22 +195,50 @@ html { scroll-behavior: smooth; }
     transition: none;
 }
 
+.nav-logo-wrapper img {
+    filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.3))
+            drop-shadow(0 0 16px rgba(255, 215, 0, 0.2))
+            drop-shadow(0 0 24px rgba(168, 85, 247, 0.15));
+    transition: filter 0.3s ease;
+}
+
+.nav-logo-wrapper:hover img {
+    filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.4))
+            drop-shadow(0 0 24px rgba(255, 215, 0, 0.3))
+            drop-shadow(0 0 36px rgba(168, 85, 247, 0.2));
+}
+
 .light .nav-logo-wrapper {
     background: transparent;
     border: none;
     box-shadow: none;
 }
 
+.light .nav-logo-wrapper img {
+    filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.25))
+            drop-shadow(0 0 12px rgba(255, 215, 0, 0.15))
+            drop-shadow(0 0 18px rgba(168, 85, 247, 0.1));
+}
+
+.light .nav-logo-wrapper:hover img {
+    filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.35))
+            drop-shadow(0 0 20px rgba(255, 215, 0, 0.25))
+            drop-shadow(0 0 30px rgba(168, 85, 247, 0.15));
+}
+
+/* Responsive logo sizing */
 /* Responsive logo sizing */
 @media (max-width: 768px) {
     .nav-logo-wrapper {
-        min-width: 100px;
+        min-width: 140px;
+        height: 11;
     }
 }
 
 @media (max-width: 480px) {
     .nav-logo-wrapper {
-        min-width: 80px;
+        min-width: 120px;
+        height: 10;
     }
 }
 
