@@ -213,10 +213,33 @@ let faviconLogoImage = null;
 let faviconLogoLoaded = false;
 let latestFaviconTokens = null;
 
-function renderThemeFavicon(tokens) {
-    const favicon = document.getElementById('app-favicon');
-    if (!favicon) return;
+function applyFaviconDataUrl(dataUrl) {
+    const head = document.head || document.getElementsByTagName('head')[0];
+    if (!head || !dataUrl) return;
 
+    // Remove existing favicon links so browsers immediately register the new icon
+    document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach((el) => el.remove());
+
+    const iconLink = document.createElement('link');
+    iconLink.id = 'app-favicon';
+    iconLink.rel = 'icon';
+    iconLink.type = 'image/png';
+    iconLink.href = dataUrl;
+    head.appendChild(iconLink);
+
+    const shortcutLink = document.createElement('link');
+    shortcutLink.rel = 'shortcut icon';
+    shortcutLink.type = 'image/png';
+    shortcutLink.href = dataUrl;
+    head.appendChild(shortcutLink);
+
+    const appleLink = document.createElement('link');
+    appleLink.rel = 'apple-touch-icon';
+    appleLink.href = dataUrl;
+    head.appendChild(appleLink);
+}
+
+function renderThemeFavicon(tokens) {
     const bgColor = tokens?.background || '#01010C';
     const borderColor = tokens?.border || 'rgba(255, 255, 255, 0.12)';
 
@@ -227,7 +250,7 @@ function renderThemeFavicon(tokens) {
         canvas.height = size;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
-            favicon.href = 'pictures/logo2.png';
+            applyFaviconDataUrl('/pictures/logo2.png?v=2');
             return;
         }
 
@@ -262,15 +285,12 @@ function renderThemeFavicon(tokens) {
             const logoSize = size - padding * 2;
             ctx.drawImage(faviconLogoImage, padding, padding, logoSize, logoSize);
             const dataUrl = canvas.toDataURL('image/png');
-            favicon.href = dataUrl;
-
-            const shortcutIcon = document.querySelector('link[rel="shortcut icon"]');
-            if (shortcutIcon) shortcutIcon.href = dataUrl;
-            const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
-            if (appleIcon) appleIcon.href = dataUrl;
+            applyFaviconDataUrl(dataUrl);
+        } else {
+            applyFaviconDataUrl('/pictures/logo2.png?v=2');
         }
     } catch (e) {
-        favicon.href = 'pictures/logo2.png';
+        applyFaviconDataUrl('/pictures/logo2.png?v=2');
     }
 }
 
@@ -286,10 +306,9 @@ function updateThemeFavicon(tokens) {
             }
         };
         faviconLogoImage.onerror = () => {
-            const favicon = document.getElementById('app-favicon');
-            if (favicon) favicon.href = 'pictures/logo2.png';
+            applyFaviconDataUrl('/pictures/logo2.png?v=2');
         };
-        faviconLogoImage.src = 'pictures/logo2.png';
+        faviconLogoImage.src = '/pictures/logo2.png?v=2';
     } else if (faviconLogoLoaded) {
         renderThemeFavicon(tokens);
     }

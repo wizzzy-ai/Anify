@@ -54,6 +54,12 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));
+
+// Explicit favicon handler for browsers querying /favicon.ico directly
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pictures', 'logo2.png'));
+});
+
 app.use(express.static(__dirname));
 
 // During maintenance, regular visitors cannot use API data or perform actions.
