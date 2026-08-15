@@ -189,16 +189,29 @@ html { scroll-behavior: smooth; }
 }
 
 .nav-logo-wrapper {
-    background: var(--background, #01010C);
-    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
-    box-shadow: 0 4px 14px var(--shadow-color, rgba(0, 0, 0, 0.35));
-    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    transition: none;
 }
 
 .light .nav-logo-wrapper {
-    background: var(--background, #FFFDF8);
-    border-color: var(--border, rgba(0, 0, 0, 0.08));
-    box-shadow: 0 4px 14px color-mix(in srgb, var(--shadow-color, rgba(0, 0, 0, 0.2)) 20%, transparent);
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+/* Responsive logo sizing */
+@media (max-width: 768px) {
+    .nav-logo-wrapper {
+        min-width: 100px;
+    }
+}
+
+@media (max-width: 480px) {
+    .nav-logo-wrapper {
+        min-width: 80px;
+    }
 }
 
 .search-glass {
