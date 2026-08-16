@@ -339,6 +339,17 @@ function applyProfileTheme(themeId, mode = getCurrentTheme()) {
         });
         updateThemeFavicon(resolvedTokens);
         updateProfileThemePreviews(mode);
+
+        // Update Hamburger Anime Ring SVG gradient stops
+        const animeRingGrad = document.getElementById('animeRingGrad');
+        if (animeRingGrad && resolvedTokens) {
+            const stops = animeRingGrad.querySelectorAll('stop');
+            if (stops.length >= 3) {
+                stops[0].setAttribute('stop-color', resolvedTokens.primary || '#F59E0B');
+                stops[1].setAttribute('stop-color', resolvedTokens.accent || '#A855F7');
+                stops[2].setAttribute('stop-color', resolvedTokens.primaryLight || '#FDE047');
+            }
+        }
     }
 
     // Dispatch custom event for click effects to listen to
@@ -4289,8 +4300,18 @@ function renderAuthNav() {
         if (!isLoggedIn()) {
             if (variant === 'compact') {
                 el.innerHTML = `
-                    <button onclick="toggleMobileMenu()" class="mobile-profile-trigger" aria-label="Open profile menu" title="Profile menu">
-                        <span class="mobile-profile-avatar mobile-profile-avatar-empty"><i data-lucide="user-round" class="w-5 h-5"></i></span>
+                    <button id="mobile-menu-toggle" onclick="toggleMobileMenu()" class="mobile-profile-trigger anime-capsule-hamburger" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobile-menu" title="Navigation menu">
+                        <span class="anime-btn-aura" aria-hidden="true"></span>
+                        <span class="anime-energy-shockwave" aria-hidden="true"></span>
+                        <span class="anime-sparks" aria-hidden="true">
+                            <span class="spark s-1"></span>
+                            <span class="spark s-2"></span>
+                            <span class="spark s-3"></span>
+                            <span class="spark s-4"></span>
+                        </span>
+                        <span class="mobile-profile-avatar mobile-profile-avatar-empty">
+                            <i data-lucide="user-round" class="w-4 h-4"></i>
+                        </span>
                         <i data-lucide="chevron-down" class="mobile-profile-chevron w-4 h-4"></i>
                     </button>
                 `;
@@ -4298,12 +4319,18 @@ function renderAuthNav() {
             }
             if (variant === 'mobile') {
                 el.innerHTML = `
-                    <button onclick="navigate('login'); toggleMobileMenu()" class="w-full px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-sm font-medium">
-                        <i data-lucide="log-in" class="w-4 h-4 inline-block mr-2"></i> Sign In
-                    </button>
-                    <button onclick="navigate('register'); toggleMobileMenu()" class="w-full px-3 py-2 rounded-xl bg-gold-400/20 text-gold-400 hover:bg-gold-400/30 transition-all text-sm font-medium">
-                        <i data-lucide="user-plus" class="w-4 h-4 inline-block mr-2"></i> Register Now
-                    </button>
+                    <div class="anime-mobile-guest-card">
+                        <div class="text-[11px] font-extrabold text-gold-400/90 tracking-widest uppercase mb-1">Guest Commander</div>
+                        <div class="text-xs text-white/60 mb-3">Sign in to sync your anime watchlist & unlocks</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="navigate('login'); toggleMobileMenu()" class="w-full px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-xs font-bold text-center border border-white/10 flex items-center justify-center gap-1.5 text-white">
+                                <i data-lucide="log-in" class="w-3.5 h-3.5"></i> Sign In
+                            </button>
+                            <button onclick="navigate('register'); toggleMobileMenu()" class="w-full px-3 py-2.5 rounded-xl bg-gradient-to-r from-gold-400/25 to-amber-500/25 text-gold-400 hover:bg-gold-400/35 transition-all text-xs font-bold text-center border border-gold-400/35 flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
+                                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Register
+                            </button>
+                        </div>
+                    </div>
                 `;
             } else {
                 el.innerHTML = `
@@ -4318,44 +4345,51 @@ function renderAuthNav() {
         } else {
             if (variant === 'compact') {
                 el.innerHTML = `
-                    <button onclick="toggleProfileDropdown()" class="mobile-profile-trigger" aria-label="Open profile menu" title="Profile menu">
+                    <button id="mobile-menu-toggle" onclick="toggleMobileMenu()" class="mobile-profile-trigger anime-capsule-hamburger" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobile-menu" title="Navigation menu">
+                        <span class="anime-btn-aura" aria-hidden="true"></span>
+                        <span class="anime-energy-shockwave" aria-hidden="true"></span>
+                        <span class="anime-sparks" aria-hidden="true">
+                            <span class="spark s-1"></span>
+                            <span class="spark s-2"></span>
+                            <span class="spark s-3"></span>
+                            <span class="spark s-4"></span>
+                        </span>
                         <img src="${getCurrentAvatarUrl()}" class="mobile-profile-avatar" alt="${getCurrentUsername()}">
                         <i data-lucide="chevron-down" class="mobile-profile-chevron w-4 h-4"></i>
                     </button>
-                    <div class="mobile-profile-dropdown hidden absolute right-0 top-full mt-2 w-48 bg-dark-800 border border-white/10 rounded-xl p-2 shadow-xl z-50">
-                        <button onclick="navigate('profile'); toggleProfileDropdown()" class="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-all text-left">
-                            <i data-lucide="user" class="w-4 h-4"></i>
-                            <span class="text-sm">Profile</span>
-                        </button>
-                        ${supportEnabled ? `
-                        <button onclick="showSupportModal(); toggleProfileDropdown()" class="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-all text-left">
-                            <i data-lucide="heart" class="w-4 h-4 text-gold-400"></i>
-                            <span class="text-sm">❤️ Support Anify</span>
-                        </button>
-                        ` : ''}
-                        <button onclick="signOut(); toggleProfileDropdown()" class="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-all text-left">
-                            <i data-lucide="log-out" class="w-4 h-4"></i>
-                            <span class="text-sm">Sign Out</span>
-                        </button>
-                    </div>
                 `;
                 return;
             }
             if (variant === 'mobile') {
                 el.innerHTML = `
-                    <button onclick="navigate('profile'); toggleMobileMenu()" class="w-full flex items-center gap-2 p-2 rounded-xl hover:bg-white/10 transition-all">
-                        <img src="${getCurrentAvatarUrl()}" class="w-8 h-8 rounded-lg" alt="avatar">
-                        <span class="text-sm font-medium leading-tight">${getCurrentUsername()}</span>
-                    </button>
-                    ${supportEnabled ? `
-                    <button onclick="showSupportModal(); toggleMobileMenu()" class="w-full flex items-center gap-2 p-2 rounded-xl hover:bg-white/10 transition-all">
-                        <i data-lucide="heart" class="w-4 h-4 text-gold-400"></i>
-                        <span class="text-sm font-medium leading-tight">❤️ Support Anify</span>
-                    </button>
-                    ` : ''}
-                    <button onclick="signOut(); toggleMobileMenu()" class="w-full px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-sm font-medium">
-                        <i data-lucide="log-out" class="w-4 h-4 inline-block mr-2"></i> Sign Out
-                    </button>
+                    <div class="anime-mobile-user-card">
+                        <div class="flex items-center gap-3 mb-3">
+                            <img src="${getCurrentAvatarUrl()}" class="w-10 h-10 rounded-full border-2 border-gold-400/60 shadow-lg object-cover" alt="${getCurrentUsername()}">
+                            <div class="flex flex-col min-w-0 flex-1">
+                                <div class="text-sm font-black text-white truncate">${getCurrentUsername()}</div>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                    <span class="text-[10px] font-bold text-gold-400/80 uppercase tracking-widest">ONLINE // MEMBER</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="navigate('profile'); toggleMobileMenu()" class="w-full flex items-center justify-center gap-1.5 p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-xs font-semibold text-white">
+                                <i data-lucide="user" class="w-3.5 h-3.5 text-gold-400"></i>
+                                <span>Profile</span>
+                            </button>
+                            <button onclick="signOut(); toggleMobileMenu()" class="w-full flex items-center justify-center gap-1.5 p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 transition-all text-xs font-semibold">
+                                <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                                <span>Sign Out</span>
+                            </button>
+                        </div>
+                        ${supportEnabled ? `
+                        <button onclick="showSupportModal(); toggleMobileMenu()" class="w-full mt-2 flex items-center justify-center gap-1.5 p-2 rounded-xl bg-gold-400/15 hover:bg-gold-400/25 border border-gold-400/30 text-gold-400 transition-all text-xs font-bold shadow-[0_0_10px_rgba(245,158,11,0.2)]">
+                            <i data-lucide="heart" class="w-3.5 h-3.5 text-gold-400"></i>
+                            <span>❤️ Support Anify</span>
+                        </button>
+                        ` : ''}
+                    </div>
                 `;
             } else {
                 el.innerHTML = `
@@ -4410,43 +4444,66 @@ function removeSearchEventListeners() {
 }
 
 function setupSearchEventListeners() {
-    // Remove existing listeners to prevent duplicates
     removeSearchEventListeners();
-    
-    // Click outside handler - works on both mobile and desktop
+
     window.searchClickOutsideHandler = (e) => {
-        const panel = document.getElementById('search-panel');
         const searchContainer = document.getElementById('search-container');
-        
-        // Check if click is outside search component
-        if (panel && !panel.contains(e.target) && !searchContainer.contains(e.target)) {
+        const panel = document.getElementById('search-panel');
+
+        if (!searchContainer || !panel || panel.classList.contains('hidden')) {
+            return;
+        }
+
+        if (!searchContainer.contains(e.target)) {
             closeSearchPanel();
         }
     };
-    
-    // Escape key handler
+
     window.searchEscapeHandler = (e) => {
         if (e.key === 'Escape') {
             closeSearchPanel();
         }
     };
-    
-    // Window resize handler to recalculate position
-    window.searchResizeHandler = () => {
-        const panel = document.getElementById('search-panel');
-        if (!panel.classList.contains('hidden') && window.innerWidth < 768) {
-            const searchButton = document.querySelector('#search-container button');
-            if (searchButton) {
-                const buttonRect = searchButton.getBoundingClientRect();
-                const topPosition = buttonRect.bottom + 8;
-                document.documentElement.style.setProperty('--search-top', `${topPosition}px`);
-            }
-        }
-    };
-    
+
     document.addEventListener('click', window.searchClickOutsideHandler);
     document.addEventListener('keydown', window.searchEscapeHandler);
-    window.addEventListener('resize', window.searchResizeHandler);
+}
+
+function openSearchPanel() {
+    const panel = document.getElementById('search-panel');
+    const backdrop = document.getElementById('search-backdrop');
+    const searchInput = document.getElementById('search-input');
+    const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+    
+    if (!panel) return;
+    
+    panel.classList.remove('hidden');
+    if (backdrop) {
+        if (isDesktop) {
+            backdrop.classList.add('hidden');
+        } else {
+            backdrop.classList.remove('hidden');
+        }
+    }
+    
+    isSearchOpen = true;
+    if (!isDesktop) {
+        document.body.classList.add('mobile-nav-locked');
+    }
+    
+    if (searchInput) {
+        setTimeout(() => {
+            searchInput.focus();
+            if (searchInput.value) {
+                handleSearch(searchInput.value);
+            }
+        }, 60);
+    }
+    
+    setupSearchEventListeners();
+    if (window.lucide && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+    }
 }
 
 function closeSearchPanel() {
@@ -4455,61 +4512,69 @@ function closeSearchPanel() {
     
     if (panel) {
         panel.classList.add('hidden');
-        panel.classList.remove('positioned');
     }
     if (backdrop) {
         backdrop.classList.add('hidden');
     }
     
-    const searchInput = document.getElementById('search-input');
-    const searchResults = document.getElementById('search-results');
-    
-    if (searchInput) searchInput.value = '';
-    if (searchResults) {
-        searchResults.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">Start typing to search...</p>';
-    }
-    
-    document.body.style.overflow = ''; // Restore scrolling
+    document.body.classList.remove('mobile-nav-locked');
     isSearchOpen = false;
     removeSearchEventListeners();
 }
 
-function toggleSearch() {
+function toggleSearch(event) {
+    if (event && typeof event.stopPropagation === 'function') {
+        event.stopPropagation();
+    }
+
     const panel = document.getElementById('search-panel');
-    const backdrop = document.getElementById('search-backdrop');
-    const searchButton = document.querySelector('#search-container button');
-    
     if (!panel) return;
-    
-    const isHidden = panel.classList.contains('hidden');
-    
-    if (isHidden) {
-        // Open search
-        panel.classList.remove('hidden');
-        isSearchOpen = true;
-        
-        // Calculate position for mobile
-        if (window.innerWidth < 768 && searchButton) {
-            const buttonRect = searchButton.getBoundingClientRect();
-            const topPosition = buttonRect.bottom + 8;
-            document.documentElement.style.setProperty('--search-top', `${topPosition}px`);
-            panel.classList.add('positioned');
-            
-            // Show backdrop on mobile
-            if (backdrop) {
-                backdrop.classList.remove('hidden');
-            }
-        }
-        
-        const searchInput = document.getElementById('search-input');
-        if (searchInput) searchInput.focus();
-        
-        document.body.style.overflow = 'hidden'; // Prevent background scrolling on mobile
-        setupSearchEventListeners();
+
+    if (panel.classList.contains('hidden')) {
+        openSearchPanel();
     } else {
-        // Close search
         closeSearchPanel();
     }
+}
+
+function clearSearchInput() {
+    const searchInput = document.getElementById('search-input');
+    const clearBtn = document.getElementById('search-clear-btn');
+    const results = document.getElementById('search-results');
+    
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+    }
+    if (clearBtn) {
+        clearBtn.classList.add('hidden');
+    }
+    
+    // Clear active chips
+    document.querySelectorAll('.search-chip').forEach(c => c.classList.remove('active'));
+    
+    if (results) {
+        results.innerHTML = '<p class="text-xs text-gray-400 text-center py-6">Start typing to search anime library...</p>';
+    }
+}
+
+function setSearchFilter(filterName) {
+    const searchInput = document.getElementById('search-input');
+    if (!searchInput) return;
+    
+    searchInput.value = filterName;
+    
+    // Highlight active chip
+    document.querySelectorAll('.search-chip').forEach(chip => {
+        if (chip.textContent.toLowerCase().includes(filterName.toLowerCase())) {
+            chip.classList.add('active');
+        } else {
+            chip.classList.remove('active');
+        }
+    });
+    
+    handleSearch(filterName);
+    searchInput.focus();
 }
 
 function toggleNotifications(forceOpen = null) {
@@ -4774,47 +4839,90 @@ function alertGold(message) {
 
 function handleSearch(query) {
     const results = document.getElementById('search-results');
+    const clearBtn = document.getElementById('search-clear-btn');
     if (!results) return;
     
-    if (!query) {
-        results.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">Start typing to search...</p>';
+    const trimmed = (query || '').trim();
+    
+    if (clearBtn) {
+        if (trimmed.length > 0) {
+            clearBtn.classList.remove('hidden');
+        } else {
+            clearBtn.classList.add('hidden');
+        }
+    }
+    
+    if (!trimmed) {
+        results.innerHTML = '<p class="text-xs text-gray-400 text-center py-6">Start typing to search anime library...</p>';
         return;
     }
-    const filtered = animeData.filter(a => (a.title && a.title.toLowerCase().includes(query.toLowerCase())) || (Array.isArray(a.genres) && a.genres.some(g => g && g.toLowerCase().includes(query.toLowerCase()))));
+    
+    const queryLower = trimmed.toLowerCase();
+    const filtered = (typeof animeData !== 'undefined' && Array.isArray(animeData))
+        ? animeData.filter(a => {
+            if (!a) return false;
+            const matchTitle = a.title && a.title.toLowerCase().includes(queryLower);
+            const matchAlt = a.titleJp && a.titleJp.toLowerCase().includes(queryLower);
+            const matchGenre = Array.isArray(a.genres) && a.genres.some(g => g && g.toLowerCase().includes(queryLower));
+            const matchType = a.type && a.type.toLowerCase().includes(queryLower);
+            return matchTitle || matchAlt || matchGenre || matchType;
+        })
+        : [];
+
     if (filtered.length === 0) {
-        results.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">No results found</p>';
+        results.innerHTML = `
+            <div class="py-6 text-center">
+                <p class="text-xs font-semibold text-gray-400 mb-1">No anime found matching "${escapeHtml(trimmed)}"</p>
+                <p class="text-[11px] text-gray-500 mb-3">Try searching for genres like Action, Romance, or Fantasy</p>
+                <button type="button" onclick="showDiscoveryHub(); closeSearchPanel()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gold-400/20 text-gold-400 text-xs font-bold hover:bg-gold-400/30 transition-all">
+                    <i data-lucide="dices" class="w-3.5 h-3.5"></i> Open Discovery Hub
+                </button>
+            </div>
+        `;
+        if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
         return;
     }
-   results.innerHTML = filtered.slice(0, 5).map(a => `
-    <button onclick="handleSearchResultClick(${a.id})"
-        class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-all text-left search-result-item">
 
-        <img src="${a.image}"
-            class="w-12 h-16 md:w-12 md:h-16 rounded-lg object-cover flex-shrink-0"
-            alt="${a.title}">
+    results.innerHTML = filtered.slice(0, 8).map(a => {
+        const rating = (typeof a.rating === 'number' || typeof a.rating === 'string') ? a.rating : 'N/A';
+        const year = a.year || a.releaseDate || 'Anime';
+        const genres = Array.isArray(a.genres) ? a.genres.slice(0, 2).join(' • ') : '';
+        const format = a.type ? (a.type.toUpperCase() === 'MOVIE' ? 'MOVIE' : 'TV') : 'ANIME';
 
-        <div class="flex-1 min-w-0">
-            <p class="font-semibold text-sm truncate" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${a.title}</p>
+        return `
+            <button type="button" onclick="handleSearchResultClick(${a.id})"
+                class="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/10 transition-all text-left search-result-item group">
+                <img src="${a.image || '/pictures/placeholder.jpg'}"
+                    class="w-11 h-14 rounded-lg object-cover flex-shrink-0 shadow-md border border-white/10 group-hover:border-gold-400/50 transition-colors"
+                    alt="${escapeHtml(a.title || 'Anime')}"
+                    loading="lazy"
+                    onerror="this.src='/pictures/placeholder.jpg'">
 
-            <div class="flex items-center gap-2 mt-1 flex-wrap">
-                <span class="text-xs text-gray-400">${a.year}</span>
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-xs md:text-sm text-white group-hover:text-gold-300 transition-colors truncate">${escapeHtml(a.title || 'Untitled')}</p>
+                    
+                    <div class="flex items-center gap-2 mt-1 text-[11px] flex-wrap">
+                        <span class="px-1.5 py-0.5 rounded bg-white/10 text-white/80 font-bold text-[9px] uppercase tracking-wider">${format}</span>
+                        <span class="text-gray-400 font-medium">${year}</span>
+                        <span class="text-gray-600">•</span>
+                        <span class="text-gold-400 font-bold flex items-center gap-0.5">
+                            ⭐ ${rating}
+                        </span>
+                    </div>
 
-                <span class="text-gray-600">•</span>
+                    ${genres ? `<p class="text-[10px] text-gray-400 truncate mt-0.5 font-medium">${escapeHtml(genres)}</p>` : ''}
+                </div>
 
-                <span class="text-xs text-gold-400 flex items-center gap-1">
-                    ⭐ ${a.rating}
-                </span>
-            </div>
+                <div class="text-gray-500 group-hover:text-gold-400 transition-colors flex-shrink-0 pl-1">
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </div>
+            </button>
+        `;
+    }).join('');
 
-            <p class="text-xs text-gray-500 truncate mt-1 hidden md:block search-genre-text">
-                ${Array.isArray(a.genres) ? a.genres.join(', ') : 'Unknown'}
-            </p>
-        </div>
-
-    </button>
-`).join('');
-
-lucide.createIcons();
+    if (window.lucide && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+    }
 }
 
 function handleSearchResultClick(animeId) {
@@ -6569,49 +6677,98 @@ fetchPlatformSettings();
 // Mobile profile dropdown toggle
 let isProfileDropdownOpen = false;
 
-function toggleMobileMenu() {
+function toggleMobileMenu(forceState) {
     const mobileMenu = document.getElementById('mobile-menu');
+    const backdrop = document.getElementById('mobile-menu-backdrop');
+    const menuToggle = document.getElementById('mobile-menu-toggle');
     const profileDropdown = document.querySelector('.mobile-profile-dropdown');
     
-    if (mobileMenu) {
-        const isHidden = mobileMenu.classList.contains('hidden');
-        mobileMenu.classList.toggle('hidden');
-        
-        // Add focus to first button when opening menu for accessibility
-        if (isHidden) {
-            const firstButton = mobileMenu.querySelector('button');
-            if (firstButton) {
-                setTimeout(() => firstButton.focus(), 100);
-            }
+    if (!mobileMenu) return;
+
+    const isCurrentlyHidden = mobileMenu.classList.contains('hidden');
+    const shouldOpen = typeof forceState === 'boolean' ? forceState : isCurrentlyHidden;
+
+    if (shouldOpen) {
+        // OPEN MENU
+        mobileMenu.classList.remove('hidden');
+        if (backdrop) backdrop.classList.remove('hidden');
+        if (menuToggle) {
+            menuToggle.classList.add('is-active');
+            menuToggle.classList.add('trigger-shockwave');
+            menuToggle.setAttribute('aria-expanded', 'true');
+            menuToggle.setAttribute('aria-label', 'Close navigation menu');
+            setTimeout(() => menuToggle.classList.remove('trigger-shockwave'), 600);
         }
+        document.body.classList.add('mobile-nav-locked');
+
+        // Sync active route in drawer
+        if (typeof currentPage !== 'undefined') {
+            mobileMenu.querySelectorAll('[data-nav]').forEach(el => {
+                if (el.getAttribute('data-nav') === currentPage) {
+                    el.classList.add('active');
+                } else {
+                    el.classList.remove('active');
+                }
+            });
+        }
+
+        // Initialize Lucide icons inside mobile menu if any were added dynamically
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+            lucide.createIcons();
+        }
+
+        // Focus first interactive element for accessibility
+        const firstFocusable = mobileMenu.querySelector('.anime-drawer-close, .anime-menu-item, button');
+        if (firstFocusable) {
+            setTimeout(() => firstFocusable.focus(), 120);
+        }
+    } else {
+        // CLOSE MENU
+        mobileMenu.classList.add('hidden');
+        if (backdrop) backdrop.classList.add('hidden');
+        if (menuToggle) {
+            menuToggle.classList.remove('is-active');
+            menuToggle.setAttribute('aria-expanded', 'false');
+            menuToggle.setAttribute('aria-label', 'Open navigation menu');
+        }
+        document.body.classList.remove('mobile-nav-locked');
     }
-    
+
     // Close profile dropdown when opening mobile menu
-    if (profileDropdown && !mobileMenu.classList.contains('hidden')) {
+    if (profileDropdown && shouldOpen) {
         profileDropdown.classList.add('hidden');
         isProfileDropdownOpen = false;
     }
 }
 
-// Close mobile menu when clicking outside
+function openMobileMenu() {
+    toggleMobileMenu(true);
+}
+
+function closeMobileMenu() {
+    toggleMobileMenu(false);
+}
+
+// Close mobile menu when clicking on backdrop
 document.addEventListener('click', function(event) {
     const mobileMenu = document.getElementById('mobile-menu');
-    const navBar = document.getElementById('navbar');
+    const backdrop = document.getElementById('mobile-menu-backdrop');
     
-    if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
-        // Check if click is outside navbar and mobile menu
-        if (!navBar.contains(event.target)) {
-            mobileMenu.classList.add('hidden');
+    if (backdrop && !backdrop.classList.contains('hidden')) {
+        if (event.target === backdrop) {
+            closeMobileMenu();
         }
     }
 });
 
-// Close mobile menu on escape key
+// Close mobile menu on escape key and return focus to toggle
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
         const mobileMenu = document.getElementById('mobile-menu');
+        const menuToggle = document.getElementById('mobile-menu-toggle');
         if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
-            mobileMenu.classList.add('hidden');
+            closeMobileMenu();
+            if (menuToggle) menuToggle.focus();
         }
     }
 });
