@@ -332,6 +332,9 @@ function applyProfileTheme(themeId, mode = getCurrentTheme()) {
         updateProfileThemePreviews(mode);
     }
 
+    // Dispatch custom event for click effects to listen to
+    window.dispatchEvent(new CustomEvent('profileThemeChanged', { detail: { themeId: normalizedTheme, mode } }));
+
     return normalizedTheme;
 }
 

@@ -36,31 +36,55 @@ class AnifyClickEffects {
             attributeFilter: ['data-color-mode', 'data-theme', 'class']
         });
         
-        // Also listen for storage changes
+        // Listen for storage changes (including profile theme changes)
         window.addEventListener('storage', (e) => {
             if (e.key === 'anify-theme' || e.key === 'anify-user-profile') {
                 this.updateThemeColors();
             }
         });
+        
+        // Listen for custom profile theme change events
+        window.addEventListener('profileThemeChanged', () => {
+            this.updateThemeColors();
+        });
+        
+        // Periodic check for theme changes (backup)
+        setInterval(() => {
+            this.updateThemeColors();
+        }, 2000);
     }
     
     updateThemeColors() {
         if (!this.useThemeColors) return;
         
-        const isLight = document.documentElement.classList.contains('light');
-        const computedStyle = getComputedStyle(document.documentElement);
-        
-        // Get theme colors from CSS variables
-        const primary = computedStyle.getPropertyValue('--primary').trim() || '#FFD700';
-        const surface = computedStyle.getPropertyValue('--surface').trim() || '#A855F7';
-        
-        // Set colors based on theme
-        if (isLight) {
-            this.color = '#B8860B'; // Darker gold for light mode
-            this.secondaryColor = '#6B21A8'; // Darker purple for light mode
-        } else {
-            this.color = '#FFD700'; // Bright gold for dark mode
-            this.secondaryColor = '#A855F7'; // Bright purple for dark mode
+        try {
+            // Get current profile theme from localStorage
+            const userProfile = JSON.parse(localStorage.getItem('anify-user-profile') || '{}');
+            const profileTheme = userProfile.profileTheme || 'default';
+            
+            // Get profile theme colors from the global config
+            const profileConfig = window.getProfileConfig?.();
+            const themeData = profileConfig?.PROFILE_THEMES?.[profileTheme] || profileConfig?.PROFILE_THEMES?.['default'];
+            
+            if (themeData) {
+                const isLight = document.documentElement.classList.contains('light');
+                const tokens = isLight ? themeData.lightTokens : themeData.tokens;
+                
+                // Use the theme's primary and accent colors
+                this.color = tokens?.primary || '#FFD700';
+                this.secondaryColor = tokens?.accent || '#A855F7';
+            } else {
+                // Fallback to default gold/purple
+                const isLight = document.documentElement.classList.contains('light');
+                this.color = isLight ? '#B8860B' : '#FFD700';
+                this.secondaryColor = isLight ? '#6B21A8' : '#A855F7';
+            }
+        } catch (error) {
+            console.error('Error updating theme colors:', error);
+            // Fallback to default colors
+            const isLight = document.documentElement.classList.contains('light');
+            this.color = isLight ? '#B8860B' : '#FFD700';
+            this.secondaryColor = isLight ? '#6B21A8' : '#A855F7';
         }
     }
     
