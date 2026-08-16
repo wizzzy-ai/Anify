@@ -1,40 +1,36 @@
 (function (global) {
     'use strict';
 
+    const CACHED_ANIME_KEY = 'anify-cached-anime';
+
+    // Synchronously hydrate animeData from cache on script execution for 0ms first paint
+    (function hydrateCachedAnime() {
+        try {
+            const cached = JSON.parse(global.localStorage?.getItem(CACHED_ANIME_KEY) || 'null');
+            if (Array.isArray(cached) && cached.length && Array.isArray(global.animeData)) {
+                global.animeData.splice(0, global.animeData.length, ...cached);
+            }
+        } catch (e) { }
+    })();
+
     async function loadAnimeFromApi() {
-        console.log('[API LOAD] ========== LOADING ANIME DATA FROM API ==========');
-        console.log('[API LOAD] BEFORE - Current animeData length:', global.animeData?.length || 0);
-        if (global.animeData && global.animeData.length > 0) {
-            console.log('[API LOAD] BEFORE - Sample current anime status:', global.animeData[0]?.status);
-        }
-        
         try {
             const res = await fetch('/api/anime');
             const data = await res.json().catch(() => ({}));
-            console.log('[API LOAD] API response received:', data);
             
             if (res.ok && data.ok && Array.isArray(data.anime)) {
-                console.log('[API LOAD] SUCCESS - Updating animeData with', data.anime.length, 'items');
-                console.log('[API LOAD] SUCCESS - Sample API anime status:', data.anime[0]?.status);
-                
                 global.animeData.splice(0, global.animeData.length, ...data.anime);
-                
-                console.log('[API LOAD] AFTER - New animeData length:', global.animeData.length);
-                console.log('[API LOAD] AFTER - Sample new anime status:', global.animeData[0]?.status);
-                console.log('[API LOAD] ========== API LOAD COMPLETE ==========');
+                try {
+                    global.localStorage?.setItem(CACHED_ANIME_KEY, JSON.stringify(data.anime));
+                } catch (e) { }
                 return true;
-            } else {
-                console.error('[API LOAD] ERROR - API response not ok or invalid data:', data);
             }
         } catch (e) {
-            console.warn('[API LOAD] ERROR - API fetch failed, using localStorage fallback:', e.message);
+            console.warn('[API LOAD] API fetch failed, using fallback:', e.message);
         }
         
         // Fallback to localStorage only if API fails
-        console.log('[API LOAD] FALLBACK - Loading from localStorage...');
         restoreAdminAnimeData();
-        console.log('[API LOAD] FALLBACK - animeData length after restore:', global.animeData?.length || 0);
-        console.log('[API LOAD] ========== API LOAD COMPLETE (WITH FALLBACK) ==========');
         return false;
     }
 

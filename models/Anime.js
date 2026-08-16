@@ -103,6 +103,13 @@ const animeSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
+// Performance indexes for instant querying and sorting
+animeSchema.index({ createdAt: -1 });
+animeSchema.index({ featured: 1, createdAt: -1 });
+animeSchema.index({ trending: 1, createdAt: -1 });
+animeSchema.index({ status: 1 });
+animeSchema.index({ type: 1, createdAt: -1 });
+
 // Method to recalculate average rating and count from individual user ratings
 animeSchema.methods.recalculateRatings = async function() {
   const Rating = mongoose.model('Rating');

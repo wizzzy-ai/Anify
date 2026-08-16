@@ -101,6 +101,15 @@ let notificationSearchQuery = '';
 const fallbackGenres = [
     'Action','Adventure','Comedy','Drama','Fantasy','Sci-Fi','Romance','Slice of Life','Mystery','Thriller','Horror','Supernatural','Psychological','Sports','Music','Mecha','Military','Historical','Samurai','Martial Arts','Magic','Isekai','School','Shounen','Shoujo','Seinen','Josei','Ecchi','Harem','Reverse Harem','Idol','Cooking','Medical','Detective','Crime','Police','Spy','Family','Vampire','Demons','Monsters','Space','Survival','Game','Parody','Post-Apocalyptic','Superpower'
 ];
+
+// Synchronously hydrate animeData from cache for instant 0ms first render
+try {
+    const cachedAnime = JSON.parse(localStorage.getItem('anify-cached-anime') || 'null');
+    if (Array.isArray(cachedAnime) && cachedAnime.length) {
+        animeData.splice(0, animeData.length, ...cachedAnime);
+    }
+} catch (e) {}
+
 window.animeData = animeData;
 window.categories = categories;
 
@@ -909,6 +918,9 @@ async function loadAnimeFromApi() {
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.ok && Array.isArray(data.anime)) {
             animeData.splice(0, animeData.length, ...data.anime);
+            try {
+                localStorage.setItem('anify-cached-anime', JSON.stringify(data.anime));
+            } catch (e) {}
             return true;
         }
     } catch (e) {
@@ -1070,7 +1082,7 @@ function renderHeroMedia(anime) {
             </video>`;
     }
 
-    return `<img src="${ensureHttps(anime.banner || anime.image || '')}" class="is-active" alt="${anime.title || ''}" />`;
+    return `<img src="${ensureHttps(anime.banner || anime.image || '')}" class="is-active" alt="${anime.title || ''}" fetchpriority="high" decoding="async" />`;
 }
 
 function renderHeroContent(anime) {
@@ -1219,20 +1231,24 @@ function renderEpisodeList(anime, language = 'sub') {
 // ============ NAVIGATION ============
 async function initializeApp(){
     const app = document.getElementById('app');
-    const loading = document.getElementById('loading-screen');
 
-    // Run loading operations in parallel with timeout protection
+    window.addEventListener('hashchange', handleRouteChange);
+    window.addEventListener('popstate', handleRouteChange);
+
+    // 1. Initial 0ms render from synchronous memory/cache
+    handleRouteChange();
+    restoreMiniPlayerFromRefresh();
+
+    // 2. Safe timeout protection
     const loadingTimeout = setTimeout(() => {
-        console.warn('[App] Loading timeout - forcing app to show');
-        if (loading) loading.style.display = 'none';
         if (app) {
             app.classList.remove('opacity-0');
             app.classList.add('opacity-100');
         }
-    }, 10000); // 10 second timeout
+    }, 20000);
 
     try {
-        // Run both loading operations in parallel instead of sequentially
+        // Run both loading operations in parallel
         await Promise.all([
             ensureGenresReady().catch(e => {
                 console.warn('[App] Genre loading failed:', e);
@@ -1247,21 +1263,14 @@ async function initializeApp(){
 
     clearTimeout(loadingTimeout);
 
-    window.addEventListener('hashchange', handleRouteChange);
-    window.addEventListener('popstate', handleRouteChange);
-    handleRouteChange(); // Initial route handling
-    restoreMiniPlayerFromRefresh(); // Reopen the mini player after a hard refresh, if it was left open
+    // Refresh route view with fresh API data
+    handleRouteChange();
 
     if (window.lucide && typeof lucide.createIcons === 'function') {
         lucide.createIcons();
     }
 
-    // Hide loading screen + show app
-    if (loading) loading.style.display = 'none';
-    if (app) {
-        app.classList.remove('opacity-0');
-        app.classList.add('opacity-100');
-    }
+    console.log('[App] Initialization complete');
 }
 
 async function uploadMediaFile(file) {
@@ -1307,6 +1316,16 @@ async function uploadVideoFile(file, onProgress = null) {
 
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[App] DOMContentLoaded fired');
+    
+    // Play cinematic intro animation
+    if (window.initAnifyIntro) {
+        console.log('[App] Initializing intro animation...');
+        initAnifyIntro();
+    } else {
+        console.warn('[App] initAnifyIntro not available');
+    }
+    
     applyTheme(getCurrentTheme());
     authService.restoreSession();
     applyProfileTheme(authService.getCurrentUser()?.profileTheme || getProfileConfig().DEFAULT_PROFILE_THEME);
@@ -1719,7 +1738,7 @@ function renderAnimeCard(a) {
     return `
     <div onclick="navigate('anime', ${a.id})" class="anime-card flex-shrink-0 w-44 md:w-52">
         <div class="relative aspect-[3/4] rounded-2xl overflow-hidden bg-dark-700">
-            <img src="${ensureHttps(a.image)}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy">
+            <img src="${ensureHttps(a.image)}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy" decoding="async">
             <div class="card-overlay"></div>
             <div class="absolute top-2 left-2 flex flex-col gap-1">
                 ${a.premium ? '<span class="badge-premium">Premium</span>' : ''}
@@ -4507,10 +4526,6 @@ function toggleNotifications(forceOpen = null) {
             if (first && typeof first.focus === 'function') first.focus();
         }, 0);
     }
-}
-
-function toggleMobileMenu() {
-    document.getElementById('mobile-menu').classList.toggle('hidden');
 }
 
 function getNotificationBadgeCount() {

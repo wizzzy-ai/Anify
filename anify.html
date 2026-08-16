@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: ws: wss: data: blob:; connect-src 'self' https: http: ws: wss: localhost 127.0.0.1 ipinfo.io; img-src 'self' https: http: data: blob:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:;">
     <title>Anify — Premium Anime Streaming</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://res.cloudinary.com">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <link rel="icon" id="app-favicon" href="/pictures/logo2.png" type="image/png">
@@ -79,20 +86,6 @@
 </head>
 
 <body class="bg-dark-900 text-white font-outfit transition-colors duration-500">
-
-    <!-- Loading Screen -->
-    <div id="loading-screen" class="fixed inset-0 z-[9999] bg-dark-900 flex items-center justify-center">
-        <div class="text-center">
-            <div class="anime-loader mb-6">
-                <div class="loader-ring"></div>
-                <div class="loader-ring"></div>
-                <div class="loader-ring"></div>
-                <div class="loader-logo">A</div>
-            </div>
-            <p class="text-gold-400 font-outfit text-xl font-bold tracking-widest">ANIFY</p>
-            <p class="text-gray-500 text-sm mt-1">Loading your anime experience...</p>
-        </div>
-    </div>
 
     <!-- App Container -->
     <div id="app" class="min-h-screen opacity-0 transition-opacity duration-700">
@@ -613,6 +606,7 @@
     <script src="js/platformMaintenance.js"></script>
     <script src="js/profile/profileConfig.js"></script>
     <script src="js/clickEffects.js"></script>
+    <script src="js/introAnimation.js"></script>
     <script src="script.js"></script>
     <script src="js/admin/adminService.js"></script>
     <script src="js/admin/adminUtils.js"></script>

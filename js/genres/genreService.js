@@ -51,11 +51,24 @@
         'Superpower',
     ];
 
+    const CACHED_GENRES_KEY = 'anify-cached-genres';
+
     const state = {
         genres: [],
         loading: null,
         loaded: false,
     };
+
+    // Hydrate genres from local cache for instant 0ms first paint
+    (function hydrateCachedGenres() {
+        try {
+            const cached = JSON.parse(global.localStorage?.getItem(CACHED_GENRES_KEY) || 'null');
+            if (Array.isArray(cached) && cached.length) {
+                state.genres = cached;
+                state.loaded = true;
+            }
+        } catch (e) { }
+    })();
 
     function normalizeGenre(item) {
         if (!item) return null;
@@ -139,10 +152,13 @@
                 const genres = normalizeGenreList(Array.isArray(data.genres) ? data.genres : []);
                 state.genres = genres.length ? genres : getDefaultGenres();
                 state.loaded = true;
+                try {
+                    global.localStorage?.setItem(CACHED_GENRES_KEY, JSON.stringify(state.genres));
+                } catch (e) { }
                 return state.genres;
             })
             .catch(() => {
-                state.genres = getDefaultGenres();
+                state.genres = state.genres.length ? state.genres : getDefaultGenres();
                 state.loaded = true;
                 return state.genres;
             })

@@ -151,8 +151,8 @@ app.get('/', (req, res) => {
 
 // Health check endpoint for Render
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
+  res.status(200).json({
+    status: 'ok',
     dbReady: dbReady,
     timestamp: new Date().toISOString()
   });
@@ -162,8 +162,8 @@ app.get('/health', (req, res) => {
 app.get('/test-email', async (req, res) => {
   const mailer = getMailer();
   if (!mailer) {
-    return res.status(500).json({ 
-      ok: false, 
+    return res.status(500).json({
+      ok: false,
       error: 'Email configuration missing',
       config: {
         hasUser: !!process.env.EMAIL_USER,
@@ -176,8 +176,8 @@ app.get('/test-email', async (req, res) => {
 
   try {
     await mailer.verify();
-    res.json({ 
-      ok: true, 
+    res.json({
+      ok: true,
       message: 'SMTP configuration is valid',
       config: {
         host: process.env.SMTP_HOST,
@@ -186,112 +186,96 @@ app.get('/test-email', async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ 
-      ok: false, 
+    res.status(500).json({
+      ok: false,
       error: error.message,
       details: error
     });
   }
 });
 
-// Country detection endpoint (server-side, secure)
+const ipCountryCache = new Map();
+
+// Country detection endpoint (server-side, secure, cached)
 app.get('/api/country', async (req, res) => {
   try {
     const apiKey = process.env.IPINFO_TOKEN;
-    
-    if (!apiKey) {
-      throw new Error('IPinfo API key not configured');
-    }
-    
+
     // Get client IP address, considering proxy headers
-    const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || 
-                     req.headers['cf-connecting-ip'] ||
-                     req.headers['x-real-ip'] || 
-                     req.socket?.remoteAddress ||
-                     req.ip;
-    
-    console.log('[COUNTRY DEBUG] STEP 1 - Client IP:', clientIp);
-    console.log('[COUNTRY DEBUG] STEP 2 - About to call IPinfo');
-    
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0] ||
+      req.headers['cf-connecting-ip'] ||
+      req.headers['x-real-ip'] ||
+      req.socket?.remoteAddress ||
+      req.ip;
+
+    if (ipCountryCache.has(clientIp)) {
+      res.set('Cache-Control', 'public, max-age=3600');
+      return res.json({ ok: true, country: ipCountryCache.get(clientIp) });
+    }
+
     // Check if request is from localhost
-    const isLocalhost = clientIp === '::1' || 
-                        clientIp === '127.0.0.1' || 
-                        clientIp === '::ffff:127.0.0.1' ||
-                        clientIp?.startsWith('192.168.') ||
-                        clientIp?.startsWith('10.') ||
-                        clientIp?.startsWith('172.');
-    
-    if (isLocalhost) {
-      // Development-only fallback
+    const isLocalhost = clientIp === '::1' ||
+      clientIp === '127.0.0.1' ||
+      clientIp === '::ffff:127.0.0.1' ||
+      clientIp?.startsWith('192.168.') ||
+      clientIp?.startsWith('10.') ||
+      clientIp?.startsWith('172.');
+
+    if (isLocalhost || !apiKey) {
+      ipCountryCache.set(clientIp, 'NG');
+      res.set('Cache-Control', 'public, max-age=3600');
       return res.json({
         ok: true,
         country: "NG",
-        development: true
+        development: isLocalhost
       });
     }
-    
+
     // Production: Use IPinfo lite endpoint with client IP
     const data = await new Promise((resolve, reject) => {
       const options = {
         hostname: 'ipinfo.io',
         path: `/lite/${clientIp}?token=${apiKey}`,
         method: 'GET',
-        timeout: 10000
+        timeout: 4000
       };
-      
+
       const req = https.request(options, (response) => {
-        console.log('[COUNTRY DEBUG] STEP 3 - IPinfo request completed');
-        console.log('[COUNTRY DEBUG] STEP 3 - HTTP status:', response.statusCode);
-        console.log('[COUNTRY DEBUG] STEP 3 - Content-Type:', response.headers['content-type']);
-        
         let body = '';
         response.on('data', (chunk) => {
           body += chunk;
         });
         response.on('end', () => {
-          console.log('[COUNTRY DEBUG] STEP 4 - Raw IPinfo response:', body);
           try {
             const parsed = JSON.parse(body);
-            console.log('[COUNTRY DEBUG] STEP 5 - Parsed IPinfo data:', parsed);
             resolve(parsed);
           } catch (e) {
-            console.error('[COUNTRY DEBUG] JSON PARSE ERROR:', e);
             reject(e);
           }
         });
       });
-      
-      req.on('error', (e) => {
-        reject(e);
-      });
-      
+
+      req.on('error', reject);
       req.on('timeout', () => {
         req.destroy();
-        reject(new Error('Request timeout'));
+        reject(new Error('IPinfo timeout'));
       });
-      
       req.end();
     });
-    
-    console.log('[COUNTRY DEBUG] STEP 6 - Country:', data.country);
-    console.log('[COUNTRY DEBUG] STEP 6 - Country code:', data.countryCode);
-    
-    if (data.country) {
-      return res.json({ 
-        ok: true, 
-        country: data.country 
-      });
-    }
-    
-    throw new Error('No country code found');
-    
+
+    const countryCode = data?.country || "NG";
+    ipCountryCache.set(clientIp, countryCode);
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.json({
+      ok: true,
+      country: countryCode
+    });
   } catch (error) {
-    console.error('[COUNTRY DEBUG] ACTUAL ERROR:', error?.message);
-    console.error('[COUNTRY DEBUG] STACK:', error?.stack);
-    return res.status(500).json({
-      ok: false,
-      country: null,
-      error: 'Country detection failed'
+    console.warn('[Country Detection] Error detecting country:', error.message);
+    res.json({
+      ok: true,
+      country: "NG",
+      fallback: true
     });
   }
 });
@@ -330,6 +314,7 @@ if (hasMongo) {
       console.log('Host:', mongoose.connection.host);
       console.log('Ready:', mongoose.connection.readyState);
       console.log('MongoDB host:', mongoose.connection.host);
+      syncGenreCounts().catch(e => console.warn('Initial genre sync failed:', e.message));
     })
     .catch((error) => {
       console.warn('MongoDB connection failed:', error.message);
@@ -424,7 +409,7 @@ app.put('/api/admin/platform-settings', requireDb, requireAdmin, async (req, res
       { $set: updateData },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
-    
+
     if (typeof maintenanceMode === 'boolean') {
       maintenanceModeEnabled = maintenanceMode;
       maintenanceModeLastChecked = Date.now();
@@ -435,7 +420,7 @@ app.put('/api/admin/platform-settings', requireDb, requireAdmin, async (req, res
       supportEnabledLastChecked = Date.now();
       broadcastSupportEnabled();
     }
-    
+
     res.json({ ok: true, maintenanceMode: maintenanceModeEnabled, supportEnabled });
   } catch (error) {
     res.status(500).json({ ok: false, error: String(error?.message || error) });
@@ -479,22 +464,22 @@ function normalizeAnime(anime) {
 
   const episodesMedia = Array.isArray(obj.episodesMedia)
     ? obj.episodesMedia.map(e => ({
-        episodeNumber: e.episodeNumber,
-        episodeTitle: e.episodeTitle || '',
-        thumbnail: e.thumbnail || '',
-        introStart: e.introStart,
-        introEnd: e.introEnd,
-        outroStart: e.outroStart,
-        outroEnd: e.outroEnd,
-        sub: {
-          qualities:
-            e?.sub?.qualities instanceof Map ? Object.fromEntries(e.sub.qualities) : (e?.sub?.qualities || {}),
-        },
-        dub: {
-          qualities:
-            e?.dub?.qualities instanceof Map ? Object.fromEntries(e.dub.qualities) : (e?.dub?.qualities || {}),
-        },
-      }))
+      episodeNumber: e.episodeNumber,
+      episodeTitle: e.episodeTitle || '',
+      thumbnail: e.thumbnail || '',
+      introStart: e.introStart,
+      introEnd: e.introEnd,
+      outroStart: e.outroStart,
+      outroEnd: e.outroEnd,
+      sub: {
+        qualities:
+          e?.sub?.qualities instanceof Map ? Object.fromEntries(e.sub.qualities) : (e?.sub?.qualities || {}),
+      },
+      dub: {
+        qualities:
+          e?.dub?.qualities instanceof Map ? Object.fromEntries(e.dub.qualities) : (e?.dub?.qualities || {}),
+      },
+    }))
     : [];
 
   // If episodesMedia exists but episodes hint is stale (common after switching
@@ -535,7 +520,7 @@ function normalizeAnime(anime) {
       ...(obj.movieMedia || {}),
       qualities: movieQualities,
     },
-    
+
     // Ensure all other fields are included
     title: obj.title,
     titleJp: obj.titleJp,
@@ -571,7 +556,7 @@ function requireDb(req, res, next) {
 }
 
 const defaultGenreNames = [
-  'Action','Adventure','Comedy','Drama','Fantasy','Sci-Fi','Romance','Slice of Life','Mystery','Thriller','Horror','Supernatural','Psychological','Sports','Music','Mecha','Military','Historical','Samurai','Martial Arts','Magic','Isekai','School','Shounen','Shoujo','Seinen','Josei','Ecchi','Harem','Reverse Harem','Idol','Cooking','Medical','Detective','Crime','Police','Spy','Family','Vampire','Demons','Monsters','Space','Survival','Game','Parody','Post-Apocalyptic','Superpower'
+  'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Sci-Fi', 'Romance', 'Slice of Life', 'Mystery', 'Thriller', 'Horror', 'Supernatural', 'Psychological', 'Sports', 'Music', 'Mecha', 'Military', 'Historical', 'Samurai', 'Martial Arts', 'Magic', 'Isekai', 'School', 'Shounen', 'Shoujo', 'Seinen', 'Josei', 'Ecchi', 'Harem', 'Reverse Harem', 'Idol', 'Cooking', 'Medical', 'Detective', 'Crime', 'Police', 'Spy', 'Family', 'Vampire', 'Demons', 'Monsters', 'Space', 'Survival', 'Game', 'Parody', 'Post-Apocalyptic', 'Superpower'
 ];
 
 function normalizeGenreList(genres) {
@@ -580,33 +565,73 @@ function normalizeGenreList(genres) {
     .filter(Boolean))];
 }
 
+let cachedGenres = null;
+let cachedGenresTime = 0;
+
 async function seedDefaultGenres() {
   if (!dbReady) return [];
-  for (const name of defaultGenreNames) {
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    await Genre.updateOne(
-      { slug },
-      { $setOnInsert: { name, slug, description: '', animeCount: 0 } },
-      { upsert: true }
-    );
+  try {
+    const count = await Genre.countDocuments();
+    if (count === 0) {
+      const bulkOps = defaultGenreNames.map((name) => {
+        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        return {
+          updateOne: {
+            filter: { slug },
+            update: { $setOnInsert: { name, slug, description: '', animeCount: 0 } },
+            upsert: true,
+          }
+        };
+      });
+      if (bulkOps.length > 0) {
+        await Genre.bulkWrite(bulkOps);
+      }
+    }
+  } catch (err) {
+    console.warn('seedDefaultGenres error:', err.message);
   }
   return Genre.find().sort({ name: 1 }).lean();
 }
 
 async function syncGenreCounts() {
   if (!dbReady) return [];
-  await seedDefaultGenres();
-  const genres = await Genre.find().lean();
-  const counts = await Anime.aggregate([
-    { $unwind: { path: '$genres', preserveNullAndEmptyArrays: false } },
-    { $group: { _id: '$genres', count: { $sum: 1 } } },
-  ]);
+  try {
+    await seedDefaultGenres();
+    const genres = await Genre.find().lean();
+    const counts = await Anime.aggregate([
+      { $unwind: { path: '$genres', preserveNullAndEmptyArrays: false } },
+      { $group: { _id: '$genres', count: { $sum: 1 } } },
+    ]);
 
-  const countMap = Object.fromEntries(counts.map((entry) => [String(entry._id), entry.count]));
-  for (const genre of genres) {
-    await Genre.updateOne({ _id: genre._id }, { $set: { animeCount: Number(countMap[genre.name] || 0) } });
+    const countMap = Object.fromEntries(counts.map((entry) => [String(entry._id), entry.count]));
+    const bulkOps = genres.map((genre) => ({
+      updateOne: {
+        filter: { _id: genre._id },
+        update: { $set: { animeCount: Number(countMap[genre.name] || 0) } }
+      }
+    }));
+
+    if (bulkOps.length > 0) {
+      await Genre.bulkWrite(bulkOps);
+    }
+
+    cachedGenres = await Genre.find().sort({ name: 1 }).lean();
+    cachedGenresTime = Date.now();
+    return cachedGenres;
+  } catch (err) {
+    console.warn('syncGenreCounts error:', err.message);
+    return Genre.find().sort({ name: 1 }).lean();
   }
-  return Genre.find().sort({ name: 1 }).lean();
+}
+
+async function getCachedOrFreshGenres() {
+  if (!dbReady) return [];
+  if (cachedGenres && (Date.now() - cachedGenresTime < 60000)) {
+    return cachedGenres;
+  }
+  cachedGenres = await Genre.find().sort({ name: 1 }).lean();
+  cachedGenresTime = Date.now();
+  return cachedGenres;
 }
 
 // For GET endpoints where the frontend should continue using local data,
@@ -622,7 +647,7 @@ function requireDbForGet(okPayload, res) {
  */
 function getErrorStatusCode(error) {
   const code = error.code || '';
-  
+
   switch (code) {
     case 'INVALID_FILE':
     case 'INVALID_FILE_SIZE':
@@ -649,12 +674,12 @@ function getErrorStatusCode(error) {
  */
 function getErrorMessage(error) {
   const code = error.code || '';
-  
+
   // Return the custom error message if available
   if (error.message && !error.message.includes('Failed to upload')) {
     return error.message;
   }
-  
+
   // Fallback messages based on error code
   const messages = {
     'INVALID_FILE': 'Invalid file provided',
@@ -668,7 +693,7 @@ function getErrorMessage(error) {
     'UPLOAD_FAILED': 'Upload failed',
     'STREAM_ERROR': 'Stream error occurred',
   };
-  
+
   return messages[code] || 'An error occurred during upload';
 }
 
@@ -676,7 +701,7 @@ function getErrorMessage(error) {
 
 async function sendUploadedFile(req, res, fieldName) {
   console.log('[UPLOAD] 📁 File received:', { fieldName, filename: req.file?.originalname, mimetype: req.file?.mimetype, size: req.file?.size });
-  
+
   try {
     if (!req.file) {
       console.error('[UPLOAD] ❌ No file received');
@@ -704,7 +729,7 @@ async function sendUploadedFile(req, res, fieldName) {
       console.log('[UPLOAD] ☁️ Uploading video to storage...');
       const { videoType = 'banner', metadata = {} } = req.body || {};
       const parsedMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
-      
+
       const isBannerVideo = fieldName !== 'video'
         && ['banner', 'banner-video', 'bannerVideo'].includes(String(videoType));
       if (isBannerVideo) {
@@ -773,11 +798,11 @@ app.post('/api/storage/upload', requireAdmin, upload.single('file'), async (req,
 
   } catch (e) {
     console.error("Storage Upload Error:", e);
-    
+
     // Handle specific error codes
     const statusCode = getErrorStatusCode(e);
     const errorMessage = getErrorMessage(e);
-    
+
     res.status(statusCode).json({
       ok: false,
       error: errorMessage,
@@ -893,58 +918,58 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
     const totalUsers = await User.countDocuments();
     const premiumUsers = await User.countDocuments({ plan: { $ne: 'Free' } });
     const activeUsers = await User.countDocuments({ status: 'active' });
-    
+
     // Enhanced user statistics
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
+
     const newUsersToday = await User.countDocuments({ createdAt: { $gte: todayStart } });
     const newUsersThisWeek = await User.countDocuments({ createdAt: { $gte: weekStart } });
-    
+
     // User plan distribution
     const freeUsers = await User.countDocuments({ plan: 'Free' });
     const basicUsers = await User.countDocuments({ plan: 'Basic' });
     const premiumPlanUsers = await User.countDocuments({ plan: 'Premium' });
     const vipUsers = await User.countDocuments({ plan: 'VIP' });
-    
+
     // User status distribution
     const pendingUsers = await User.countDocuments({ status: 'pending' });
     const bannedUsers = await User.countDocuments({ status: 'banned' });
-    
+
     // Get recent users for activity feed
     const recentUsers = await User.find()
       .sort({ createdAt: -1 })
       .limit(5)
       .select({ name: 1, username: 1, email: 1, createdAt: 1, status: 1, plan: 1 })
       .lean();
-    
+
     // Enhanced anime statistics
     const totalAnime = await Anime.countDocuments();
     const trendingAnime = await Anime.countDocuments({ trending: true });
     const featuredAnime = await Anime.countDocuments({ featured: true });
     const premiumAnime = await Anime.countDocuments({ premium: true });
     const newEpisodesAnime = await Anime.countDocuments({ newEpisode: true });
-    
+
     // Anime status distribution
     const ongoingAnime = await Anime.countDocuments({ status: 'Ongoing' });
     const completedAnime = await Anime.countDocuments({ status: 'Completed' });
     const upcomingAnime = await Anime.countDocuments({ status: 'Upcoming' });
-    
+
     // Recently added anime
     const recentAnime = await Anime.find()
       .sort({ createdAt: -1 })
       .limit(5)
       .select({ title: 1, image: 1, status: 1, createdAt: 1, rating: 1 })
       .lean();
-    
+
     // Top rated anime
     const topRatedAnime = await Anime.find()
       .sort({ averageRating: -1 })
       .limit(5)
       .select({ title: 1, image: 1, averageRating: 1, ratingCount: 1 })
       .lean();
-    
+
     // Genre distribution
     const allAnime = await Anime.find().select({ genres: 1 }).lean();
     const genreCounts = {};
@@ -955,7 +980,7 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
         });
       }
     });
-    
+
     // User growth over time (last 7 days)
     const userGrowth = [];
     for (let i = 6; i >= 0; i--) {
@@ -969,7 +994,7 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
         count: count
       });
     }
-    
+
     // Anime growth over time (last 7 days)
     const animeGrowth = [];
     for (let i = 6; i >= 0; i--) {
@@ -983,13 +1008,13 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
         count: count
       });
     }
-    
+
     // Enhanced user analytics
     // User engagement metrics (using watch progress as proxy for engagement)
     const activeWatchers = await WatchProgress.countDocuments({
       updatedAt: { $gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) }
     });
-    
+
     // User registration trends by month (last 6 months)
     const monthlyRegistrations = [];
     for (let i = 5; i >= 0; i--) {
@@ -1003,36 +1028,36 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
         count: count
       });
     }
-    
+
     // User activity distribution (by last login/activity)
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    
+
     const activeLastDay = await User.countDocuments({ updatedAt: { $gte: oneDayAgo } });
     const activeLastWeek = await User.countDocuments({ updatedAt: { $gte: sevenDaysAgo } });
     const activeLastMonth = await User.countDocuments({ updatedAt: { $gte: thirtyDaysAgo } });
-    
+
     // Most active users (based on recent activity)
     const mostActiveUsers = await User.find()
       .sort({ updatedAt: -1 })
       .limit(5)
       .select({ username: 1, email: 1, plan: 1, updatedAt: 1, createdAt: 1 })
       .lean();
-    
+
     // User retention (simplified - users who registered in last month and are still active)
     const lastMonthUsers = await User.find({
       createdAt: { $gte: thirtyDaysAgo }
     }).select({ _id: 1, updatedAt: 1 }).lean();
-    
-    const retainedUsers = lastMonthUsers.filter(user => 
+
+    const retainedUsers = lastMonthUsers.filter(user =>
       user.updatedAt && new Date(user.updatedAt) >= sevenDaysAgo
     ).length;
-    
-    const retentionRate = lastMonthUsers.length > 0 
-      ? Math.round((retainedUsers / lastMonthUsers.length) * 100) 
+
+    const retentionRate = lastMonthUsers.length > 0
+      ? Math.round((retainedUsers / lastMonthUsers.length) * 100)
       : 0;
-    
+
     // Time-based analytics
     // Peak usage hours (analyze user activity by hour of day)
     const hourlyActivity = [];
@@ -1041,19 +1066,19 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
       hourStart.setHours(hour, 0, 0, 0);
       const hourEnd = new Date(hourStart);
       hourEnd.setHours(hour + 1);
-      
+
       // Count users who were active in this hour (using updatedAt as proxy)
       const count = await User.countDocuments({
         updatedAt: { $gte: hourStart, $lt: hourEnd }
       });
-      
+
       hourlyActivity.push({
         hour: hour,
         count: count,
         label: `${hour}:00`
       });
     }
-    
+
     // Day-of-week activity patterns
     const dayOfWeekActivity = [];
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -1063,42 +1088,42 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
       dayStart.setHours(0, 0, 0, 0);
       const dayEnd = new Date(dayStart);
       dayEnd.setDate(dayEnd.getDate() + 1);
-      
+
       const count = await User.countDocuments({
         updatedAt: { $gte: dayStart, $lt: dayEnd }
       });
-      
+
       dayOfWeekActivity.push({
         day: dayNames[day],
         count: count
       });
     }
-    
+
     // Seasonal trends (last 12 months)
     const seasonalTrends = [];
     for (let i = 11; i >= 0; i--) {
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-      
+
       const newUsers = await User.countDocuments({
         createdAt: { $gte: monthStart, $lte: monthEnd }
       });
-      
+
       const activeUsers = await User.countDocuments({
         updatedAt: { $gte: monthStart, $lte: monthEnd }
       });
-      
+
       seasonalTrends.push({
         month: monthStart.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
         newUsers: newUsers,
         activeUsers: activeUsers
       });
     }
-    
+
     // Peak usage identification
     const peakHour = hourlyActivity.reduce((max, hour) => hour.count > max.count ? hour : max, hourlyActivity[0]);
     const peakDay = dayOfWeekActivity.reduce((max, day) => day.count > max.count ? day : max, dayOfWeekActivity[0]);
-    
+
     res.json({
       ok: true,
       stats: {
@@ -1199,7 +1224,7 @@ function formatTimeAgo(date) {
     hour: 3600,
     minute: 60
   };
-  
+
   for (const [unit, secondsInUnit] of Object.entries(intervals)) {
     const interval = Math.floor(seconds / secondsInUnit);
     if (interval >= 1) {
@@ -1215,27 +1240,27 @@ app.get('/api/anime/:animeId/rating', requireDb, async (req, res) => {
   console.log('[Rating GET] Route hit for animeId:', req.params.animeId);
   try {
     const { animeId } = req.params;
-    
+
     // Check if user is authenticated
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-    
+
     if (!token) {
       console.log('[Rating GET] No token provided');
       return res.json({ ok: true, rating: null, authenticated: false });
     }
-    
+
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const userId = decoded.userId;
-      
+
       const rating = await Rating.findOne({ animeId: String(animeId), userId: String(userId) });
-      
+
       if (!rating) {
         console.log('[Rating GET] No rating found for user');
         return res.json({ ok: true, rating: null, authenticated: true });
       }
-      
+
       console.log('[Rating GET] Rating found:', rating.rating);
       res.json({ ok: true, rating: rating.rating, authenticated: true });
     } catch (jwtError) {
@@ -1255,49 +1280,49 @@ app.post('/api/anime/:animeId/rating', async (req, res) => {
   try {
     const { animeId } = req.params;
     const { rating } = req.body;
-    
+
     // Check authentication
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-    
+
     if (!token) {
       return res.status(401).json({ ok: false, error: 'Authentication required' });
     }
-    
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId;
-    
+
     // Validate rating
     if (typeof rating !== 'number' || rating < 0 || rating > 10) {
       return res.status(400).json({ ok: false, error: 'Rating must be a number between 0 and 10' });
     }
-    
+
     // Find the anime
     const query = /^\d+$/.test(animeId)
       ? { clientId: Number(animeId) }
       : { _id: animeId };
-    
+
     const anime = await Anime.findOne(query);
     if (!anime) {
       return res.status(404).json({ ok: false, error: 'Anime not found' });
     }
-    
+
     // Use the anime's _id for the rating
     const animeIdForRating = anime._id.toString();
-    
+
     // Upsert the rating (create or update)
     const updatedRating = await Rating.findOneAndUpdate(
       { animeId: animeIdForRating, userId: String(userId) },
       { rating: Number(rating) },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
-    
+
     // Recalculate the anime's average rating
     const { averageRating, ratingCount } = await anime.recalculateRatings();
-    
+
     console.log('[Rating POST] Rating submitted successfully:', updatedRating.rating);
-    res.json({ 
-      ok: true, 
+    res.json({
+      ok: true,
       rating: updatedRating.rating,
       averageRating,
       ratingCount
@@ -1316,39 +1341,39 @@ app.delete('/api/anime/:animeId/rating', async (req, res) => {
   console.log('[Rating DELETE] Route hit for animeId:', req.params.animeId);
   try {
     const { animeId } = req.params;
-    
+
     // Check authentication
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-    
+
     if (!token) {
       return res.status(401).json({ ok: false, error: 'Authentication required' });
     }
-    
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId;
-    
+
     // Find the anime
     const query = /^\d+$/.test(animeId)
       ? { clientId: Number(animeId) }
       : { _id: animeId };
-    
+
     const anime = await Anime.findOne(query);
     if (!anime) {
       return res.status(404).json({ ok: false, error: 'Anime not found' });
     }
-    
+
     const animeIdForRating = anime._id.toString();
-    
+
     // Delete the rating
     await Rating.findOneAndDelete({ animeId: animeIdForRating, userId: String(userId) });
-    
+
     // Recalculate the anime's average rating
     const { averageRating, ratingCount } = await anime.recalculateRatings();
-    
+
     console.log('[Rating DELETE] Rating deleted successfully');
-    res.json({ 
-      ok: true, 
+    res.json({
+      ok: true,
       averageRating,
       ratingCount
     });
@@ -1364,35 +1389,15 @@ app.delete('/api/anime/:animeId/rating', async (req, res) => {
 app.get('/api/anime', async (req, res) => {
   if (!requireDbForGet({ ok: false, error: 'MongoDB is not connected.' }, res)) return;
   const anime = await Anime.find().sort({ createdAt: -1 }).lean();
-  console.log('[GET /api/anime] MongoDB documents count:', anime.length);
-  if (anime.length > 0) {
-    console.log('[GET /api/anime] First MongoDB document:', JSON.stringify(anime[0], null, 2));
-    console.log('[GET /api/anime] First document fields:', {
-      status: anime[0]?.status,
-      desc: anime[0]?.desc,
-      year: anime[0]?.year,
-      studio: anime[0]?.studio,
-      genres: anime[0]?.genres,
-      rating: anime[0]?.rating,
-      premium: anime[0]?.premium,
-      featured: anime[0]?.featured,
-      trending: anime[0]?.trending,
-      newEpisode: anime[0]?.newEpisode
-    });
-  }
   const normalizedAnime = anime.map(normalizeAnime);
-  console.log('[GET /api/anime] Returning', anime.length, 'anime records');
-  if (normalizedAnime.length > 0) {
-    console.log('[GET /api/anime] RESPONSE FIRST ANIME:', JSON.stringify(normalizedAnime[0], null, 2));
-    console.log('[GET /api/anime] Sample anime status:', normalizedAnime[0]?.status);
-    console.log('[GET /api/anime] Sample anime rating:', normalizedAnime[0]?.rating);
-  }
+  res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
   res.json({ ok: true, anime: normalizedAnime });
 });
 
 app.get('/api/genres', requireDb, async (req, res) => {
   try {
-    const genres = await syncGenreCounts();
+    const genres = await getCachedOrFreshGenres();
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
     res.json({ ok: true, genres });
   } catch (error) {
     res.status(500).json({ ok: false, error: String(error?.message || error) });
@@ -1451,7 +1456,7 @@ app.post('/api/anime', requireDb, async (req, res) => { // TEMP: Removed require
   console.log('[CREATE ANIME BACKEND] req.body:', JSON.stringify(req.body, null, 2));
   console.log('[CREATE ANIME BACKEND] Frontend sent id:', req.body.id);
   console.log('[CREATE ANIME BACKEND] Frontend sent clientId:', req.body.clientId);
-  
+
   const nextClientId = req.body.clientId || Date.now();
   console.log('[CREATE ANIME BACKEND] Generated nextClientId:', nextClientId);
   console.log('[CREATE ANIME BACKEND] ID mismatch check:', {
@@ -1460,13 +1465,13 @@ app.post('/api/anime', requireDb, async (req, res) => { // TEMP: Removed require
     generatedClientId: nextClientId,
     willUse: nextClientId
   });
-  
+
   const animeData = {
     ...req.body,
     clientId: nextClientId,
     genres: normalizeGenreList(req.body.genres),
   };
-  
+
   console.log('[CREATE ANIME BACKEND] DATA BEFORE MONGODB:', JSON.stringify(animeData, null, 2));
   console.log('[CREATE ANIME BACKEND] Fields before MongoDB:', {
     title: animeData.title,
@@ -1483,7 +1488,7 @@ app.post('/api/anime', requireDb, async (req, res) => { // TEMP: Removed require
     newEpisode: animeData.newEpisode,
     bannerDisplay: animeData.bannerDisplay
   });
-  
+
   console.log('[CREATE ANIME BACKEND] Schema paths:', Object.keys(Anime.schema.paths));
   console.log('[CREATE ANIME BACKEND] Schema has status field:', 'status' in Anime.schema.paths);
   console.log('[CREATE ANIME BACKEND] Schema has desc field:', 'desc' in Anime.schema.paths);
@@ -1497,9 +1502,9 @@ app.post('/api/anime', requireDb, async (req, res) => { // TEMP: Removed require
   console.log('[CREATE ANIME BACKEND] Schema has newEpisode field:', 'newEpisode' in Anime.schema.paths);
   console.log('[CREATE ANIME BACKEND] Schema has bannerDisplay field:', 'bannerDisplay' in Anime.schema.paths);
   console.log('[CREATE ANIME BACKEND] Schema has titleJp field:', 'titleJp' in Anime.schema.paths);
-  
+
   const anime = await Anime.create(animeData);
-  
+
   console.log('[CREATE ANIME BACKEND] CREATED DOCUMENT:', JSON.stringify(anime.toObject(), null, 2));
   console.log('[CREATE ANIME BACKEND] SAVED FIELDS:', {
     title: anime.title,
@@ -1516,7 +1521,7 @@ app.post('/api/anime', requireDb, async (req, res) => { // TEMP: Removed require
     newEpisode: anime.newEpisode,
     bannerDisplay: anime.bannerDisplay
   });
-  
+
   // FRESH MongoDB query to verify what was actually saved
   const freshAnime = await Anime.findById(anime._id).lean();
   console.log('[CREATE ANIME BACKEND] FRESH DOCUMENT FROM MONGODB:', JSON.stringify(freshAnime, null, 2));
@@ -1535,7 +1540,7 @@ app.post('/api/anime', requireDb, async (req, res) => { // TEMP: Removed require
     newEpisode: freshAnime?.newEpisode,
     bannerDisplay: freshAnime?.bannerDisplay
   });
-  
+
   await syncGenreCounts();
   res.status(201).json({ ok: true, anime: normalizeAnime(anime) });
 });
@@ -1649,14 +1654,14 @@ app.put('/api/anime/:id/episodes/:episodeNumber', requireDb, requireActiveUser, 
   console.log('[Episode Creation] Saving to database...');
   await anime.save();
   console.log('[Episode Creation] Saved successfully, total episodes:', anime.episodesMedia.length);
-  
+
   res.json({ ok: true, anime: normalizeAnime(anime) });
 });
 
 // Delete one episode from a series (anime only)
 app.delete('/api/anime/:id/episodes/:episodeNumber', requireDb, requireAdmin, async (req, res) => {
   console.log('[Episode Deletion] Starting episode deletion...', { id: req.params.id, episodeNumber: req.params.episodeNumber });
-  
+
   const query = /^\d+$/.test(req.params.id)
     ? { clientId: Number(req.params.id) }
     : { _id: req.params.id };
@@ -1674,7 +1679,7 @@ app.delete('/api/anime/:id/episodes/:episodeNumber', requireDb, requireAdmin, as
   }
 
   console.log('[Episode Deletion] Current episodes before deletion:', anime.episodesMedia?.length || 0);
-  
+
   anime.episodesMedia = Array.isArray(anime.episodesMedia) ? anime.episodesMedia : [];
   anime.episodesMedia = anime.episodesMedia.filter(e => Number(e?.episodeNumber) !== episodeNumber);
 
@@ -1688,7 +1693,7 @@ app.delete('/api/anime/:id/episodes/:episodeNumber', requireDb, requireAdmin, as
   console.log('[Episode Deletion] Saving to database...');
   await anime.save();
   console.log('[Episode Deletion] Deleted successfully, remaining episodes:', anime.episodesMedia.length);
-  
+
   res.json({ ok: true, anime: normalizeAnime(anime) });
 });
 
@@ -1727,19 +1732,19 @@ app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
   const query = /^\d+$/.test(req.params.id)
     ? { clientId: Number(req.params.id) }
     : { _id: req.params.id };
-  
+
   console.log('[Edit Anime API] Query:', query);
-  
+
   // Get the anime before update to see what we're changing
   const animeBefore = await Anime.findOne(query);
   if (!animeBefore) {
     console.error('[Edit Anime API] Anime not found with query:', query);
     return res.status(404).json({ ok: false, error: 'Anime not found.' });
   }
-  
+
   console.log('[Edit Anime API] Anime before update fields:', Object.keys(animeBefore.toObject()));
   console.log('[Edit Anime API] Anime before update:', JSON.stringify(animeBefore.toObject(), null, 2));
-  
+
   // Build explicit update object with only allowed fields
   const {
     title,
@@ -1774,9 +1779,9 @@ app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
     videoSources,
     bannerDisplay
   } = req.body;
-  
+
   const updateData = {};
-  
+
   // Only include fields that are actually provided in the request
   if (title !== undefined) updateData.title = title;
   if (titleJp !== undefined) updateData.titleJp = titleJp;
@@ -1811,19 +1816,19 @@ app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
   if (videoUrl !== undefined) updateData.videoUrl = videoUrl;
   if (videoSources !== undefined) updateData.videoSources = videoSources;
   if (bannerDisplay !== undefined) updateData.bannerDisplay = bannerDisplay;
-  
+
   console.log('[Edit Anime API] Explicit updateData:', JSON.stringify(updateData, null, 2));
-  
+
   const anime = await Anime.findOneAndUpdate(
     query,
     { $set: updateData },
-    { 
-      returnDocument: 'after', 
+    {
+      returnDocument: 'after',
       upsert: false,
       runValidators: true
     }
   );
-  
+
   console.log('[Edit Anime API] Anime updated successfully:', anime.title);
   console.log('[Edit Anime API] Updated document fields:', Object.keys(anime.toObject()));
   console.log('[Edit Anime API] Status field after update:', anime.status);
@@ -1831,7 +1836,7 @@ app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
   console.log('[Edit Anime API] Trending field after update:', anime.trending);
   console.log('[Edit Anime API] New Episode field after update:', anime.newEpisode);
   console.log('[Edit Anime API] Updated document:', JSON.stringify(anime.toObject(), null, 2));
-  
+
   // CRITICAL: Immediately fetch from MongoDB again to verify persistence
   const verifiedAnime = await Anime.findOne(query).lean();
   console.log('[Edit Anime API] VERIFIED FROM MONGODB - Status:', verifiedAnime?.status);
@@ -1846,17 +1851,17 @@ app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
   console.log('[Edit Anime API] VERIFIED FROM MONGODB - Featured:', verifiedAnime?.featured);
   console.log('[Edit Anime API] VERIFIED FROM MONGODB - TitleJp:', verifiedAnime?.titleJp);
   console.log('[Edit Anime API] VERIFIED FROM MONGODB - Full document:', JSON.stringify(verifiedAnime, null, 2));
-  
+
   // Compare before and after
   const beforeFields = Object.keys(animeBefore.toObject());
   const afterFields = Object.keys(anime.toObject());
   const missingFields = beforeFields.filter(f => !afterFields.includes(f));
   const newFields = afterFields.filter(f => !beforeFields.includes(f));
-  
+
   console.log('[Edit Anime API] Field comparison:');
   console.log('[Edit Anime API] Missing fields:', missingFields);
   console.log('[Edit Anime API] New fields:', newFields);
-  
+
   await syncGenreCounts();
   res.json({ ok: true, anime: normalizeAnime(anime) });
 });
@@ -1881,27 +1886,27 @@ app.get('/api/anime/:animeId/rating', requireDb, async (req, res) => {
   console.log('[Rating GET] Route hit for animeId:', req.params.animeId);
   try {
     const { animeId } = req.params;
-    
+
     // Check if user is authenticated
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-    
+
     if (!token) {
       console.log('[Rating GET] No token provided');
       return res.json({ ok: true, rating: null, authenticated: false });
     }
-    
+
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const userId = decoded.userId;
-      
+
       const rating = await Rating.findOne({ animeId: String(animeId), userId: String(userId) });
-      
+
       if (!rating) {
         console.log('[Rating GET] No rating found for user');
         return res.json({ ok: true, rating: null, authenticated: true });
       }
-      
+
       console.log('[Rating GET] Rating found:', rating.rating);
       res.json({ ok: true, rating: rating.rating, authenticated: true });
     } catch (jwtError) {
@@ -1921,49 +1926,49 @@ app.post('/api/anime/:animeId/rating', async (req, res) => {
   try {
     const { animeId } = req.params;
     const { rating } = req.body;
-    
+
     // Check authentication
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-    
+
     if (!token) {
       return res.status(401).json({ ok: false, error: 'Authentication required' });
     }
-    
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId;
-    
+
     // Validate rating
     if (typeof rating !== 'number' || rating < 0 || rating > 10) {
       return res.status(400).json({ ok: false, error: 'Rating must be a number between 0 and 10' });
     }
-    
+
     // Find the anime
     const query = /^\d+$/.test(animeId)
       ? { clientId: Number(animeId) }
       : { _id: animeId };
-    
+
     const anime = await Anime.findOne(query);
     if (!anime) {
       return res.status(404).json({ ok: false, error: 'Anime not found' });
     }
-    
+
     // Use the anime's _id for the rating
     const animeIdForRating = anime._id.toString();
-    
+
     // Upsert the rating (create or update)
     const updatedRating = await Rating.findOneAndUpdate(
       { animeId: animeIdForRating, userId: String(userId) },
       { rating: Number(rating) },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
-    
+
     // Recalculate the anime's average rating
     const { averageRating, ratingCount } = await anime.recalculateRatings();
-    
+
     console.log('[Rating POST] Rating submitted successfully:', updatedRating.rating);
-    res.json({ 
-      ok: true, 
+    res.json({
+      ok: true,
       rating: updatedRating.rating,
       averageRating,
       ratingCount
@@ -1982,39 +1987,39 @@ app.delete('/api/anime/:animeId/rating', async (req, res) => {
   console.log('[Rating DELETE] Route hit for animeId:', req.params.animeId);
   try {
     const { animeId } = req.params;
-    
+
     // Check authentication
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-    
+
     if (!token) {
       return res.status(401).json({ ok: false, error: 'Authentication required' });
     }
-    
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId;
-    
+
     // Find the anime
     const query = /^\d+$/.test(animeId)
       ? { clientId: Number(animeId) }
       : { _id: animeId };
-    
+
     const anime = await Anime.findOne(query);
     if (!anime) {
       return res.status(404).json({ ok: false, error: 'Anime not found' });
     }
-    
+
     const animeIdForRating = anime._id.toString();
-    
+
     // Delete the rating
     await Rating.findOneAndDelete({ animeId: animeIdForRating, userId: String(userId) });
-    
+
     // Recalculate the anime's average rating
     const { averageRating, ratingCount } = await anime.recalculateRatings();
-    
+
     console.log('[Rating DELETE] Rating deleted successfully');
-    res.json({ 
-      ok: true, 
+    res.json({
+      ok: true,
       averageRating,
       ratingCount
     });
@@ -2192,12 +2197,12 @@ function getMailer() {
   const pass = process.env.EMAIL_APP_PASSWORD;
   const host = process.env.SMTP_HOST;
   const port = process.env.SMTP_PORT;
-  
+
   if (!user || !pass || !host || !port) return null;
 
   const portNum = parseInt(port);
   const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER;
-  
+
   return nodemailer.createTransport({
     host,
     port: portNum,
@@ -2222,11 +2227,11 @@ function getOtpEmailTemplate(code) {
   try {
     const templatePath = path.join(__dirname, 'templates', 'otp-email.html');
     let template = fs.readFileSync(templatePath, 'utf-8');
-    
+
     // Replace placeholders
     template = template.replace('{{OTP_CODE}}', code);
     template = template.replace('{{VERIFY_URL}}', `${process.env.APP_URL || 'http://localhost:3000'}/verify-otp`);
-    
+
     return template;
   } catch (error) {
     console.error('Error loading email template:', error);
@@ -2307,15 +2312,15 @@ app.post('/api/auth/register', requireDb, async (req, res) => {
     console.error('[Register Error] Error name:', e?.name);
     console.error('[Register Error] Error message:', e?.message);
     console.error('[Register Error] Error stack:', e?.stack);
-    
+
     // More specific error messages
     let errorMessage = 'Registration failed';
     if (e?.message) {
       errorMessage = e.message;
     }
-    
-    res.status(500).json({ 
-      ok: false, 
+
+    res.status(500).json({
+      ok: false,
       error: errorMessage,
       details: process.env.NODE_ENV === 'development' ? {
         name: e?.name,
@@ -2333,7 +2338,7 @@ app.post('/api/auth/verify-otp', requireDb, async (req, res) => {
     }
 
     const normalizedEmail = String(email).toLowerCase().trim();
-    
+
     // Check if user is an admin - admins don't need OTP verification
     const user = await User.findOne({ email: normalizedEmail });
     if (user) {
@@ -2346,13 +2351,13 @@ app.post('/api/auth/verify-otp', requireDb, async (req, res) => {
       if (isAdmin) {
         return res.status(400).json({ ok: false, error: 'Admin accounts do not require email verification.' });
       }
-      
+
       // If user is already verified, they don't need OTP
       if (user.isVerified) {
         return res.status(400).json({ ok: false, error: 'Email is already verified. You can login directly.' });
       }
     }
-    
+
     if (!user) return res.status(400).json({ ok: false, error: 'User not found.' });
     const otp = user.emailVerification;
     if (!otp) return res.status(400).json({ ok: false, error: 'OTP not found or expired.' });
@@ -2377,10 +2382,10 @@ app.post('/api/auth/verify-otp', requireDb, async (req, res) => {
     // Verify OTP code
     if (String(otp.code) !== String(code)) {
       const remainingAttempts = otp.maxAttempts - attempts;
-      return res.status(400).json({ 
-        ok: false, 
-        error: remainingAttempts > 0 
-          ? `The verification code is incorrect. ${remainingAttempts} attempts remaining.` 
+      return res.status(400).json({
+        ok: false,
+        error: remainingAttempts > 0
+          ? `The verification code is incorrect. ${remainingAttempts} attempts remaining.`
           : 'Maximum verification attempts reached. Please request a new code.'
       });
     }
@@ -2480,7 +2485,7 @@ app.post('/api/auth/resend-otp', requireDb, async (req, res) => {
     }
 
     const normalizedEmail = String(email).toLowerCase().trim();
-    
+
     // Check if user exists
     const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
@@ -2508,11 +2513,11 @@ app.post('/api/auth/resend-otp', requireDb, async (req, res) => {
     if (existingOtp?.lastResendAt) {
       const timeSinceLastResend = Date.now() - new Date(existingOtp.lastResendAt).getTime();
       const cooldownPeriod = 60 * 1000; // 60 seconds
-      
+
       if (timeSinceLastResend < cooldownPeriod) {
         const remainingSeconds = Math.ceil((cooldownPeriod - timeSinceLastResend) / 1000);
-        return res.status(429).json({ 
-          ok: false, 
+        return res.status(429).json({
+          ok: false,
           error: `Please wait ${remainingSeconds} seconds before requesting another code.`,
           cooldownRemaining: remainingSeconds
         });
@@ -2541,7 +2546,7 @@ app.post('/api/auth/resend-otp', requireDb, async (req, res) => {
 
     const fromName = process.env.EMAIL_FROM_NAME || 'Anify';
     const htmlContent = getOtpEmailTemplate(code);
-    
+
     try {
       await mailer.sendMail({
         from: `${fromName} <${process.env.EMAIL_USER}>`,
@@ -2555,8 +2560,8 @@ app.post('/api/auth/resend-otp', requireDb, async (req, res) => {
       return res.status(500).json({ ok: false, error: 'Failed to send verification email.' });
     }
 
-    res.json({ 
-      ok: true, 
+    res.json({
+      ok: true,
       message: 'A new verification code has been sent to your email.',
       cooldownRemaining: 60
     });
@@ -2580,7 +2585,7 @@ app.post('/api/guest/verify-watch', requireDb, async (req, res) => {
   try {
     const { animeId, episodeId, guestVideosWatched } = req.body || {};
     const limit = parseInt(process.env.GUEST_PREVIEW_LIMIT || '4', 10);
-    
+
     // If user is authenticated, they can always watch
     const token = req.headers.authorization?.replace('Bearer ', '');
     if (token) {
@@ -2639,7 +2644,7 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
       console.error('[Auth] Database error finding user:', e);
       throw new Error('Database error occurred');
     });
-    
+
     if (!user) {
       console.log('[Auth] User not found:', email);
       return res.status(401).json({ ok: false, error: 'Invalid credentials.' });
@@ -2663,7 +2668,7 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
       console.error('[Auth] Password comparison error:', e);
       throw new Error('Password verification failed');
     });
-    
+
     if (!ok) {
       console.log('[Auth] Invalid password for:', email);
       return res.status(401).json({ ok: false, error: 'Invalid credentials.' });
@@ -2680,11 +2685,11 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
     // Skip email verification check - allow direct login for all users
     const isAdmin = Array.isArray(user.roles) && (user.roles.includes('admin') || user.roles.includes('moderator') || user.roles.includes('shield'));
     console.log('[Auth] isAdmin check result:', isAdmin, 'User roles:', user.roles);
-    
+
     // Check if user has verified their email (skip for admins)
     const isVerifiedByFlag = user.isVerified === true;
     console.log('[Auth] isVerifiedByFlag check result:', isVerifiedByFlag, 'User isVerified:', user.isVerified);
-    
+
     // Auto-verify users who aren't verified yet
     if (!isVerifiedByFlag) {
       console.log('[Auth] Auto-verifying user:', user.email);
@@ -2721,13 +2726,13 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
     }
 
     console.log('[Auth] Generating JWT token');
-    
+
     // Check if JWT_SECRET is set
     if (!process.env.JWT_SECRET) {
       console.error('[Auth] JWT_SECRET is not set!');
       return res.status(500).json({ ok: false, error: 'Server configuration error: JWT_SECRET not set' });
     }
-    
+
     const payload = { userId: String(user._id), username: user.username, roles: user.roles, status: user.status || 'active', isVerified: true };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
@@ -2742,9 +2747,9 @@ app.post('/api/auth/login', requireDb, async (req, res) => {
     console.error('[Auth] Error name:', e?.name);
     console.error('[Auth] Error message:', e?.message);
     console.error('[Auth] Error stack:', e?.stack);
-    
-    res.status(500).json({ 
-      ok: false, 
+
+    res.status(500).json({
+      ok: false,
       error: String(e?.message || e),
       details: process.env.NODE_ENV === 'development' ? {
         name: e?.name,
@@ -2789,8 +2794,8 @@ function requireActiveUser(req, res, next) {
 
       // Check if user is banned
       if (user.status === 'Banned') {
-        return res.status(403).json({ 
-          ok: false, 
+        return res.status(403).json({
+          ok: false,
           error: 'Your account has been banned. You are not allowed to perform this action.',
           banned: true,
           banInfo: user.banInfo
@@ -2799,9 +2804,9 @@ function requireActiveUser(req, res, next) {
 
       // Check if user is pending (unverified)
       if (user.status === 'Pending') {
-        return res.status(403).json({ 
-          ok: false, 
-          error: 'Please verify your email address before performing this action.' 
+        return res.status(403).json({
+          ok: false,
+          error: 'Please verify your email address before performing this action.'
         });
       }
 
@@ -2920,7 +2925,7 @@ function requireAdmin(req, res, next) {
 
 // --------------- Comments ---------------
 app.get('/api/anime/:id/comments', async (req, res) => {
-  if (!requireDbForGet({ ok: false, comments: [] , error: 'MongoDB is not connected.' }, res)) return;
+  if (!requireDbForGet({ ok: false, comments: [], error: 'MongoDB is not connected.' }, res)) return;
   const animeId = String(req.params.id);
   const comments = await Comment.find({ animeId })
     .sort({ createdAt: -1 })
@@ -3005,10 +3010,10 @@ app.get('/api/admin/check-user/:email', requireDb, async (req, res) => {
   try {
     const email = String(req.params.email).toLowerCase().trim();
     const user = await User.findOne({ email: email });
-    
+
     if (user) {
-      res.json({ 
-        ok: true, 
+      res.json({
+        ok: true,
         user: {
           email: user.email,
           username: user.username,
@@ -3033,26 +3038,26 @@ app.get('/api/admin/check-user/:email', requireDb, async (req, res) => {
 app.post('/api/donations/initialize', requireDb, async (req, res) => {
   try {
     const { amount, email } = req.body || {};
-    
+
     // Validate amount
     const amountNum = Number(amount);
     if (!amountNum || amountNum <= 0) {
       return res.status(400).json({ ok: false, error: 'Invalid amount. Amount must be greater than 0.' });
     }
-    
+
     if (amountNum < 500) {
       return res.status(400).json({ ok: false, error: 'Minimum donation amount is ₦500.' });
     }
-    
+
     if (!email || !email.includes('@')) {
       return res.status(400).json({ ok: false, error: 'Valid email is required.' });
     }
-    
+
     const normalizedEmail = String(email).toLowerCase().trim();
-    
+
     // Generate unique reference
     const reference = `ANIFY-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
-    
+
     // Create pending donation record
     const donation = await Donation.create({
       email: normalizedEmail,
@@ -3066,13 +3071,13 @@ app.post('/api/donations/initialize', requireDb, async (req, res) => {
         initiatedAt: new Date().toISOString()
       }
     });
-    
+
     // Initialize Paystack transaction
     const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
     if (!paystackSecretKey) {
       return res.status(500).json({ ok: false, error: 'Payment system not configured. Please contact support.' });
     }
-    
+
     const paystackUrl = 'https://api.paystack.co/transaction/initialize';
     const paystackData = {
       amount: amountNum * 100, // Paystack expects amount in kobo (multiply by 100)
@@ -3090,7 +3095,7 @@ app.post('/api/donations/initialize', requireDb, async (req, res) => {
         ]
       }
     };
-    
+
     const paystackResponse = await fetch(paystackUrl, {
       method: 'POST',
       headers: {
@@ -3099,27 +3104,27 @@ app.post('/api/donations/initialize', requireDb, async (req, res) => {
       },
       body: JSON.stringify(paystackData)
     });
-    
+
     const paystackResult = await paystackResponse.json();
-    
+
     if (!paystackResult.status) {
       console.error('Paystack initialization failed:', paystackResult);
-      await Donation.findByIdAndUpdate(donation._id, { 
-        $set: { status: 'failed' } 
+      await Donation.findByIdAndUpdate(donation._id, {
+        $set: { status: 'failed' }
       });
-      return res.status(500).json({ 
-        ok: false, 
-        error: 'Failed to initialize payment. Please try again.' 
+      return res.status(500).json({
+        ok: false,
+        error: 'Failed to initialize payment. Please try again.'
       });
     }
-    
+
     res.json({
       ok: true,
       authorization_url: paystackResult.data.authorization_url,
       reference: paystackResult.data.reference,
       access_code: paystackResult.data.access_code
     });
-    
+
   } catch (error) {
     console.error('Donation initialization error:', error);
     res.status(500).json({ ok: false, error: 'Failed to initialize donation. Please try again.' });
@@ -3131,33 +3136,33 @@ app.post('/api/donations/verify', requireDb, async (req, res) => {
   try {
     const { reference, trxref } = req.body || {};
     const ref = reference || trxref;
-    
+
     console.log('[Donation Verify] Verification request received:', { reference, trxref, ref });
-    
+
     if (!ref) {
       console.log('[Donation Verify] No reference provided');
       return res.status(400).json({ ok: false, error: 'Transaction reference is required.' });
     }
-    
+
     // Find donation record
     const donation = await Donation.findOne({ reference: ref });
     if (!donation) {
       console.log('[Donation Verify] Donation not found for reference:', ref);
       return res.status(404).json({ ok: false, error: 'Donation record not found.' });
     }
-    
+
     console.log('[Donation Verify] Donation found:', { id: donation._id, status: donation.status, amount: donation.amount });
-    
+
     // If already verified, return success
     if (donation.status === 'success') {
       console.log('[Donation Verify] Donation already verified');
       return res.json({ ok: true, message: 'Donation already verified', donation });
     }
-    
+
     // Verify with Paystack
     const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
     const verifyUrl = `https://api.paystack.co/transaction/verify/${ref}`;
-    
+
     console.log('[Donation Verify] Verifying with Paystack...');
     const paystackResponse = await fetch(verifyUrl, {
       method: 'GET',
@@ -3165,21 +3170,21 @@ app.post('/api/donations/verify', requireDb, async (req, res) => {
         'Authorization': `Bearer ${paystackSecretKey}`
       }
     });
-    
+
     const paystackResult = await paystackResponse.json();
     console.log('[Donation Verify] Paystack response:', { status: paystackResult.status, dataStatus: paystackResult.data?.status });
-    
+
     if (!paystackResult.status || paystackResult.data.status !== 'success') {
       console.log('[Donation Verify] Payment verification failed');
-      await Donation.findByIdAndUpdate(donation._id, { 
-        $set: { status: 'failed' } 
+      await Donation.findByIdAndUpdate(donation._id, {
+        $set: { status: 'failed' }
       });
-      return res.status(400).json({ 
-        ok: false, 
-        error: 'Payment verification failed or payment was not successful.' 
+      return res.status(400).json({
+        ok: false,
+        error: 'Payment verification failed or payment was not successful.'
       });
     }
-    
+
     // Update donation record
     const updatedDonation = await Donation.findByIdAndUpdate(donation._id, {
       $set: {
@@ -3191,9 +3196,9 @@ app.post('/api/donations/verify', requireDb, async (req, res) => {
         }
       }
     }, { new: true });
-    
+
     console.log('[Donation Verify] Donation updated to success');
-    
+
     // Update user supporter status if userId exists
     if (donation.userId) {
       console.log('[Donation Verify] Updating user supporter status for userId:', donation.userId);
@@ -3214,13 +3219,13 @@ app.post('/api/donations/verify', requireDb, async (req, res) => {
     } else {
       console.log('[Donation Verify] No userId associated with donation (guest donation)');
     }
-    
+
     res.json({
       ok: true,
       message: 'Donation verified successfully',
       donation: updatedDonation
     });
-    
+
   } catch (error) {
     console.error('[Donation Verify] Error:', error);
     res.status(500).json({ ok: false, error: 'Failed to verify donation.' });
@@ -3230,10 +3235,10 @@ app.post('/api/donations/verify', requireDb, async (req, res) => {
 // Get user donation history
 app.get('/api/donations/history', requireDb, requireAuth, async (req, res) => {
   try {
-    const donations = await Donation.find({ 
-      userId: req.auth.userId 
+    const donations = await Donation.find({
+      userId: req.auth.userId
     }).sort({ createdAt: -1 }).limit(20);
-    
+
     res.json({ ok: true, donations });
   } catch (error) {
     console.error('Get donation history error:', error);
@@ -3245,34 +3250,34 @@ app.get('/api/donations/history', requireDb, requireAuth, async (req, res) => {
 app.get('/api/admin/donations', requireDb, requireAdmin, async (req, res) => {
   try {
     const { status, limit = 50, skip = 0 } = req.query || {};
-    
+
     const filter = {};
     if (status) {
       filter.status = status;
     }
-    
+
     const donations = await Donation.find(filter)
       .sort({ createdAt: -1 })
       .limit(Number(limit))
       .skip(Number(skip))
       .lean();
-    
+
     const total = await Donation.countDocuments(filter);
     const totalAmount = await Donation.aggregate([
       { $match: { status: 'success' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
-    
+
     const thisMonth = await Donation.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           status: 'success',
           createdAt: { $gte: new Date(new Date().setDate(1)) }
-        } 
+        }
       },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
-    
+
     res.json({
       ok: true,
       donations,
@@ -3291,22 +3296,22 @@ app.get('/api/admin/donations/stats', requireDb, requireAdmin, async (req, res) 
   try {
     const totalSupporters = await User.countDocuments({ isSupporter: true });
     const totalDonations = await Donation.countDocuments({ status: 'success' });
-    
+
     const totalAmount = await Donation.aggregate([
       { $match: { status: 'success' } },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
-    
+
     const thisMonth = await Donation.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           status: 'success',
           createdAt: { $gte: new Date(new Date().setDate(1)) }
-        } 
+        }
       },
       { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
     ]);
-    
+
     res.json({
       ok: true,
       stats: {
@@ -3330,11 +3335,11 @@ app.post('/api/admin/donations/:donationId/verify', requireDb, requireAdmin, asy
     if (!donation) {
       return res.status(404).json({ ok: false, error: 'Donation not found.' });
     }
-    
+
     if (donation.status === 'success') {
       return res.status(400).json({ ok: false, error: 'Donation already verified.' });
     }
-    
+
     const updatedDonation = await Donation.findByIdAndUpdate(donation._id, {
       $set: {
         status: 'success',
@@ -3344,7 +3349,7 @@ app.post('/api/admin/donations/:donationId/verify', requireDb, requireAdmin, asy
         manuallyVerifiedAt: new Date()
       }
     }, { new: true });
-    
+
     // Update user supporter status
     if (donation.userId) {
       const user = await User.findById(donation.userId);
@@ -3359,7 +3364,7 @@ app.post('/api/admin/donations/:donationId/verify', requireDb, requireAdmin, asy
         });
       }
     }
-    
+
     res.json({ ok: true, donation: updatedDonation });
   } catch (error) {
     console.error('Manual verification error:', error);
@@ -3371,18 +3376,18 @@ app.post('/api/admin/donations/:donationId/verify', requireDb, requireAdmin, asy
 app.post('/api/admin/fix-user-verification', requireDb, async (req, res) => {
   try {
     const { email } = req.body || {};
-    
+
     if (!email) {
       return res.status(400).json({ ok: false, error: 'Email is required' });
     }
 
     const normalizedEmail = String(email).toLowerCase().trim();
-    
+
     console.log('[Fix User] Looking for user:', normalizedEmail);
-    
+
     // Find user first
     const user = await User.findOne({ email: normalizedEmail });
-    
+
     if (!user) {
       return res.status(404).json({ ok: false, error: 'User not found' });
     }
@@ -3398,9 +3403,9 @@ app.post('/api/admin/fix-user-verification', requireDb, async (req, res) => {
     user.isVerified = true;
     user.status = 'active';
     user.roles = ['admin'];
-    
+
     await user.save();
-    
+
     console.log('[Fix User] User after save:', {
       email: user.email,
       isVerified: user.isVerified,
@@ -3408,8 +3413,8 @@ app.post('/api/admin/fix-user-verification', requireDb, async (req, res) => {
       roles: user.roles
     });
 
-    res.json({ 
-      ok: true, 
+    res.json({
+      ok: true,
       message: 'User verification fixed successfully',
       user: {
         email: user.email,
