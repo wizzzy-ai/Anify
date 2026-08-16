@@ -6574,7 +6574,16 @@ function toggleMobileMenu() {
     const profileDropdown = document.querySelector('.mobile-profile-dropdown');
     
     if (mobileMenu) {
+        const isHidden = mobileMenu.classList.contains('hidden');
         mobileMenu.classList.toggle('hidden');
+        
+        // Add focus to first button when opening menu for accessibility
+        if (isHidden) {
+            const firstButton = mobileMenu.querySelector('button');
+            if (firstButton) {
+                setTimeout(() => firstButton.focus(), 100);
+            }
+        }
     }
     
     // Close profile dropdown when opening mobile menu
@@ -6583,6 +6592,29 @@ function toggleMobileMenu() {
         isProfileDropdownOpen = false;
     }
 }
+
+// Close mobile menu when clicking outside
+document.addEventListener('click', function(event) {
+    const mobileMenu = document.getElementById('mobile-menu');
+    const navBar = document.getElementById('navbar');
+    
+    if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
+        // Check if click is outside navbar and mobile menu
+        if (!navBar.contains(event.target)) {
+            mobileMenu.classList.add('hidden');
+        }
+    }
+});
+
+// Close mobile menu on escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const mobileMenu = document.getElementById('mobile-menu');
+        if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
+            mobileMenu.classList.add('hidden');
+        }
+    }
+});
 
 // Toggle profile dropdown for mobile compact view
 function toggleProfileDropdown() {
