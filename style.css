@@ -7692,3 +7692,23 @@ html[data-theme] #maintenance-screen .to-gold-500,
 html[data-theme] #maintenance-login-button,
 html[data-theme] #ban-user-modal button[type="submit"] { background: linear-gradient(135deg, var(--primary-light), var(--primary-hover)) !important; color: var(--button-text) !important; }
 html[data-theme] #maintenance-screen .text-\[\#1b1100\] { color: var(--button-text) !important; }
+
+/* ============ ANIFY CLICK EFFECTS ============ */
+/* Click effects system with gold/purple Anify aesthetic */
+/* Effects are dynamically created by JavaScript using GSAP */
+
+/* Performance optimization for click effects */
+.anify-click-effect {
+    will-change: transform, opacity;
+    pointer-events: none;
+    position: fixed;
+    z-index: 9999;
+}
+
+/* Reduce effects during animations for better performance */
+@media (prefers-reduced-motion: reduce) {
+    .anify-click-effect {
+        animation: none !important;
+        transition: none !important;
+    }
+}
