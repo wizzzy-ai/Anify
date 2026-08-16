@@ -506,10 +506,39 @@ class AnifyIntroAnimation {
     createOverlay() {
         const tokens = getActiveProfileTokens();
 
-        // Remove any prior overlay
         const existing = document.getElementById('anify-intro-overlay');
-        if (existing && existing.parentNode) {
-            existing.parentNode.removeChild(existing);
+        if (existing) {
+            this.overlay = existing;
+            this.centerContainer = existing.querySelector('.anify-intro-shell') || existing.querySelector('#anify-intro-logo');
+            this.ambientGlow = existing.querySelector('.anify-intro-glow');
+            this.logo = existing.querySelector('.anify-intro-logo, img');
+            this.loaderBlock = existing.querySelector('.anify-intro-loader');
+            this.loadingText = existing.querySelector('.anify-intro-text');
+            this.progressBar = existing.querySelector('.anify-intro-progress');
+            this.progressFill = existing.querySelector('.anify-intro-progress-fill');
+            this.skipButton = existing.querySelector('.anify-intro-skip');
+            this.overlay.classList.remove('is-hidden');
+            this.overlay.style.display = 'flex';
+            this.overlay.style.opacity = '1';
+            this.overlay.style.visibility = 'visible';
+
+            if (!this.glitterWrap) {
+                this.glitterWrap = new GlitterWrap(this.overlay, this.config);
+            }
+
+            this.skipButton?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.skip();
+            });
+
+            this.overlay.addEventListener('click', () => {
+                if (this.canSkip) {
+                    this.skip();
+                }
+            });
+
+            this.injectKeyframeStyles();
+            return;
         }
 
         // Main overlay
@@ -815,14 +844,17 @@ class AnifyIntroAnimation {
         this.isPlaying = true;
         this.startTime = Date.now();
 
+        if (this.overlay) {
+            this.overlay.classList.remove('is-hidden');
+            this.overlay.style.display = 'flex';
+            this.overlay.style.opacity = '1';
+            this.overlay.style.visibility = 'visible';
+        }
+
         if (this.duration === 0) {
             this.complete();
             return;
         }
-
-        this.overlay.style.display = 'flex';
-        this.overlay.style.opacity = '1';
-        this.overlay.style.visibility = 'visible';
 
         // Clicking overlay enables instant skip
         this.overlay.onclick = () => {
@@ -895,15 +927,17 @@ class AnifyIntroAnimation {
 
         window.removeEventListener('keydown', this.handleKeyDown);
 
-        // Ensure underlying app is visible
         const app = document.getElementById('app');
         if (app) {
             app.classList.remove('opacity-0');
             app.classList.add('opacity-100');
         }
 
-        // Smooth exit animation
-        if (window.gsap) {
+        if (this.overlay) {
+            this.overlay.classList.add('is-hidden');
+        }
+
+        if (window.gsap && this.overlay) {
             gsap.to(this.overlay, {
                 opacity: 0,
                 duration: 0.45,
@@ -912,12 +946,14 @@ class AnifyIntroAnimation {
                     this.finish();
                 }
             });
-        } else {
+        } else if (this.overlay) {
             this.overlay.style.transition = 'opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1)';
             this.overlay.style.opacity = '0';
             setTimeout(() => {
                 this.finish();
             }, 450);
+        } else {
+            this.finish();
         }
     }
 

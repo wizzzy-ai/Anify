@@ -82,10 +82,199 @@
         }
 
     </script>
+    <style>
+        :root {
+            --anify-loading-bg: #01010c;
+            --anify-loading-sheen: rgba(255,255,255,0.12);
+            --anify-loading-gold: #fbbf24;
+            --anify-loading-purple: #8b5cf6;
+        }
+
+        html, body {
+            margin: 0;
+            background: var(--anify-loading-bg);
+            min-height: 100%;
+        }
+
+        body {
+            background: var(--anify-loading-bg);
+            color: #fff;
+            font-family: 'Outfit', 'Inter', -apple-system, sans-serif;
+            overflow-x: hidden;
+        }
+
+        #anify-intro-overlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background:
+                radial-gradient(circle at center, rgba(139,92,246,0.18), transparent 35%),
+                radial-gradient(circle at center, rgba(251,191,36,0.12), transparent 55%),
+                #01010c;
+            z-index: 999999;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.45s ease, visibility 0.45s ease;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #anify-intro-overlay.is-hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        #anify-intro-overlay .anify-intro-shell {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            z-index: 2;
+        }
+
+        #anify-intro-overlay .anify-intro-glow {
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(251,191,36,0.32) 0%, rgba(139,92,246,0.22) 42%, transparent 72%);
+            filter: blur(30px);
+            z-index: -1;
+            animation: anifyIntroGlowPulse 3s ease-in-out infinite alternate;
+        }
+
+        #anify-intro-overlay .anify-intro-logo {
+            width: 210px;
+            height: auto;
+            max-width: 78vw;
+            filter: drop-shadow(0 0 25px rgba(251,191,36,0.5)) drop-shadow(0 0 50px rgba(139,92,246,0.3));
+            display: block;
+        }
+
+        #anify-intro-overlay .anify-intro-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-top: 5px;
+        }
+
+        #anify-intro-overlay .anify-intro-text {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.75);
+        }
+
+        #anify-intro-overlay .anify-intro-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--anify-loading-gold);
+            box-shadow: 0 0 10px var(--anify-loading-gold);
+            animation: anifyIntroDotPulse 1.2s ease-in-out infinite;
+        }
+
+        #anify-intro-overlay .anify-intro-progress {
+            position: relative;
+            width: 140px;
+            height: 3px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+        }
+
+        #anify-intro-overlay .anify-intro-progress-fill {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--anify-loading-gold), var(--anify-loading-purple), #fff);
+            transform: translateX(-100%);
+            animation: anifyIntroProgressShimmer 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+        }
+
+        #anify-intro-overlay .anify-intro-skip {
+            position: absolute;
+            right: 32px;
+            bottom: 32px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 9px 18px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.85);
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.3s ease;
+        }
+
+        @keyframes anifyIntroGlowPulse {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            100% { transform: scale(1.15); opacity: 1; }
+        }
+
+        @keyframes anifyIntroDotPulse {
+            0%, 100% { transform: scale(0.8); opacity: 0.5; }
+            50% { transform: scale(1.3); opacity: 1; }
+        }
+
+        @keyframes anifyIntroProgressShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        @media (max-width: 768px) {
+            #anify-intro-overlay .anify-intro-logo {
+                width: 160px;
+            }
+
+            #anify-intro-overlay .anify-intro-skip {
+                right: 20px;
+                bottom: 20px;
+                padding: 8px 16px;
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #anify-intro-overlay .anify-intro-logo {
+                width: 130px;
+            }
+        }
+    </style>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body class="bg-dark-900 text-white font-outfit transition-colors duration-500">
+    <div id="anify-intro-overlay" aria-live="polite" aria-busy="true">
+        <div class="anify-intro-shell">
+            <div class="anify-intro-glow" aria-hidden="true"></div>
+            <img class="anify-intro-logo" src="/pictures/logo.png" alt="Anify Logo">
+            <div class="anify-intro-loader">
+                <span class="anify-intro-text"><span class="anify-intro-dot"></span>ENTERING UNIVERSE</span>
+                <div class="anify-intro-progress"><div class="anify-intro-progress-fill"></div></div>
+            </div>
+        </div>
+        <button type="button" class="anify-intro-skip" aria-label="Skip intro">Skip</button>
+    </div>
 
     <!-- App Container -->
     <div id="app" class="min-h-screen opacity-0 transition-opacity duration-700">

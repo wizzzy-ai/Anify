@@ -10657,7 +10657,7 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
     height: 100vh;
     background: var(--background, #01010C);
     z-index: 999999;
-    display: none;
+    display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
