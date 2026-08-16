@@ -1,24 +1,67 @@
 // Anify Click Effects System
 // Vanilla JavaScript implementation using GSAP
 // Matches Anify's gold/purple aesthetic with premium glow effects
+// Automatically adapts to current theme colors
 
 class AnifyClickEffects {
     constructor(options = {}) {
         this.container = document.body;
         this.color = options.color || '#FFD700'; // Gold color by default
         this.secondaryColor = options.secondaryColor || '#A855F7'; // Purple accent
-        this.duration = options.duration || 0.3;
-        this.strokeWidth = options.strokeWidth || 2;
-        this.effectSize = options.effectSize || 90;
+        this.duration = options.duration || 0.4;
+        this.strokeWidth = options.strokeWidth || 3;
+        this.effectSize = options.effectSize || 120; // Increased from 90 to 120
         this.rotation = options.rotation || 0;
         this.mode = options.mode || 'particles'; // rings, particles, burst, crosshair, wavy, sniper
         this.enabled = true;
+        this.useThemeColors = options.useThemeColors !== false; // Default to true
         
         this.init();
     }
     
     init() {
         this.addClickListener();
+        this.setupThemeListener();
+        this.updateThemeColors(); // Initial theme color update
+    }
+    
+    setupThemeListener() {
+        // Listen for theme changes
+        const observer = new MutationObserver(() => {
+            this.updateThemeColors();
+        });
+        
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-color-mode', 'data-theme', 'class']
+        });
+        
+        // Also listen for storage changes
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'anify-theme' || e.key === 'anify-user-profile') {
+                this.updateThemeColors();
+            }
+        });
+    }
+    
+    updateThemeColors() {
+        if (!this.useThemeColors) return;
+        
+        const isLight = document.documentElement.classList.contains('light');
+        const computedStyle = getComputedStyle(document.documentElement);
+        
+        // Get theme colors from CSS variables
+        const primary = computedStyle.getPropertyValue('--primary').trim() || '#FFD700';
+        const surface = computedStyle.getPropertyValue('--surface').trim() || '#A855F7';
+        
+        // Set colors based on theme
+        if (isLight) {
+            this.color = '#B8860B'; // Darker gold for light mode
+            this.secondaryColor = '#6B21A8'; // Darker purple for light mode
+        } else {
+            this.color = '#FFD700'; // Bright gold for dark mode
+            this.secondaryColor = '#A855F7'; // Bright purple for dark mode
+        }
     }
     
     addClickListener() {
@@ -64,7 +107,7 @@ class AnifyClickEffects {
             border: ${this.strokeWidth}px solid ${this.color};
             border-radius: 50%;
             pointer-events: none;
-            box-shadow: 0 0 10px ${this.color}, 0 0 20px ${this.secondaryColor};
+            box-shadow: 0 0 15px ${this.color}, 0 0 30px ${this.secondaryColor}, 0 0 45px ${this.color};
             transform: rotate(${this.rotation}deg);
             z-index: 9999;
         `;
@@ -72,9 +115,9 @@ class AnifyClickEffects {
         document.body.appendChild(ring);
         
         gsap.fromTo(ring, 
-            { scale: 0.5, opacity: 1 },
+            { scale: 0.3, opacity: 1 },
             { 
-                scale: 2, 
+                scale: 2.5, 
                 opacity: 0, 
                 duration: this.duration * 3,
                 ease: 'power3.out',
@@ -84,24 +127,24 @@ class AnifyClickEffects {
     }
     
     createParticles(x, y) {
-        const particleCount = 12;
+        const particleCount = 16; // Increased from 12
         const particles = [];
         
         for (let i = 0; i < particleCount; i++) {
             const particle = document.createElement('div');
             const angle = (i / particleCount) * Math.PI * 2;
-            const distance = this.effectSize * 0.3 + Math.random() * this.effectSize * 0.2;
+            const distance = this.effectSize * 0.4 + Math.random() * this.effectSize * 0.3; // Increased distance
             
             particle.style.cssText = `
                 position: fixed;
                 left: ${x}px;
                 top: ${y}px;
-                width: ${this.strokeWidth * 2}px;
-                height: ${this.strokeWidth * 2}px;
+                width: ${this.strokeWidth * 2.5}px;
+                height: ${this.strokeWidth * 2.5}px;
                 background: ${this.color};
                 border-radius: 50%;
                 pointer-events: none;
-                box-shadow: 0 0 8px ${this.color}, 0 0 16px ${this.secondaryColor};
+                box-shadow: 0 0 12px ${this.color}, 0 0 24px ${this.secondaryColor}, 0 0 36px ${this.color};
                 z-index: 9999;
             `;
             
@@ -116,13 +159,13 @@ class AnifyClickEffects {
             gsap.fromTo(p.element,
                 { scale: 0, opacity: 1 },
                 {
-                    scale: 1,
+                    scale: 1.2,
                     opacity: 0,
                     x: finalX - x,
                     y: finalY - y,
-                    duration: this.duration * 2,
+                    duration: this.duration * 2.5,
                     ease: 'power2.out',
-                    delay: i * 0.02,
+                    delay: i * 0.025,
                     onComplete: () => p.element.remove()
                 }
             );
@@ -130,7 +173,7 @@ class AnifyClickEffects {
     }
     
     createBurst(x, y) {
-        const lineCount = 8;
+        const lineCount = 12; // Increased from 8
         const lines = [];
         
         for (let i = 0; i < lineCount; i++) {
@@ -142,10 +185,10 @@ class AnifyClickEffects {
                 left: ${x}px;
                 top: ${y}px;
                 width: ${this.strokeWidth}px;
-                height: ${this.effectSize * 0.3}px;
+                height: ${this.effectSize * 0.4}px;
                 background: linear-gradient(to top, ${this.color}, ${this.secondaryColor});
                 pointer-events: none;
-                box-shadow: 0 0 10px ${this.color};
+                box-shadow: 0 0 15px ${this.color}, 0 0 30px ${this.secondaryColor};
                 transform-origin: bottom center;
                 z-index: 9999;
             `;
@@ -160,11 +203,11 @@ class AnifyClickEffects {
             gsap.fromTo(l.element,
                 { scaleY: 0, opacity: 1 },
                 {
-                    scaleY: 1,
+                    scaleY: 1.2,
                     opacity: 0,
-                    duration: this.duration * 2,
+                    duration: this.duration * 2.5,
                     ease: 'power2.out',
-                    delay: i * 0.03,
+                    delay: i * 0.035,
                     onComplete: () => l.element.remove()
                 }
             );
@@ -192,7 +235,7 @@ class AnifyClickEffects {
             width: 100%;
             height: ${this.strokeWidth}px;
             background: ${this.color};
-            box-shadow: 0 0 10px ${this.color}, 0 0 20px ${this.secondaryColor};
+            box-shadow: 0 0 15px ${this.color}, 0 0 30px ${this.secondaryColor};
             transform: translateY(-50%);
         `;
         
@@ -204,7 +247,7 @@ class AnifyClickEffects {
             width: ${this.strokeWidth}px;
             height: 100%;
             background: ${this.color};
-            box-shadow: 0 0 10px ${this.color}, 0 0 20px ${this.secondaryColor};
+            box-shadow: 0 0 15px ${this.color}, 0 0 30px ${this.secondaryColor};
             transform: translateX(-50%);
         `;
         
@@ -213,12 +256,12 @@ class AnifyClickEffects {
         document.body.appendChild(crosshair);
         
         gsap.fromTo(crosshair,
-            { scale: 0.5, opacity: 1, rotation: this.rotation },
+            { scale: 0.3, opacity: 1, rotation: this.rotation },
             {
-                scale: 1.5,
+                scale: 1.8,
                 opacity: 0,
                 rotation: this.rotation + 45,
-                duration: this.duration * 2,
+                duration: this.duration * 2.5,
                 ease: 'power2.out',
                 onComplete: () => crosshair.remove()
             }
@@ -226,7 +269,7 @@ class AnifyClickEffects {
     }
     
     createWavy(x, y) {
-        const waveCount = 3;
+        const waveCount = 4; // Increased from 3
         const waves = [];
         
         for (let i = 0; i < waveCount; i++) {
@@ -240,7 +283,7 @@ class AnifyClickEffects {
                 border: ${this.strokeWidth}px solid ${this.color};
                 border-radius: 50%;
                 pointer-events: none;
-                box-shadow: 0 0 10px ${this.color}, 0 0 20px ${this.secondaryColor};
+                box-shadow: 0 0 15px ${this.color}, 0 0 30px ${this.secondaryColor}, 0 0 45px ${this.color};
                 z-index: 9999;
             `;
             
@@ -250,13 +293,13 @@ class AnifyClickEffects {
         
         waves.forEach((wave, i) => {
             gsap.fromTo(wave,
-                { scale: 0.3, opacity: 1 },
+                { scale: 0.2, opacity: 1 },
                 {
-                    scale: 2,
+                    scale: 2.5,
                     opacity: 0,
-                    duration: this.duration * 2,
+                    duration: this.duration * 2.5,
                     ease: 'power2.out',
-                    delay: i * 0.1,
+                    delay: i * 0.12,
                     onComplete: () => wave.remove()
                 }
             );
@@ -281,11 +324,11 @@ class AnifyClickEffects {
             position: absolute;
             left: 50%;
             top: 50%;
-            width: ${this.effectSize * 0.6}px;
-            height: ${this.effectSize * 0.6}px;
+            width: ${this.effectSize * 0.7}px;
+            height: ${this.effectSize * 0.7}px;
             border: ${this.strokeWidth}px solid ${this.color};
             border-radius: 50%;
-            box-shadow: 0 0 10px ${this.color}, 0 0 20px ${this.secondaryColor}, inset 0 0 20px ${this.secondaryColor};
+            box-shadow: 0 0 15px ${this.color}, 0 0 30px ${this.secondaryColor}, inset 0 0 30px ${this.secondaryColor};
             transform: translate(-50%, -50%);
         `;
         
@@ -298,7 +341,7 @@ class AnifyClickEffects {
             width: 100%;
             height: ${this.strokeWidth}px;
             background: ${this.color};
-            box-shadow: 0 0 10px ${this.color};
+            box-shadow: 0 0 15px ${this.color}, 0 0 30px ${this.secondaryColor};
             transform: translateY(-50%);
         `;
         
@@ -310,7 +353,7 @@ class AnifyClickEffects {
             width: ${this.strokeWidth}px;
             height: 100%;
             background: ${this.color};
-            box-shadow: 0 0 10px ${this.color};
+            box-shadow: 0 0 15px ${this.color}, 0 0 30px ${this.secondaryColor};
             transform: translateX(-50%);
         `;
         
@@ -320,12 +363,12 @@ class AnifyClickEffects {
         document.body.appendChild(sniper);
         
         gsap.fromTo(sniper,
-            { scale: 0.2, opacity: 1, rotation: this.rotation },
+            { scale: 0.15, opacity: 1, rotation: this.rotation },
             {
-                scale: 1,
+                scale: 1.2,
                 opacity: 0,
                 rotation: this.rotation + 90,
-                duration: this.duration * 2,
+                duration: this.duration * 2.5,
                 ease: 'power2.out',
                 onComplete: () => sniper.remove()
             }
@@ -338,10 +381,12 @@ class AnifyClickEffects {
     
     setColor(color) {
         this.color = color;
+        this.useThemeColors = false; // Disable auto theme when manually set
     }
     
     setSecondaryColor(color) {
         this.secondaryColor = color;
+        this.useThemeColors = false; // Disable auto theme when manually set
     }
     
     setDuration(duration) {
@@ -350,6 +395,17 @@ class AnifyClickEffects {
     
     setEffectSize(size) {
         this.effectSize = size;
+    }
+    
+    setStrokeWidth(width) {
+        this.strokeWidth = width;
+    }
+    
+    enableThemeColors(enabled = true) {
+        this.useThemeColors = enabled;
+        if (enabled) {
+            this.updateThemeColors();
+        }
     }
     
     enable() {
@@ -374,8 +430,9 @@ const anifyClickEffects = new AnifyClickEffects({
     secondaryColor: '#A855F7', // Purple
     mode: 'particles', // Default effect
     duration: 0.4,
-    strokeWidth: 2,
-    effectSize: 80
+    strokeWidth: 3, // Increased from 2
+    effectSize: 120, // Increased from 90
+    useThemeColors: true // Automatically adapt to theme
 });
 
 // Make it globally accessible
