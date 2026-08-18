@@ -349,6 +349,91 @@
         </div>
     </div>
 
+    <!-- Episode Analytics & Most Viewed Section -->
+    <div class="glass-card rounded-2xl p-6 mb-8 anim-fade-in border border-gold-400/20 bg-gradient-to-br from-gold-400/5 via-transparent to-transparent">
+        <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gold-400/20 flex items-center justify-center">
+                    <i data-lucide="play-circle" class="w-5 h-5 text-gold-400"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-black dark:text-white">Episode Analytics</h3>
+                    <p class="text-xs text-gray-400">Real-time YouTube-style view metrics across all episodes</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold px-3 py-1 rounded-full bg-gold-400/10 text-gold-400 border border-gold-400/20 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-gold-400 animate-pulse"></span> Live Tracking
+                </span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-black/5 dark:bg-black/20 p-4 rounded-xl border border-black/5 dark:border-white/5">
+                <p class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Total Views</p>
+                <p class="text-2xl lg:text-3xl font-black text-black dark:text-white mt-1.5">${typeof formatViewCount === 'function' ? formatViewCount(stats.totalViews || 0, { withSuffix: false }) : (stats.totalViews || 0).toLocaleString()}</p>
+                <p class="text-[11px] text-gold-400 mt-1">${(stats.totalViews || 0).toLocaleString()} total plays</p>
+            </div>
+            <div class="bg-black/5 dark:bg-black/20 p-4 rounded-xl border border-black/5 dark:border-white/5">
+                <p class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Today</p>
+                <p class="text-2xl lg:text-3xl font-black text-green-400 mt-1.5">${(stats.viewsToday || 0).toLocaleString()}</p>
+                <p class="text-[11px] text-gray-400 mt-1">24h qualified views</p>
+            </div>
+            <div class="bg-black/5 dark:bg-black/20 p-4 rounded-xl border border-black/5 dark:border-white/5">
+                <p class="text-xs text-gray-400 uppercase tracking-wider font-semibold">This Week</p>
+                <p class="text-2xl lg:text-3xl font-black text-blue-400 mt-1.5">${(stats.viewsThisWeek || 0).toLocaleString()}</p>
+                <p class="text-[11px] text-gray-400 mt-1">Last 7 days</p>
+            </div>
+            <div class="bg-black/5 dark:bg-black/20 p-4 rounded-xl border border-black/5 dark:border-white/5">
+                <p class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Most Viewed Episode</p>
+                ${stats.mostViewedEpisode ? `
+                    <p class="text-sm font-black text-black dark:text-white mt-1.5 truncate" title="${stats.mostViewedEpisode.animeTitle} — Episode ${stats.mostViewedEpisode.episodeNumber}">
+                        ${stats.mostViewedEpisode.animeTitle}
+                    </p>
+                    <p class="text-[11px] text-gold-400 mt-0.5 font-bold">
+                        Ep ${stats.mostViewedEpisode.episodeNumber} • ${typeof formatViewCount === 'function' ? formatViewCount(stats.mostViewedEpisode.views || 0) : stats.mostViewedEpisode.views + ' views'}
+                    </p>
+                ` : `
+                    <p class="text-sm font-semibold text-gray-500 mt-1.5">No view data yet</p>
+                    <p class="text-[11px] text-gray-500 mt-1">Waiting for plays</p>
+                `}
+            </div>
+        </div>
+
+        <!-- Most Viewed Episodes Leaderboard -->
+        <div>
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="font-bold text-sm text-black dark:text-white flex items-center gap-2">
+                    <span>🔥</span> Most Viewed Episodes
+                </h4>
+                <span class="text-xs text-gray-400">Top Leaderboard</span>
+            </div>
+            <div class="grid md:grid-cols-2 gap-3">
+                ${Array.isArray(stats.mostViewedEpisodes) && stats.mostViewedEpisodes.length > 0 ? stats.mostViewedEpisodes.map((item, idx) => `
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors border border-black/5 dark:border-white/5">
+                        <span class="text-sm font-black w-6 text-center ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-amber-600' : 'text-gray-500'}">
+                            #${idx + 1}
+                        </span>
+                        <img src="${ensureHttps(item.thumbnail)}" class="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-black/40" alt="${item.animeTitle}">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-black text-black dark:text-white truncate">${item.animeTitle}</p>
+                            <p class="text-[11px] text-gray-400 mt-0.5">${item.type === 'anime' ? `Episode ${item.episodeNumber}` : 'Full Movie'}</p>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <span class="text-xs font-bold text-gold-400 px-2.5 py-1 rounded-lg bg-gold-400/10">
+                                ▶ ${typeof formatViewCount === 'function' ? formatViewCount(item.views || 0) : item.views + ' views'}
+                            </span>
+                        </div>
+                    </div>
+                `).join('') : `
+                    <div class="col-span-2 text-center py-6 text-gray-500 text-sm">
+                        No episode views recorded yet. Video plays will appear here in real time.
+                    </div>
+                `}
+            </div>
+        </div>
+    </div>
+
     <!-- Content Analytics Section -->
     <div class="grid lg:grid-cols-3 gap-6 mb-8">
         <!-- Anime Status Distribution -->
@@ -1215,7 +1300,7 @@
                                     </div>
                                     <div>
                                         <p class="text-sm font-bold text-black dark:text-white">Episode ${e.episodeNumber}</p>
-                                        <p class="text-[10px] text-gray-500 font-bold uppercase">${Object.keys(e.sub?.qualities || {}).length > 0 ? 'Sub' : ''} ${Object.keys(e.dub?.qualities || {}).length > 0 ? '• Dub' : ''}</p>
+                                        <p class="text-[10px] text-gray-500 font-bold uppercase">${Object.keys(e.sub?.qualities || {}).length > 0 ? 'Sub' : ''} ${Object.keys(e.dub?.qualities || {}).length > 0 ? '• Dub' : ''} • ${(typeof formatViewCount === 'function' ? formatViewCount(e.views || 0) : ((e.views || 0) + ' views'))}</p>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1266,7 +1351,10 @@
         <div class="max-w-2xl mx-auto w-full">
             <div class="mb-8 flex items-center justify-between">
                 <div>
-                    <h3 class="text-2xl font-black text-black dark:text-white" id="workspace-title">${isEdit ? 'Edit Episode ' + epNum : 'Upload Episode ' + epNum}</h3>
+                    <div class="flex items-center gap-3">
+                        <h3 class="text-2xl font-black text-black dark:text-white" id="workspace-title">${isEdit ? 'Edit Episode ' + epNum : 'Upload Episode ' + epNum}</h3>
+                        ${isEdit ? `<span class="px-2.5 py-1 rounded-full bg-gold-400/10 border border-gold-400/20 text-gold-400 text-xs font-bold flex items-center gap-1.5"><i data-lucide="play" class="w-3 h-3 fill-current"></i> ${(typeof formatViewCount === 'function' ? formatViewCount(existingData?.views || 0) : ((existingData?.views || 0) + ' views'))}</span>` : ''}
+                    </div>
                     <p class="text-gray-500 text-sm mt-1 font-medium">Configure video files and metadata for this episode.</p>
                 </div>
                 <div id="upload-status-indicator" class="hidden">
@@ -1518,7 +1606,7 @@
                             </div>
                             <div>
                                 <p class="text-sm font-bold text-black dark:text-white">Episode ${e.episodeNumber}</p>
-                                <p class="text-[10px] text-gray-500 font-bold uppercase">${Object.keys(e.sub?.qualities || {}).length > 0 ? 'Sub' : ''} ${Object.keys(e.dub?.qualities || {}).length > 0 ? '• Dub' : ''}</p>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase">${Object.keys(e.sub?.qualities || {}).length > 0 ? 'Sub' : ''} ${Object.keys(e.dub?.qualities || {}).length > 0 ? '• Dub' : ''} • ${(typeof formatViewCount === 'function' ? formatViewCount(e.views || 0) : ((e.views || 0) + ' views'))}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -3424,7 +3512,7 @@ function editAdminAnime(id) {
                             </div>
                             <div>
                                 <p class="text-sm font-bold text-black dark:text-white">Episode ${e.episodeNumber}</p>
-                                <p class="text-[10px] text-gray-500 font-bold uppercase">${Object.keys(e.sub?.qualities || {}).length > 0 ? 'Sub' : ''} ${Object.keys(e.dub?.qualities || {}).length > 0 ? '• Dub' : ''}</p>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase">${Object.keys(e.sub?.qualities || {}).length > 0 ? 'Sub' : ''} ${Object.keys(e.dub?.qualities || {}).length > 0 ? '• Dub' : ''} • ${(typeof formatViewCount === 'function' ? formatViewCount(e.views || 0) : ((e.views || 0) + ' views'))}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

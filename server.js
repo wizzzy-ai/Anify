@@ -23,11 +23,13 @@ import bcrypt from 'bcryptjs';
 import User from './User.js'; // Import the centralized User model
 import Anime from './models/Anime.js'; // Import the canonical Anime model
 import Rating from './models/Rating.js'; // Import the Rating model
+import EpisodeView from './models/EpisodeView.js'; // Import EpisodeView model for anti-spam & analytics
 import PlatformSettings from './models/PlatformSettings.js';
 import Announcement from './models/Announcement.js';
 import Donation from './Donation.js';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 
 const PROFILE_THEME_IDS = [
   'default', 'crimson', 'ocean', 'sakura', 'emerald', 'violet', 'azure', 'sunset', 'ice', 'cyber', 'royal',
@@ -280,6 +282,52 @@ app.get('/api/country', async (req, res) => {
   }
 });
 
+// Helper to safely extract client country from cached IP info without exposing personal data
+function getClientCountry(req) {
+  try {
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      req.headers['cf-connecting-ip'] ||
+      req.headers['x-real-ip'] ||
+      req.socket?.remoteAddress ||
+      req.ip;
+
+    if (clientIp && ipCountryCache.has(clientIp)) {
+      return ipCountryCache.get(clientIp);
+    }
+  } catch (e) {}
+  return "NG";
+}
+
+// Helper to determine privacy-preserving viewer key (userId for logged in users, hashed session for guests)
+function getViewerKey(req) {
+  // 1. Authenticated user ID (highest priority, persistent across devices)
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (token && process.env.JWT_SECRET) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded?.userId) {
+        return `user:${decoded.userId}`;
+      }
+    } catch {
+      // invalid token -> fallback to guest key
+    }
+  }
+
+  // 2. Guest session identifier (privacy-conscious hash, no raw IP permanently stored)
+  const clientSession = req.headers['x-viewer-session'] || req.body?.viewerSession || '';
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+    req.headers['cf-connecting-ip'] ||
+    req.headers['x-real-ip'] ||
+    req.socket?.remoteAddress ||
+    req.ip || 'guest';
+  const userAgent = req.headers['user-agent'] || 'unknown';
+
+  const rawKey = clientSession ? `${clientSession}:${userAgent}` : `${clientIp}:${userAgent}`;
+  const hash = crypto.createHash('sha256').update(rawKey).digest('hex').slice(0, 32);
+  return `guest:${hash}`;
+}
+
 // Banned page route
 app.get('/account-banned', (req, res) => {
   res.sendFile(path.join(__dirname, 'account-banned.html'));
@@ -467,6 +515,7 @@ function normalizeAnime(anime) {
       episodeNumber: e.episodeNumber,
       episodeTitle: e.episodeTitle || '',
       thumbnail: e.thumbnail || '',
+      views: Number(e.views) || 0,
       introStart: e.introStart,
       introEnd: e.introEnd,
       outroStart: e.outroStart,
@@ -1099,6 +1148,10 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
       });
     }
 
+    // Find peak usage
+    const peakHour = hourlyActivity.reduce((max, hour) => hour.count > max.count ? hour : max, hourlyActivity[0] || { label: 'N/A', count: 0 });
+    const peakDay = dayOfWeekActivity.reduce((max, day) => day.count > max.count ? day : max, dayOfWeekActivity[0] || { day: 'N/A', count: 0 });
+
     // Seasonal trends (last 12 months)
     const seasonalTrends = [];
     for (let i = 11; i >= 0; i--) {
@@ -1121,8 +1174,48 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
     }
 
     // Peak usage identification
-    const peakHour = hourlyActivity.reduce((max, hour) => hour.count > max.count ? hour : max, hourlyActivity[0]);
-    const peakDay = dayOfWeekActivity.reduce((max, day) => day.count > max.count ? day : max, dayOfWeekActivity[0]);
+    // Episode Views Analytics
+    let totalViews = 0;
+    const episodeList = [];
+    const allAnimeForViews = await Anime.find().select({ title: 1, clientId: 1, image: 1, episodesMedia: 1, views: 1, type: 1 }).lean();
+    allAnimeForViews.forEach(a => {
+      const animeViews = Number(a.views) || 0;
+      if (Array.isArray(a.episodesMedia) && a.episodesMedia.length > 0) {
+        a.episodesMedia.forEach(ep => {
+          const epViews = Number(ep?.views) || 0;
+          totalViews += epViews;
+          if (epViews > 0) {
+            episodeList.push({
+              animeId: a.clientId || a._id?.toString(),
+              animeTitle: a.title,
+              episodeNumber: ep.episodeNumber,
+              views: epViews,
+              thumbnail: ep.thumbnail || a.image || '',
+              type: a.type || 'anime',
+            });
+          }
+        });
+      } else {
+        totalViews += animeViews;
+        if (animeViews > 0) {
+          episodeList.push({
+            animeId: a.clientId || a._id?.toString(),
+            animeTitle: a.title,
+            episodeNumber: 1,
+            views: animeViews,
+            thumbnail: a.image || '',
+            type: a.type || 'anime',
+          });
+        }
+      }
+    });
+    episodeList.sort((a, b) => b.views - a.views);
+    const mostViewedEpisode = episodeList[0] || null;
+    const mostViewedEpisodes = episodeList.slice(0, 10);
+
+    const viewsToday = await EpisodeView.countDocuments({ viewedAt: { $gte: todayStart } });
+    const viewsThisWeek = await EpisodeView.countDocuments({ viewedAt: { $gte: weekStart } });
+    const viewsThisMonth = await EpisodeView.countDocuments({ viewedAt: { $gte: new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()) } });
 
     res.json({
       ok: true,
@@ -1132,6 +1225,13 @@ app.get('/api/admin/stats', requireDb, async (req, res) => {
         activeUsers,
         totalAnime,
         trendingAnime,
+        // Episode views stats
+        totalViews,
+        viewsToday,
+        viewsThisWeek,
+        viewsThisMonth,
+        mostViewedEpisode,
+        mostViewedEpisodes,
         // Enhanced user stats
         newUsersToday,
         newUsersThisWeek,
@@ -1618,11 +1718,13 @@ app.put('/api/anime/:id/episodes/:episodeNumber', requireDb, requireActiveUser, 
 
   anime.episodesMedia = Array.isArray(anime.episodesMedia) ? anime.episodesMedia : [];
   const idx = anime.episodesMedia.findIndex(e => Number(e.episodeNumber) === episodeNumber);
+  const existingViews = idx >= 0 ? (Number(anime.episodesMedia[idx]?.views) || 0) : 0;
 
   const nextEpisode = {
     episodeNumber,
     episodeTitle: String(episodeTitle || ''),
     thumbnail: String(thumbnail || ''),
+    views: existingViews,
     introStart: introStart ?? undefined,
     introEnd: introEnd ?? undefined,
     outroStart: outroStart ?? undefined,
@@ -1720,6 +1822,210 @@ app.put('/api/anime/:id/movieMedia', requireDb, requireActiveUser, async (req, r
   res.json({ ok: true, anime: normalizeAnime(anime) });
 });
 
+// View count increment endpoint (YouTube-style view tracking with 24h anti-duplicate cooldown)
+app.post(['/api/anime/:id/episodes/:episodeNumber/view', '/api/episodes/:episodeId/view', '/api/anime/:id/view'], requireDb, async (req, res) => {
+  try {
+    const rawId = req.params.id || req.params.episodeId || req.body?.animeId || req.body?.id;
+    let rawEpNum = req.params.episodeNumber !== undefined ? req.params.episodeNumber : (req.body?.episodeNumber ?? req.body?.episode);
+
+    if (!rawId) {
+      return res.status(400).json({ ok: false, error: 'Anime/Episode ID is required.' });
+    }
+
+    const query = /^\d+$/.test(String(rawId))
+      ? { clientId: Number(rawId) }
+      : { _id: String(rawId) };
+
+    const anime = await Anime.findOne(query);
+    if (!anime) {
+      return res.status(404).json({ ok: false, error: 'Anime not found.' });
+    }
+
+    const isMovie = (anime.type || 'anime') !== 'anime';
+    const episodeNumber = isMovie ? 1 : Math.max(1, Number(rawEpNum) || 1);
+
+    const viewerKey = getViewerKey(req);
+    const userId = viewerKey.startsWith('user:') ? viewerKey.slice(5) : null;
+    const country = getClientCountry(req);
+    const animeIdStr = String(anime.clientId || anime._id);
+
+    // 24-hour cooldown anti-spam check
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentView = await EpisodeView.findOne({
+      viewerKey,
+      animeId: animeIdStr,
+      episodeNumber,
+      viewedAt: { $gte: twentyFourHoursAgo },
+    }).lean();
+
+    // Get current episode views
+    const episodesMedia = Array.isArray(anime.episodesMedia) ? anime.episodesMedia : [];
+    const existingEpIndex = episodesMedia.findIndex(e => Number(e?.episodeNumber) === episodeNumber);
+    const currentViews = existingEpIndex >= 0
+      ? (Number(episodesMedia[existingEpIndex]?.views) || 0)
+      : (Number(anime.views) || 0);
+
+    if (recentView) {
+      return res.json({
+        ok: true,
+        counted: false,
+        cooldown: true,
+        views: currentViews,
+        message: 'View already recorded within 24 hours.',
+        animeId: animeIdStr,
+        episodeNumber,
+      });
+    }
+
+    // Atomic increment
+    let updatedViews = currentViews + 1;
+    let updatedAnime;
+
+    if (existingEpIndex >= 0) {
+      updatedAnime = await Anime.findOneAndUpdate(
+        { ...query, "episodesMedia.episodeNumber": episodeNumber },
+        { $inc: { "episodesMedia.$.views": 1, views: 1 } },
+        { returnDocument: 'after' }
+      );
+      if (updatedAnime && Array.isArray(updatedAnime.episodesMedia)) {
+        const ep = updatedAnime.episodesMedia.find(e => Number(e?.episodeNumber) === episodeNumber);
+        updatedViews = Number(ep?.views) || updatedViews;
+      }
+    } else {
+      // Episode not yet explicitly in episodesMedia -> push new episode entry with views: 1
+      updatedAnime = await Anime.findOneAndUpdate(
+        query,
+        {
+          $push: {
+            episodesMedia: {
+              episodeNumber,
+              views: 1,
+              sub: { qualities: {} },
+              dub: { qualities: {} }
+            }
+          },
+          $inc: { views: 1 }
+        },
+        { returnDocument: 'after' }
+      );
+      updatedViews = 1;
+    }
+
+    // Record the view event in EpisodeView collection for analytics and cooldown tracking
+    await EpisodeView.create({
+      animeId: animeIdStr,
+      animeTitle: anime.title || '',
+      episodeNumber,
+      userId,
+      viewerKey,
+      country,
+      viewedAt: new Date(),
+    });
+
+    console.log(`[View Count] Recorded view for "${anime.title}" Ep ${episodeNumber} (New views: ${updatedViews}, Country: ${country}, Viewer: ${viewerKey})`);
+
+    res.json({
+      ok: true,
+      counted: true,
+      cooldown: false,
+      views: updatedViews,
+      animeId: animeIdStr,
+      episodeNumber,
+    });
+  } catch (error) {
+    console.error('[View Count API] Error recording view:', error);
+    res.status(500).json({ ok: false, error: error.message || 'Failed to record view.' });
+  }
+});
+
+// Dedicated episode views analytics endpoint for admin dashboard
+app.get('/api/admin/views/analytics', requireDb, async (req, res) => {
+  try {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthStart = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+
+    // 1. Total views from Anime collection (sum of all episode views)
+    const allAnime = await Anime.find().select({ title: 1, clientId: 1, image: 1, episodesMedia: 1, views: 1, type: 1 }).lean();
+    
+    let totalViews = 0;
+    const episodeList = [];
+
+    allAnime.forEach(a => {
+      const animeViews = Number(a.views) || 0;
+      if (Array.isArray(a.episodesMedia) && a.episodesMedia.length > 0) {
+        a.episodesMedia.forEach(ep => {
+          const epViews = Number(ep?.views) || 0;
+          totalViews += epViews;
+          if (epViews > 0) {
+            episodeList.push({
+              animeId: a.clientId || a._id?.toString(),
+              animeTitle: a.title,
+              episodeNumber: ep.episodeNumber,
+              views: epViews,
+              thumbnail: ep.thumbnail || a.image || '',
+              type: a.type || 'anime',
+            });
+          }
+        });
+      } else {
+        totalViews += animeViews;
+        if (animeViews > 0) {
+          episodeList.push({
+            animeId: a.clientId || a._id?.toString(),
+            animeTitle: a.title,
+            episodeNumber: 1,
+            views: animeViews,
+            thumbnail: a.image || '',
+            type: a.type || 'anime',
+          });
+        }
+      }
+    });
+
+    // Sort episodes by views descending
+    episodeList.sort((a, b) => b.views - a.views);
+    const mostViewedEpisode = episodeList[0] || null;
+    const mostViewedEpisodes = episodeList.slice(0, 10);
+
+    // 2. Views today, this week, and this month from EpisodeView
+    const viewsToday = await EpisodeView.countDocuments({ viewedAt: { $gte: todayStart } });
+    const viewsThisWeek = await EpisodeView.countDocuments({ viewedAt: { $gte: weekStart } });
+    const viewsThisMonth = await EpisodeView.countDocuments({ viewedAt: { $gte: monthStart } });
+
+    // 3. Country distribution
+    const countryAgg = await EpisodeView.aggregate([
+      { $group: { _id: '$country', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    const totalCountryViews = countryAgg.reduce((acc, c) => acc + c.count, 0) || 1;
+    const countryDistribution = countryAgg.map(c => ({
+      country: c._id || 'Unknown',
+      count: c.count,
+      percentage: Math.round((c.count / totalCountryViews) * 100)
+    }));
+
+    res.json({
+      ok: true,
+      analytics: {
+        totalViews,
+        viewsToday,
+        viewsThisWeek,
+        viewsThisMonth,
+        mostViewedEpisode,
+        mostViewedEpisodes,
+        countryDistribution,
+      }
+    });
+  } catch (error) {
+    console.error('[Views Analytics] Error fetching analytics:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
   console.log('[BACKEND CREATE TRACE] ROUTE HIT - PUT');
   console.log('[BACKEND CREATE TRACE] METHOD:', req.method);
@@ -1806,7 +2112,25 @@ app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
   if (trailer !== undefined) updateData.trailer = trailer;
   if (trailerMetadata !== undefined) updateData.trailerMetadata = trailerMetadata;
   if (movieMedia !== undefined) updateData.movieMedia = movieMedia;
-  if (episodesMedia !== undefined) updateData.episodesMedia = episodesMedia;
+  if (episodesMedia !== undefined) {
+    if (Array.isArray(episodesMedia) && Array.isArray(animeBefore.episodesMedia)) {
+      const existingViewsMap = new Map();
+      animeBefore.episodesMedia.forEach(ep => {
+        existingViewsMap.set(Number(ep?.episodeNumber), Number(ep?.views) || 0);
+      });
+      updateData.episodesMedia = episodesMedia.map(ep => ({
+        ...ep,
+        views: ep.views !== undefined ? Math.max(Number(ep.views) || 0, existingViewsMap.get(Number(ep?.episodeNumber)) || 0) : (existingViewsMap.get(Number(ep?.episodeNumber)) || 0)
+      }));
+    } else {
+      updateData.episodesMedia = episodesMedia;
+    }
+  }
+  if (req.body.views !== undefined) {
+    updateData.views = Math.max(Number(req.body.views) || 0, Number(animeBefore.views) || 0);
+  } else if (animeBefore.views !== undefined) {
+    updateData.views = animeBefore.views;
+  }
   if (type !== undefined) updateData.type = type;
   if (episodes !== undefined) updateData.episodes = episodes;
   if (introStart !== undefined) updateData.introStart = introStart;

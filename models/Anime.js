@@ -34,6 +34,7 @@ const episodeSchema = new mongoose.Schema({
   episodeTitle: { type: String, default: '' },
   thumbnail: { type: String, default: '' },
   thumbnailMetadata: { type: imageMetadataSchema, default: null },
+  views: { type: Number, default: 0 },
   introStart: { type: Number, default: 0 },
   introEnd: { type: Number, default: 90 },
   outroStart: { type: Number, default: 0 },
@@ -57,6 +58,7 @@ const animeSchema = new mongoose.Schema({
   rating: { type: Number, default: 0 },
   averageRating: { type: Number, default: 0 },
   ratingCount: { type: Number, default: 0 },
+  views: { type: Number, default: 0 },
   year: Number,
 
   // kept as a numeric hint/display value

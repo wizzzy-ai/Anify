@@ -6,6 +6,41 @@ function ensureHttps(url) {
     return url.replace(/^http:/, 'https:');
 }
 
+// ============ VIEW COUNT FORMATTER (YouTube-style compact formatting) ============
+function formatViewCount(views, options = { withSuffix: true }) {
+    const withSuffix = options?.withSuffix !== false;
+    const num = Number(views) || 0;
+    if (num < 0) return withSuffix ? '0 views' : '0';
+
+    if (num < 1000) {
+        if (!withSuffix) return String(num);
+        return num === 1 ? '1 view' : `${num} views`;
+    }
+
+    function formatNumberWithUnit(n, divisor, unit) {
+        const val = n / divisor;
+        let str = val.toFixed(2);
+        if (str.endsWith('.00')) {
+            str = str.slice(0, -3);
+        } else if (str.endsWith('0')) {
+            str = str.slice(0, -1);
+        }
+        return `${str}${unit}`;
+    }
+
+    let formatted = '';
+    if (num >= 1000000000) {
+        formatted = formatNumberWithUnit(num, 1000000000, 'B');
+    } else if (num >= 1000000) {
+        formatted = formatNumberWithUnit(num, 1000000, 'M');
+    } else {
+        formatted = formatNumberWithUnit(num, 1000, 'K');
+    }
+
+    return withSuffix ? `${formatted} views` : formatted;
+}
+window.formatViewCount = formatViewCount;
+
 // ============ BAN CHECK - Run immediately on page load ============
 (async function checkBanStatus() {
     const token = localStorage.getItem('anify-token');
@@ -1222,11 +1257,15 @@ function renderEpisodeList(anime, language = 'sub') {
 
     return boundedEpisodeNumbers.map((epNum) => {
         const isActive = Number(epNum) === Number(activeEpisodeNumber);
+        const epObj = Array.isArray(episodesMedia) ? episodesMedia.find(e => Number(e?.episodeNumber) === Number(epNum)) : null;
+        const epViews = Number(epObj?.views) || 0;
+        const formattedViews = formatViewCount(epViews);
         return `
             <button
                 class="episode-selector-card ${isActive ? 'episode-selector-card--active' : ''}"
                 data-episode-number="${epNum}"
-                aria-label="Episode ${epNum}"
+                aria-label="Episode ${epNum} (${formattedViews})"
+                title="Episode ${epNum} • ${formattedViews}"
                 onclick="selectEpisodeLanguage('${language}', ${epNum})"
             >
                 <span class="episode-selector-card__tag">EP</span>
@@ -2217,11 +2256,15 @@ function renderAnimeDetail(id) {
                     <span>Showing first ${displayedEpisodes} of ${totalEpisodesForLabel}</span>
                 </div>
                 <div class="detail-episode-grid">
-                    ${episodeNumbers.slice(0, 24).map((epNum, i) => `
-                        <button onclick="navigate('player', ${a.id})" class="detail-episode-tile ${i === 0 ? 'is-active' : ''}" aria-label="Watch episode ${epNum}">
+                    ${episodeNumbers.slice(0, 24).map((epNum, i) => {
+                        const epObj = Array.isArray(episodesMedia) ? episodesMedia.find(e => Number(e?.episodeNumber) === Number(epNum)) : null;
+                        const epViews = Number(epObj?.views) || 0;
+                        const formattedViews = formatViewCount(epViews);
+                        return `
+                        <button onclick="navigate('player', ${a.id})" class="detail-episode-tile ${i === 0 ? 'is-active' : ''}" aria-label="Watch episode ${epNum} (${formattedViews})" title="Episode ${epNum} • ${formattedViews}">
                             <span>${epNum}</span>
                         </button>
-                    `).join('')}
+                    `;}).join('')}
                 </div>
             </section>`
         : `
@@ -2554,6 +2597,10 @@ function renderPlayer(id) {
     const hasDubEpisodes = a.episodesMedia && a.episodesMedia.some(e => e.dub);
     const episodeDefaultLanguage = hasSubEpisodes ? 'sub' : 'dub';
 
+    const isMovie = contentType !== 'anime';
+    const firstEp = (Array.isArray(a.episodesMedia) && a.episodesMedia.length > 0) ? a.episodesMedia[0] : null;
+    const initialViews = isMovie ? (Number(a.views) || 0) : (Number(firstEp?.views) || 0);
+
     // Shell for persistent player
     return `
     <div id="player-view-mount" class="anime-watch-room pt-16 pb-20 min-h-screen">
@@ -2571,10 +2618,11 @@ function renderPlayer(id) {
                     <div class="anime-player-meta mt-4 flex items-center justify-between flex-wrap gap-4">
                         <div>
                             <p class="anime-kicker">Now Streaming</p>
-                            <h2 class="text-xl md:text-2xl font-black text-white">${a.title}</h2>
-                            <div class="flex items-center gap-2 mt-3">
+                            <h2 class="text-xl md:text-2xl font-black text-white" id="player-main-title">${a.title}</h2>
+                            <div class="flex items-center gap-2 mt-3 flex-wrap">
                                 <span class="anime-chip uppercase" id="player-mode-label">${contentType === 'anime' ? 'Series' : 'Movie'}</span>
                                 <span class="anime-chip" id="player-quality-label">1080p</span>
+                                <span class="anime-chip flex items-center gap-1.5" id="player-view-count"><i data-lucide="play" class="w-3.5 h-3.5 fill-current text-gold-400"></i> <span id="current-episode-views">${formatViewCount(initialViews)}</span></span>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -4970,9 +5018,19 @@ function updatePlayerUI() {
         // Sync volume UI with actual video state
         syncVolumeUI();
 
+        const anime = playerService.getAnime();
+        const viewEl = document.getElementById('current-episode-views');
+        if (viewEl && anime) {
+            const epNum = Number(video.dataset.episodeNumber || 1);
+            const epObj = (Array.isArray(anime.episodesMedia) && (anime.type || 'anime') === 'anime')
+                ? anime.episodesMedia.find(e => Number(e?.episodeNumber) === epNum)
+                : null;
+            const views = epObj ? (Number(epObj.views) || 0) : (Number(anime.views) || 0);
+            viewEl.textContent = formatViewCount(views);
+        }
+
         const introBtn = document.getElementById('skip-intro-btn');
         const outroBtn = document.getElementById('skip-outro-btn');
-        const anime = playerService.getAnime();
         
         // Initialize timing variables with defaults
         let introStart = 0, introEnd = 90, outroStart = 0, outroEnd = 0;
