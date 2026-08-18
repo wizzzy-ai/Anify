@@ -688,10 +688,20 @@
             this.viewTracker.lastPlaybackTime = nowTime;
 
             const duration = video.duration || 0;
-            // Threshold: If duration < 30s: 10% (min 3s). If >= 30s: min(30s, 10% of duration)
-            const threshold = duration < 30 ? Math.max(3, duration * 0.1) : Math.min(30, duration * 0.1 || 30);
+            // Threshold: Math.min(30, duration * 0.10) as specified
+            const threshold = Math.min(30, duration * 0.10);
+
+            // Debug logging
+            console.log('[VIEW TRACKER]', {
+                episode: currentEpNum,
+                animeId: currentAnimeId,
+                playback: `${this.viewTracker.accumulatedTime.toFixed(1)}s`,
+                required: `${threshold.toFixed(1)}s`,
+                progress: `${((this.viewTracker.accumulatedTime / threshold) * 100).toFixed(0)}%`
+            });
 
             if (this.viewTracker.accumulatedTime >= threshold) {
+                console.log('[VIEW TRACKER] Threshold reached - Sending view request');
                 this.viewTracker.hasTriggeredView = true;
                 this.recordEpisodeView(currentAnimeId, currentEpNum);
             }
@@ -700,6 +710,8 @@
         async recordEpisodeView(animeId, episodeNumber) {
             if (!animeId) return;
             try {
+                console.log('[VIEW TRACKER] Sending POST request for view count');
+                
                 // Privacy-conscious guest session identifier
                 let guestSession = global.localStorage?.getItem('anify_viewer_session');
                 if (!guestSession) {
@@ -726,33 +738,74 @@
                 });
 
                 const data = await res.json().catch(() => ({}));
+                console.log('[VIEW TRACKER] Server response:', { status: res.status, data });
+
                 if (res.ok && data.ok) {
                     const views = data.views;
+                    const counted = data.counted;
+                    const cooldown = data.cooldown;
+
+                    console.log('[VIEW TRACKER] View recorded - New count:', views, 'Counted:', counted, 'Cooldown:', cooldown);
                     
                     // Update in-memory anime data
                     const anime = (global.animeData || []).find(a => String(a.id) === String(animeId) || String(a.clientId) === String(animeId));
                     if (anime) {
                         if (Array.isArray(anime.episodesMedia)) {
                             const ep = anime.episodesMedia.find(e => Number(e.episodeNumber) === Number(episodeNumber));
-                            if (ep) ep.views = views;
+                            if (ep) {
+                                ep.views = views;
+                                console.log('[VIEW TRACKER] Updated episode views in memory:', views);
+                            }
                         }
-                        anime.views = (anime.views || 0) + (data.counted ? 1 : 0);
+                        anime.views = views; // Use the server-returned value
                         try {
                             global.localStorage?.setItem('anify-cached-anime', JSON.stringify(global.animeData));
                         } catch (e) {}
                     }
 
-                    // Update UI if watch page view counter is mounted
-                    const viewCounter = document.getElementById('current-episode-views');
-                    if (viewCounter && typeof global.formatViewCount === 'function') {
-                        viewCounter.textContent = global.formatViewCount(views);
-                    }
-                    const chip = document.getElementById('player-view-count');
-                    if (chip) chip.classList.remove('hidden');
+                    // Update all view count elements on the page
+                    this.updateAllViewCountElements(animeId, episodeNumber, views);
+                } else {
+                    console.warn('[VIEW TRACKER] Server rejected view:', { status: res.status, data });
                 }
             } catch (error) {
-                console.warn('[View Count] Failed to record view:', error);
+                console.error('[VIEW TRACKER] Failed to record view:', error);
             }
+        },
+
+        updateAllViewCountElements(animeId, episodeNumber, views) {
+            console.log('[VIEW TRACKER] Updating all view count elements to:', views);
+            
+            // Update the main episode view counter in player
+            const viewCounter = document.getElementById('current-episode-views');
+            if (viewCounter && typeof global.formatViewCount === 'function') {
+                viewCounter.textContent = global.formatViewCount(views);
+                console.log('[VIEW TRACKER] Updated current-episode-views element');
+            }
+
+            // Update player view count chip (contains the icon and view count)
+            const chip = document.getElementById('player-view-count');
+            if (chip) {
+                chip.classList.remove('hidden');
+                // The view count is inside a span within the chip
+                const chipViewSpan = chip.querySelector('#current-episode-views');
+                if (chipViewSpan && typeof global.formatViewCount === 'function') {
+                    chipViewSpan.textContent = global.formatViewCount(views);
+                }
+                console.log('[VIEW TRACKER] Updated player-view-count chip');
+            }
+
+            // Update episode selector cards if they have view count displays
+            const episodeSelector = document.querySelector(`[data-episode-number="${episodeNumber}"]`);
+            if (episodeSelector) {
+                // Update aria-label and title attributes with new view count
+                const formattedViews = typeof global.formatViewCount === 'function' ? global.formatViewCount(views) : views;
+                episodeSelector.setAttribute('aria-label', `Episode ${episodeNumber} (${formattedViews})`);
+                episodeSelector.setAttribute('title', `Episode ${episodeNumber} • ${formattedViews}`);
+                console.log('[VIEW TRACKER] Updated episode selector attributes');
+            }
+
+            console.log('[VIEW TRACKER] View count update complete');
         },
 
         updateViewCountDisplay() {
@@ -765,12 +818,10 @@
             const epObj = isMovie ? null : global.getEpisodeObject?.(anime, epNum);
             const views = epObj ? (Number(epObj.views) || 0) : (Number(anime.views) || 0);
 
-            const viewCounter = document.getElementById('current-episode-views');
-            if (viewCounter && typeof global.formatViewCount === 'function') {
-                viewCounter.textContent = global.formatViewCount(views);
+            const animeId = video?.dataset?.animeId ? String(video.dataset.animeId) : null;
+            if (animeId) {
+                this.updateAllViewCountElements(animeId, epNum, views);
             }
-            const chip = document.getElementById('player-view-count');
-            if (chip) chip.classList.remove('hidden');
         },
 
         setup(options = {}) {
