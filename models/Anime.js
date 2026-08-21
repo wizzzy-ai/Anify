@@ -66,6 +66,8 @@ const animeSchema = new mongoose.Schema({
 
   genres: [String],
   status: { type: String, default: 'Airing' },
+  releaseDate: { type: Date },
+  releaseTime: { type: String },
   studio: String,
   image: String,
   imageMetadata: { type: imageMetadataSchema, default: null },

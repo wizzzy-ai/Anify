@@ -41,6 +41,117 @@ function formatViewCount(views, options = { withSuffix: true }) {
 }
 window.formatViewCount = formatViewCount;
 
+// ============ COMING SOON HELPER FUNCTIONS ============
+function formatReleaseDate(releaseDate, releaseTime) {
+    if (!releaseDate) return 'To be announced';
+
+    const date = getReleaseDateTime(releaseDate, releaseTime);
+    if (!date) return 'To be announced';
+    
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    let formatted = date.toLocaleDateString('en-US', options);
+    
+    if (releaseTime) {
+        formatted += ` • ${releaseTime}`;
+    }
+    
+    return formatted;
+}
+
+function getReleaseDateTime(releaseDate, releaseTime = '') {
+    if (!releaseDate) return null;
+    let raw = String(releaseDate);
+    // Date-only values are local calendar dates in the admin UI. Append the
+    // optional local time before parsing so the countdown matches the display.
+    if (releaseTime && /^\d{4}-\d{2}-\d{2}$/.test(raw)) raw += `T${releaseTime}`;
+    const date = new Date(raw);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getCountdown(releaseDate, releaseTime = '') {
+    const release = getReleaseDateTime(releaseDate, releaseTime);
+    if (!release) return null;
+    const now = new Date();
+    const diff = release - now;
+    if (diff <= 0) return null;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    
+    return { days, hours, minutes, seconds };
+}
+
+function renderCountdown(releaseDate, releaseTime = '', animeId = '') {
+    const countdown = getCountdown(releaseDate, releaseTime);
+    if (!countdown) return '';
+    const parsedReleaseDate = getReleaseDateTime(releaseDate, releaseTime);
+    return `
+        <div class="coming-soon-countdown" data-release-date="${parsedReleaseDate.toISOString()}" data-anime-id="${animeId}">
+            <div class="countdown-item">
+                <span class="countdown-value countdown-days">${String(countdown.days).padStart(2, '0')}</span>
+                <span class="countdown-label">DAYS</span>
+            </div>
+            <div class="countdown-item">
+                <span class="countdown-value countdown-hours">${String(countdown.hours).padStart(2, '0')}</span>
+                <span class="countdown-label">HOURS</span>
+            </div>
+            <div class="countdown-item">
+                <span class="countdown-value countdown-minutes">${String(countdown.minutes).padStart(2, '0')}</span>
+                <span class="countdown-label">MINUTES</span>
+            </div>
+            <div class="countdown-item">
+                <span class="countdown-value countdown-seconds">${String(countdown.seconds).padStart(2, '0')}</span>
+                <span class="countdown-label">SECONDS</span>
+            </div>
+        </div>
+    `;
+}
+
+function startCountdownUpdates() {
+    // Clear existing interval if any
+    if (window.countdownInterval) {
+        clearInterval(window.countdownInterval);
+    }
+    
+    const updateCountdown = (countdownEl) => {
+            const releaseDateStr = countdownEl.dataset.releaseDate;
+            if (!releaseDateStr) return;
+            
+            const countdown = getCountdown(releaseDateStr);
+            
+            if (!countdown) {
+                // Re-fetch the anime so the server's status/episode data controls
+                // the transition instead of inventing availability in the client.
+                countdownEl.innerHTML = '<span class="text-gold-400 font-bold">NOW AVAILABLE</span>';
+                const animeId = countdownEl.dataset.animeId;
+                if (animeId && !countdownEl.dataset.refreshStarted) {
+                    countdownEl.dataset.refreshStarted = 'true';
+                    if (typeof loadAnimeFromApi === 'function') {
+                        loadAnimeFromApi().then(() => navigate('anime', Number(animeId))).catch(() => {});
+                    }
+                }
+                return;
+            }
+            
+            const daysEl = countdownEl.querySelector('.countdown-days');
+            const hoursEl = countdownEl.querySelector('.countdown-hours');
+            const minutesEl = countdownEl.querySelector('.countdown-minutes');
+            const secondsEl = countdownEl.querySelector('.countdown-seconds');
+            
+            if (daysEl) daysEl.textContent = String(countdown.days).padStart(2, '0');
+            if (hoursEl) hoursEl.textContent = String(countdown.hours).padStart(2, '0');
+            if (minutesEl) minutesEl.textContent = String(countdown.minutes).padStart(2, '0');
+            if (secondsEl) secondsEl.textContent = String(countdown.seconds).padStart(2, '0');
+    };
+
+    // Paint the current value immediately, then keep it synchronized every
+    // second. The immediate pass also handles content inserted after routing.
+    const updateAll = () => document.querySelectorAll('.coming-soon-countdown[data-release-date]').forEach(updateCountdown);
+    updateAll();
+    window.countdownInterval = setInterval(updateAll, 1000);
+}
+
 // ============ BAN CHECK - Run immediately on page load ============
 (async function checkBanStatus() {
     const token = localStorage.getItem('anify-token');
@@ -509,6 +620,57 @@ function toggleBookmark(animeId) {
 
 function toggleWatchlist(animeId) {
     return toggleBookmark(animeId);
+}
+
+function hasReleaseReminder(animeId) {
+    const id = Number(animeId);
+    if (!Number.isFinite(id) || !window.notificationService?.getNotifications) return false;
+    return window.notificationService.getNotifications().some(notification =>
+        notification?.type === 'release_reminder'
+        && Number(notification?.metadata?.animeId) === id
+    );
+}
+
+function toggleReleaseNotification(animeId) {
+    const id = Number(animeId);
+    const anime = animeData.find(entry => Number(entry?.id) === id);
+    if (!anime || !window.notificationService) return false;
+    if (!isLoggedIn()) {
+        showToast('Sign in to receive release updates in your notification bell.');
+        return false;
+    }
+
+    const notificationId = `release-reminder-${id}`;
+    if (hasReleaseReminder(id)) {
+        window.notificationService.removeNotification(notificationId);
+        showToast(`Release reminder removed for ${anime.title}.`);
+    } else {
+        window.notificationService.addNotification({
+            id: notificationId,
+            type: 'release_reminder',
+            title: 'Release reminder enabled',
+            message: `You’ll receive an update here when “${anime.title}” is released.`,
+            icon: 'bell-ring',
+            action: { label: 'View anime', url: `#anime-${id}` },
+            metadata: {
+                category: 'release',
+                animeId: id,
+                animeTitle: anime.title,
+                poster: anime.image || anime.poster || '',
+                banner: anime.banner || anime.image || '',
+            },
+        });
+        showToast(`You’ll be notified here when ${anime.title} is released.`);
+    }
+
+    updateNotificationBadge();
+    const button = document.getElementById(`notify-btn-${id}`);
+    if (button) {
+        const enabled = hasReleaseReminder(id);
+        button.innerHTML = `<i data-lucide="${enabled ? 'bell-check' : 'bell'}" class="w-4 h-4"></i>${enabled ? ' Notification Enabled' : ' Notify Me'}`;
+        if (window.lucide?.createIcons) lucide.createIcons();
+    }
+    return true;
 }
 
 function getVisibleGenres() {
@@ -1359,7 +1521,16 @@ function updateLocalAnimeData(updatedAnime) {
 
 async function uploadVideoFile(file, onProgress = null) {
     if (window.uploadService && typeof uploadService.uploadVideo === 'function') {
-        try { return await uploadService.uploadVideo(file, onProgress); } catch (e) { console.warn('uploadService.uploadVideo failed:', e); }
+        try { 
+            console.log('[UPLOAD] Using admin video upload service for:', file.name);
+            const progressCallback = (progress) => {
+                console.log(`[UPLOAD] Video upload progress: ${progress.toFixed(1)}%`);
+                if (typeof onProgress === 'function') {
+                    onProgress(progress);
+                }
+            };
+            return await uploadService.uploadVideo(file, progressCallback); 
+        } catch (e) { console.warn('uploadService.uploadVideo failed:', e); }
     }
     return uploadMediaFile(file);
 }
@@ -1529,6 +1700,7 @@ function handleRouteChange() {
             content.innerHTML = renderAnimeDetail(Number(data));
             loadCommentsForAnime(Number(data));
             loadUserRating(Number(data));
+            startCountdownUpdates();
             break;
         case 'player': content.innerHTML = renderPlayer(Number(data)); break;
         case 'login': content.innerHTML = renderLogin(); break;
@@ -2205,6 +2377,15 @@ function renderAnimeDetail(id) {
         </div>`;
     }
     const inWatchlist = isBookmarked(a.id);
+    const releaseReminderEnabled = hasReleaseReminder(a.id);
+    
+    // Check if anime is Coming Soon
+    const isComingSoon = String(a.status || '').toLowerCase() === 'coming soon';
+    
+    console.log('[renderAnimeDetail] Anime ID:', a.id);
+    console.log('[renderAnimeDetail] Status:', a.status, 'isComingSoon:', isComingSoon);
+    console.log('[renderAnimeDetail] releaseDate:', a.releaseDate, 'Type:', typeof a.releaseDate);
+    console.log('[renderAnimeDetail] releaseTime:', a.releaseTime);
 
     // Used by addComment() to know current anime
     document.addEventListener('DOMContentLoaded', () => {
@@ -2248,7 +2429,28 @@ function renderAnimeDetail(id) {
         ? Math.max(1, episodeNumbers.length)
         : Math.max(1, Number(a.episodes || 1));
 
-    const movieSection = ((a.type || 'anime') === 'anime')
+    const movieSection = isComingSoon 
+        ? `
+            <section class="detail-section detail-episodes anim-fade-in">
+                <div class="detail-section-head detail-heading-accent">
+                    <h2>Episodes</h2>
+                    <span>Coming Soon</span>
+                </div>
+                <div class="detail-episodes-coming-soon">
+                    <div class="coming-soon-episodes-icon">
+                        <i data-lucide="clock" class="w-8 h-8"></i>
+                    </div>
+                    <h3>Episodes Coming Soon</h3>
+                    <p>No episodes are available yet. Check back closer to the release date.</p>
+                    ${a.releaseDate ? `
+                    <div class="coming-soon-episodes-date">
+                        <span class="episodes-date-label">Expected:</span>
+                        <span class="episodes-date-value">${formatReleaseDate(a.releaseDate, a.releaseTime)}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            </section>`
+        : ((a.type || 'anime') === 'anime')
         ? `
             <section class="detail-section detail-episodes anim-fade-in">
                 <div class="detail-section-head detail-heading-accent">
@@ -2387,9 +2589,21 @@ function renderAnimeDetail(id) {
                             </div>
 
                             <div class="hero-actions">
-                                <button onclick="navigate('player', ${a.id})" class="btn-premium-large">
-                                    <i data-lucide="play" class="w-5 h-5"></i> ${watchLabel}
-                                </button>
+                                ${isComingSoon ? `
+                                    ${a.trailer ? `
+                                    <button onclick="window.open('${a.trailer}', '_blank')" class="btn-premium-large">
+                                        <i data-lucide="film" class="w-5 h-5"></i> Watch Trailer
+                                    </button>
+                                    ` : `
+                                    <button class="btn-premium-large btn-disabled" disabled>
+                                        <i data-lucide="clock" class="w-5 h-5"></i> Coming Soon
+                                    </button>
+                                    `}
+                                ` : `
+                                    <button onclick="navigate('player', ${a.id})" class="btn-premium-large">
+                                        <i data-lucide="play" class="w-5 h-5"></i> ${watchLabel}
+                                    </button>
+                                `}
 
                                 <button onclick="toggleWatchlist(${a.id}, { isUserWatchlistAction: true })" class="btn-glass">
                                     <i data-lucide="${inWatchlist ? 'bookmark-check' : 'bookmark'}" class="w-5 h-5 ${inWatchlist ? 'text-gold-400' : ''}"></i>
@@ -2402,8 +2616,49 @@ function renderAnimeDetail(id) {
                             </div>
                         </div>
 
-                        <!-- Right: Info Card -->
+                        <!-- Right: Info Card / Coming Soon Section -->
                         <aside class="hero-right-col">
+                            ${isComingSoon ? `
+                            <div class="hero-coming-soon-card">
+                                <div class="coming-soon-header">
+                                    <div class="coming-soon-badge">
+                                        <span class="coming-soon-icon">✦</span>
+                                        <span class="coming-soon-text">COMING SOON</span>
+                                        <span class="coming-soon-jp">未公開</span>
+                                    </div>
+                                    <div class="coming-soon-glow"></div>
+                                </div>
+                                
+                                <div class="coming-soon-content">
+                                    <p class="coming-soon-message">The next episode is on its way.</p>
+                                    
+                                    <div class="coming-soon-release">
+                                        <div class="coming-soon-label">
+                                            <i data-lucide="calendar" class="w-4 h-4"></i>
+                                            Expected Release
+                                        </div>
+                                        <div class="coming-soon-date">${formatReleaseDate(a.releaseDate, a.releaseTime)}</div>
+                                    </div>
+                                    
+                                    ${a.releaseDate ? `
+                                    <div class="coming-soon-countdown-wrapper">
+                                        ${renderCountdown(a.releaseDate, a.releaseTime, a.id)}
+                                    </div>
+                                    ` : ''}
+                                    
+                                    <button onclick="toggleReleaseNotification(${a.id})" class="coming-soon-notify-btn" id="notify-btn-${a.id}">
+                                        <i data-lucide="${releaseReminderEnabled ? 'bell-check' : 'bell'}" class="w-4 h-4"></i>
+                                        ${releaseReminderEnabled ? 'Notification Enabled' : 'Notify Me'}
+                                    </button>
+                                </div>
+                                
+                                <div class="coming-soon-decorative">
+                                    <span class="coming-soon-particle particle-1"></span>
+                                    <span class="coming-soon-particle particle-2"></span>
+                                    <span class="coming-soon-particle particle-3"></span>
+                                </div>
+                            </div>
+                            ` : `
                             <div class="hero-info-card">
                                 <div class="hero-info-top">
                                     <div class="hero-info-label">Type</div>
@@ -2450,6 +2705,7 @@ function renderAnimeDetail(id) {
                                     <div class="hero-progress-fill"></div>
                                 </div>
                             </div>
+                            `}
                         </aside>
                     </div>
                 </div>
@@ -4684,11 +4940,14 @@ function renderNotifications() {
     list.innerHTML = visibleNotifications.map(notification => {
         const readClass = notification.read ? 'opacity-60' : 'opacity-100';
         const timestamp = new Date(notification.createdAt).toLocaleString();
+        const poster = notification.metadata?.poster || '';
+        const banner = notification.metadata?.banner || '';
+        const mediaStyle = banner ? ` style="--notification-banner: url('${String(banner).replace(/'/g, '%27')}')"` : '';
         return `
-            <div tabindex="0" role="button" onclick="openNotificationReader('${notification.id}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openNotificationReader('${notification.id}'); }" class="notif-item ${readClass} ${notification.read ? 'notif-item--read' : 'notif-item--unread'}" aria-label="Open notification: ${notification.title}">
+            <div tabindex="0" role="button" onclick="openNotificationReader('${notification.id}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openNotificationReader('${notification.id}'); }" class="notif-item ${readClass} ${notification.read ? 'notif-item--read' : 'notif-item--unread'}"${mediaStyle} aria-label="Open notification: ${notification.title}">
                 <div class="flex items-start gap-3">
-                    <div class="notif-item__icon">
-                        <i data-lucide="${notification.icon || 'bell'}"></i>
+                    <div class="notif-item__media">
+                        ${poster ? `<img src="${ensureHttps(poster)}" alt="${notification.metadata?.animeTitle || 'Anime'} poster" loading="lazy" onerror="this.hidden=true">` : `<span class="notif-item__icon"><i data-lucide="${notification.icon || 'bell'}"></i></span>`}
                     </div>
                     <div class="notif-item__content">
                         <div class="notif-item__topline">
@@ -4738,6 +4997,11 @@ function openNotificationReader(notificationId) {
     document.getElementById('notification-reader-time').textContent = new Date(notification.createdAt).toLocaleString();
     document.getElementById('notification-reader-message').textContent = notification.message || '';
     document.getElementById('notification-reader-icon').innerHTML = `<i data-lucide="${notification.icon || 'bell'}"></i>`;
+    const readerCard = document.querySelector('.notification-reader__card');
+    if (readerCard) {
+        const banner = notification.metadata?.banner || '';
+        readerCard.style.setProperty('--notification-banner', banner ? `url("${String(banner).replace(/"/g, '%22')}")` : 'none');
+    }
     const action = document.getElementById('notification-reader-action');
     action.classList.toggle('hidden', !notification.action?.label);
     action.textContent = notification.action?.label || '';

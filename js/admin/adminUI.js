@@ -1181,6 +1181,17 @@
                             <option value="Completed">Completed</option>
                         </select>
                     </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Release Date</label>
+                        <input type="date" id="admin-anime-release-date" class="input-field">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4" data-admin-metadata>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Release Time</label>
+                        <input type="text" id="admin-anime-release-time" class="input-field" placeholder="e.g., 7:00 PM">
+                    </div>
                 </div>
 
                 <div class="pt-4 flex gap-3">
@@ -1203,6 +1214,12 @@
         if (studioIn) studioIn.value = anime?.studio || '';
         const statusIn = document.getElementById('admin-anime-status');
         if (statusIn) statusIn.value = anime?.status || 'Airing';
+        const releaseDateIn = document.getElementById('admin-anime-release-date');
+        if (releaseDateIn && anime?.releaseDate) {
+            releaseDateIn.value = new Date(anime.releaseDate).toISOString().split('T')[0];
+        }
+        const releaseTimeIn = document.getElementById('admin-anime-release-time');
+        if (releaseTimeIn) releaseTimeIn.value = anime?.releaseTime || '';
         const trailerIn = document.getElementById('admin-anime-trailer');
         if (trailerIn) trailerIn.value = anime?.trailer || '';
         const premIn = document.getElementById('admin-anime-premium');
@@ -1380,7 +1397,7 @@
                 <!-- Episode Number & Conflict Warning -->
                 <div class="relative">
                     <label class="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 block">Episode Number</label>
-                    <input id="admin-episode-number" type="number" class="input-field text-lg font-black h-14" value="${epNum}" oninput="checkEpisodeConflict(this.value)">
+                    <input id="admin-episode-number" type="number" min="1" step="1" class="input-field text-lg font-black h-14" value="${Math.max(1, Number(epNum) || 1)}" oninput="checkEpisodeConflict(this.value)">
                     <div id="conflict-warning" class="hidden absolute top-0 right-0">
                         <div class="flex items-center gap-2 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg">
                             <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-red-500"></i>
@@ -1460,6 +1477,21 @@
                         <span>${isEdit ? 'Update Existing Episode' : 'Upload Episode Content'}</span>
                     </button>
                 </div>
+
+                <section class="mt-8 pt-6 border-t border-white/10">
+                    <div class="flex items-start justify-between gap-4 mb-4">
+                        <div><h4 class="font-black text-black dark:text-white">🚀 Batch episode uploader</h4><p class="text-xs text-gray-500 mt-1">Add as many anime batches as you need. All batches share this safe upload limit, so only four videos upload at once.</p></div>
+                        <select id="batch-upload-concurrency" class="input-field h-9 text-xs w-24"><option value="2">2 at once</option><option value="4" selected>4 at once</option><option value="6">6 at once</option></select>
+                    </div>
+                    <div id="batch-upload-drop" class="rounded-2xl border-2 border-dashed border-gold-400/30 bg-gold-400/5 p-5 text-center">
+                        <input id="batch-episode-files" type="file" accept="video/*" multiple class="hidden">
+                        <p class="font-bold text-sm">🎞️ Drop episode files here</p><p class="text-xs text-gray-500 mt-1">or <label for="batch-episode-files" class="text-gold-400 cursor-pointer font-bold">browse files</label> — episode numbers are detected from filenames.</p>
+                    </div>
+                    <div id="batch-upload-summary" class="text-xs text-gray-500 mt-4"></div>
+                    <p class="text-[10px] text-gray-500 mt-2">ℹ️ You see only this anime’s files here. Other anime batches continue safely in the background and share the global upload limit.</p>
+                    <div id="batch-upload-list" class="space-y-2 mt-3 max-h-80 overflow-y-auto custom-scrollbar"></div>
+                    <div class="flex flex-wrap gap-3 mt-4"><button id="batch-upload-start" type="button" class="btn-primary px-4 py-2 text-xs font-black">🚀 Upload all</button><button id="batch-upload-auto-number" type="button" class="px-4 py-2 text-xs font-black rounded-xl border border-gold-400/30 text-gold-400">🔢 Auto-number missing files</button><label class="flex items-center gap-2 text-xs text-gray-500">Start at <input id="batch-upload-start-episode" type="number" min="1" step="1" value="1" class="input-field w-16 h-9 text-xs"></label><button id="batch-upload-pause-all" type="button" class="px-4 py-2 text-xs font-black rounded-xl border border-white/10">⏸ Pause all</button></div>
+                </section>
             </div>
         </div>`;
     }
@@ -1628,7 +1660,8 @@
             // Update the workspace form for the new episode
             workspace.innerHTML = renderWorkspaceForm(window.currentHubAnime, calculatedNextNum);
             if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
-            bindWorkspaceInteractions();
+        bindWorkspaceInteractions();
+        if (typeof global.initBatchEpisodeUpload === 'function') global.initBatchEpisodeUpload();
 
             console.log('[Add New Episode] Workspace updated for episode:', calculatedNextNum);
 
@@ -1748,6 +1781,10 @@
         const workspace = document.getElementById('hub-workspace');
         if (!workspace) return;
 
+        // The batch uploader lives in the same workspace and must be bound on
+        // the initial Episode Hub render as well as every workspace refresh.
+        if (typeof global.initBatchEpisodeUpload === 'function') global.initBatchEpisodeUpload();
+
         const zones = workspace.querySelectorAll('.drop-zone');
         zones.forEach(zone => {
             const id = zone.dataset.dropTarget;
@@ -1820,6 +1857,8 @@
             studio: document.getElementById('admin-anime-studio')?.value.trim() || 'Unknown Studio',
             genres: selectedGenres.length ? selectedGenres : ['Action'],
             status: statusValue,
+            releaseDate: document.getElementById('admin-anime-release-date')?.value ? new Date(document.getElementById('admin-anime-release-date').value) : null,
+            releaseTime: document.getElementById('admin-anime-release-time')?.value.trim() || '',
             premium: Boolean(document.getElementById('admin-anime-premium')?.checked),
             featured: Boolean(document.getElementById('admin-anime-featured')?.checked),
             trending: Boolean(document.getElementById('admin-anime-trending')?.checked),
@@ -1847,17 +1886,40 @@
         const posterFile = posterInput?.files?.[0] || null;
         const bannerFile = bannerInput?.files?.[0] || null;
         const bannerVideoFile = bannerVideoInput?.files?.[0] || null;
+        const uploadTargetId = adminService.editingAnimeId || adminService.uploadTargetAnimeId;
+        const uploadTarget = animeData.find(a => a.id === uploadTargetId);
+        const uploadMetadata = {
+            animeId: uploadTarget?.id || uploadTargetId || null,
+            animeTitle: uploadTarget?.title || document.getElementById('admin-anime-title')?.value.trim() || null
+        };
         
-        console.log('[Edit Anime] Files to upload:', { 
-            poster: posterFile?.name, 
-            banner: bannerFile?.name, 
-            bannerVideo: bannerVideoFile?.name 
-        });
+        // Add progress tracking for each upload
+        const uploadProgress = {
+            poster: 0,
+            banner: 0,
+            bannerVideo: 0
+        };
+        
+        const updateTotalProgress = () => {
+            const total = uploadProgress.poster + uploadProgress.banner + uploadProgress.bannerVideo;
+            const count = [posterFile, bannerFile, bannerVideoFile].filter(Boolean).length;
+            const avgProgress = count > 0 ? total / count : 0;
+            if (window.updateHubProgress) updateHubProgress(avgProgress, `Uploading ${Math.round(avgProgress)}%...`);
+        };
     
         const [uploadedPoster, uploadedBanner, uploadedBannerVideo] = await Promise.all([
-            posterFile ? uploadService.uploadMedia(posterFile) : Promise.resolve(null),
-            bannerFile ? uploadService.uploadMedia(bannerFile) : Promise.resolve(null),
-            bannerVideoFile ? uploadService.uploadMedia(bannerVideoFile) : Promise.resolve(null),
+            posterFile ? uploadService.uploadMedia(posterFile, (p) => {
+                uploadProgress.poster = p;
+                updateTotalProgress();
+            }, { metadata: uploadMetadata }) : Promise.resolve(null),
+            bannerFile ? uploadService.uploadMedia(bannerFile, (p) => {
+                uploadProgress.banner = p;
+                updateTotalProgress();
+            }, { metadata: uploadMetadata }) : Promise.resolve(null),
+            bannerVideoFile ? uploadService.uploadMedia(bannerVideoFile, (p) => {
+                uploadProgress.bannerVideo = p;
+                updateTotalProgress();
+            }, { metadata: { ...uploadMetadata, videoType: 'banner' } }) : Promise.resolve(null),
         ]);
         
         console.log('[Edit Anime] Media upload completed:', { uploadedPoster, uploadedBanner, uploadedBannerVideo });
@@ -1896,8 +1958,13 @@
         }
     
         try {
-            console.log('[UPLOAD] 🚀 Starting video upload to R2...');
             const fileCount = [file, dubFile, sub720File, dub720File].filter(Boolean).length;
+            const uploadTarget = animeData.find(a => a.id === (adminService.editingAnimeId || adminService.uploadTargetAnimeId));
+            const uploadMetadata = {
+                animeId: uploadTarget?.id || adminService.editingAnimeId || adminService.uploadTargetAnimeId || null,
+                animeTitle: uploadTarget?.title || null,
+                episodeNumber
+            };
             const fileProgress = new Map();
     
             const trackProgress = (id, pct) => {
@@ -1907,13 +1974,11 @@
             };
     
             const [uploadedVideo, uploadedDub, uploadedSub720, uploadedDub720] = await Promise.all([
-                file ? uploadService.uploadVideo(file, (p) => trackProgress('sub1080', p), 'content', {}, 600000) : Promise.resolve(null),
-                dubFile ? uploadService.uploadVideo(dubFile, (p) => trackProgress('dub1080', p), 'content', {}, 600000) : Promise.resolve(null),
-                sub720File ? uploadService.uploadVideo(sub720File, (p) => trackProgress('sub720', p), 'content', {}, 600000) : Promise.resolve(null),
-                dub720File ? uploadService.uploadVideo(dub720File, (p) => trackProgress('dub720', p), 'content', {}, 600000) : Promise.resolve(null),
+                file ? uploadService.uploadVideo(file, (p) => trackProgress('sub1080', p), 'content', uploadMetadata, 600000) : Promise.resolve(null),
+                dubFile ? uploadService.uploadVideo(dubFile, (p) => trackProgress('dub1080', p), 'content', uploadMetadata, 600000) : Promise.resolve(null),
+                sub720File ? uploadService.uploadVideo(sub720File, (p) => trackProgress('sub720', p), 'content', uploadMetadata, 600000) : Promise.resolve(null),
+                dub720File ? uploadService.uploadVideo(dub720File, (p) => trackProgress('dub720', p), 'content', uploadMetadata, 600000) : Promise.resolve(null),
             ]);
-
-            console.log('[UPLOAD] ✅ R2 uploads SUCCESS:', { uploadedVideo, uploadedDub, uploadedSub720, uploadedDub720 });
     
             const existing = animeData.find(a => a.id === adminService.editingAnimeId || a.id === adminService.uploadTargetAnimeId);
     
@@ -1926,7 +1991,7 @@
                     return alert('Authentication required. Please login.');
                 }
     
-                console.log('[Frontend Upload] Preparing MongoDB update payload...');
+
                 const episodePayload = {
                     sub: {
                         qualities: {
@@ -1973,7 +2038,7 @@
                     outroEnd: Number(document.getElementById('admin-outro-end')?.value || 0),
                 };
     
-                console.log('[UPLOAD] 📤 Sending to MongoDB:', episodePayload);
+
                 const res = await fetch(`/api/anime/${existing.id}/episodes/${episodeNumber}`, {
                     method: 'PUT',
                     headers: {
@@ -1983,17 +2048,13 @@
                     body: JSON.stringify(episodePayload),
                 });
                 const data = await res.json().catch(() => ({}));
-                console.log('[UPLOAD] 📥 MongoDB response:', data);
+
                 
                 if (!res.ok || !data.ok) {
-                    console.error('[UPLOAD] ❌ MongoDB update FAILED:', data.error);
                     throw new Error(data.error || `HTTP ${res.status}`);
                 }
     
-                console.log('[UPLOAD] ✅ MongoDB update SUCCESS, updating local data...');
                 if (typeof updateLocalAnimeData === 'function') updateLocalAnimeData(data.anime);
-    
-                console.log('[UPLOAD] 🔄 Refreshing UI...');
                 if (window.renderEpisodeManagementHub && window.currentHubAnime) {
                     // Find the updated anime from local data
                     const updated = animeData.find(a => a.id === existing.id);
@@ -2008,7 +2069,6 @@
                 
                 if (window.showToast) showToast(`Episode ${episodeNumber} saved successfully.`);
                 else alert(`Episode ${episodeNumber} saved successfully.`);
-                console.log('[UPLOAD] 🎉 UPLOAD COMPLETE SUCCESSFULLY');
                 return;
             }
     
@@ -2063,6 +2123,8 @@
                     studio: updatePayload.studio,
                     genres: updatePayload.genres,
                     status: updatePayload.status,
+                    releaseDate: updatePayload.releaseDate,
+                    releaseTime: updatePayload.releaseTime,
                     premium: updatePayload.premium,
                     featured: updatePayload.featured,
                     rating: updatePayload.rating,
@@ -2117,6 +2179,8 @@
                     studio: payload.studio,
                     genres: payload.genres,
                     status: payload.status,
+                    releaseDate: payload.releaseDate,
+                    releaseTime: payload.releaseTime,
                     premium: payload.premium,
                     featured: payload.featured,
                     bannerDisplay: payload.bannerDisplay,
@@ -2316,14 +2380,10 @@
     
             let uploadedMovie = null;
             if (movieFile) {
-                console.log('[Edit Movie] Uploading movie video file...');
-                console.log('[Edit Movie] File size:', (movieFile.size / 1024 / 1024).toFixed(2), 'MB');
-                
                 // Use 10 minute timeout for movie uploads (larger files) with progress tracking
                 uploadedMovie = await uploadService.uploadVideo(
                     movieFile, 
                     (progress) => {
-                        console.log(`[Edit Movie] Upload progress: ${progress.toFixed(1)}%`);
                         if (window.updateHubProgress) {
                             window.updateHubProgress(progress, `Uploading movie ${Math.round(progress)}%...`);
                         }
@@ -2334,7 +2394,6 @@
                 );
                 
                 if (!uploadedMovie?.url) throw new Error('Video upload failed to return a URL.');
-                console.log('[Edit Movie] Movie video uploaded:', uploadedMovie.url);
             }
     
             const qualities = { ...(existing?.movieMedia?.qualities || {}) };
@@ -2483,6 +2542,8 @@ function editAdminAnime(id) {
         const root = document.getElementById('admin-content');
         if (!root) return;
 
+        bindAdminAnimeFilters(root);
+
         const editButtons = root.querySelectorAll('[data-admin-anime-action="edit"]');
         editButtons.forEach(btn => {
             btn.onclick = () => editAdminAnime(Number(btn.dataset.animeId));
@@ -2508,6 +2569,64 @@ function editAdminAnime(id) {
         if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
     }
 
+    function bindAdminAnimeFilters(root) {
+        const search = root.querySelector('#admin-anime-search');
+        const status = root.querySelector('#admin-anime-filter-status');
+        const visibility = root.querySelector('#admin-anime-filter-visibility');
+        const genre = root.querySelector('#admin-anime-filter-genre');
+        const rating = root.querySelector('#admin-anime-filter-rating');
+        const sort = root.querySelector('#admin-anime-sort');
+        const count = root.querySelector('#admin-anime-result-count');
+        const clear = root.querySelector('#admin-anime-filter-clear');
+        if (!search || !status || !visibility || !count) return;
+
+        const apply = () => {
+            const query = search.value.trim().toLowerCase();
+            const selectedStatus = status.value;
+            const selectedVisibility = visibility.value;
+            const selectedGenre = (genre?.value || '').toLowerCase().replace(/\s+/g, '-');
+            const minimumRating = Number(rating?.value || 0);
+            const selectedSort = sort?.value || 'newest';
+            let shown = 0;
+            const rows = [...root.querySelectorAll('[data-admin-anime-row]')];
+            rows.sort((left, right) => {
+                if (selectedSort === 'title') return left.dataset.animeTitle.localeCompare(right.dataset.animeTitle);
+                if (selectedSort === 'rating') return Number(right.dataset.animeRating) - Number(left.dataset.animeRating);
+                if (selectedSort === 'episodes') return Number(right.dataset.animeEpisodes) - Number(left.dataset.animeEpisodes);
+                return Number(right.dataset.animeCreated) - Number(left.dataset.animeCreated);
+            });
+            rows.forEach((row) => {
+                const matchesQuery = !query || row.dataset.animeSearch.includes(query);
+                const matchesStatus = !selectedStatus || row.dataset.animeStatus === selectedStatus;
+                const matchesVisibility = !selectedVisibility || row.dataset.animeVisibility.split(' ').includes(selectedVisibility);
+                const matchesGenre = !selectedGenre || row.dataset.animeGenres.split(' ').includes(selectedGenre);
+                const matchesRating = !minimumRating || Number(row.dataset.animeRating) >= minimumRating;
+                const visible = matchesQuery && matchesStatus && matchesVisibility && matchesGenre && matchesRating;
+                row.classList.toggle('hidden', !visible);
+                if (visible) shown++;
+                row.parentElement.appendChild(row);
+            });
+            count.textContent = `${shown} result${shown === 1 ? '' : 's'}`;
+        };
+        search.oninput = apply;
+        status.onchange = apply;
+        visibility.onchange = apply;
+        if (genre) genre.onchange = apply;
+        if (rating) rating.onchange = apply;
+        if (sort) sort.onchange = apply;
+        if (clear) clear.onclick = () => {
+            search.value = '';
+            status.value = '';
+            visibility.value = '';
+            if (genre) genre.value = '';
+            if (rating) rating.value = '';
+            if (sort) sort.value = 'newest';
+            apply();
+            search.focus();
+        };
+        apply();
+    }
+
     /* Movie management has been retired.
     function renderAdminMovies() {
         const movies = animeData.filter(a => (a?.type || 'anime') !== 'anime');
@@ -2521,6 +2640,17 @@ function editAdminAnime(id) {
         <button type="button" onclick="showUploadModal('movie-create')" class="btn-primary flex items-center gap-2 anim-slide-up anim-delay-1" data-admin-upload-movie-create>
             <i data-lucide="plus" class="w-4 h-4"></i> Upload Movie
         </button>
+    </div>
+
+    <div class="glass-card rounded-2xl p-4 mb-5 flex flex-wrap items-center gap-3 anim-fade-in">
+        <div class="relative flex-1 min-w-[220px]">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"></i>
+            <input id="admin-anime-search" type="search" class="input-field h-10 pl-9 text-sm" placeholder="Search title, studio, genre, or year…">
+        </div>
+        <select id="admin-anime-filter-status" class="input-field h-10 text-sm min-w-32"><option value="">All statuses</option><option value="Airing">Airing</option><option value="Completed">Completed</option><option value="Coming Soon">Coming Soon</option></select>
+        <select id="admin-anime-filter-visibility" class="input-field h-10 text-sm min-w-32"><option value="">All content</option><option value="featured">Featured</option><option value="premium">Premium</option><option value="trending">Trending</option><option value="new">New episode</option></select>
+        <span id="admin-anime-result-count" class="text-xs font-bold text-gray-500 whitespace-nowrap"></span>
+        <button id="admin-anime-filter-clear" type="button" class="text-xs font-bold text-gold-400 hover:text-gold-300">Clear</button>
     </div>
 
     <div class="glass-card rounded-2xl overflow-hidden anim-fade-in">
@@ -2538,7 +2668,7 @@ function editAdminAnime(id) {
                     ${movies.map(a => {
                         const movieTypeLabel = a.type === 'live-movie' ? 'Live' : 'Animated';
                         return `
-                        <tr class="border-b border-white/5 hover:bg-white/3 transition-colors">
+                        <tr data-admin-anime-row data-anime-search="${[a?.title, a?.titleJp, a?.studio, a?.year, ...(Array.isArray(a?.genres) ? a.genres : [])].filter(Boolean).join(' ').toLowerCase().replace(/"/g, '&quot;')}" data-anime-status="${status}" data-anime-visibility="${[a?.featured && 'featured', a?.premium && 'premium', a?.trending && 'trending', a?.newEpisode && 'new'].filter(Boolean).join(' ')}" class="border-b border-white/5 hover:bg-white/3 transition-colors">
                             <td class="p-4">
                                 <div class="flex items-center gap-3">
                                     <img src="${ensureHttps(a.image)}" class="w-10 h-14 rounded-lg object-cover" alt="${a.title}">
@@ -2638,6 +2768,10 @@ function editAdminAnime(id) {
             return bt - at;
         });
 
+        const genres = [...new Set(sorted.flatMap(a => Array.isArray(a?.genres) ? a.genres : []))]
+            .filter(Boolean)
+            .sort((a, b) => String(a).localeCompare(String(b)));
+
         return `
     <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
@@ -2649,12 +2783,43 @@ function editAdminAnime(id) {
         </button>
     </div>
 
+    <section class="glass-card rounded-2xl p-4 md:p-5 mb-5 anim-fade-in" aria-label="Anime search and filters">
+        <div class="flex items-start justify-between gap-4 mb-4">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-gold-400/10 flex items-center justify-center">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4 text-gold-400"></i>
+                </div>
+                <div>
+                    <h2 class="text-sm font-bold">Find anime</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">Search details or narrow the catalog</p>
+                </div>
+            </div>
+            <span id="admin-anime-result-count" class="shrink-0 rounded-full bg-white/5 px-3 py-1.5 text-xs font-bold text-gray-400"></span>
+        </div>
+        <div class="relative mb-3">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500"></i>
+            <input id="admin-anime-search" type="search" class="input-field h-11 w-full pl-10 pr-4 text-sm" placeholder="Search title, ID, studio, genre, year, or description" autocomplete="off">
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+            <select id="admin-anime-filter-status" class="input-field h-10 text-sm"><option value="">All statuses</option><option value="Airing">Airing</option><option value="Ongoing">Ongoing</option><option value="Completed">Completed</option><option value="Upcoming">Upcoming</option><option value="Coming Soon">Coming Soon</option></select>
+            <select id="admin-anime-filter-visibility" class="input-field h-10 text-sm"><option value="">All content</option><option value="featured">Featured</option><option value="premium">Premium</option><option value="trending">Trending</option><option value="new">New episode</option></select>
+            <select id="admin-anime-filter-genre" class="input-field h-10 text-sm"><option value="">All genres</option>${genres.map(value => `<option value="${String(value).replace(/"/g, '&quot;')}">${value}</option>`).join('')}</select>
+            <select id="admin-anime-filter-rating" class="input-field h-10 text-sm"><option value="">Any rating</option><option value="8">8+ rating</option><option value="7">7+ rating</option><option value="5">5+ rating</option></select>
+            <select id="admin-anime-sort" class="input-field h-10 text-sm" aria-label="Sort anime"><option value="newest">Sort: Newest</option><option value="title">Sort: Title A-Z</option><option value="rating">Sort: Highest rated</option><option value="episodes">Sort: Most episodes</option></select>
+        </div>
+        <div class="flex justify-end mt-3">
+            <button id="admin-anime-filter-clear" type="button" class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-bold text-gray-500 hover:text-gold-400 transition-colors">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset filters
+            </button>
+        </div>
+    </div>
+
     <div class="glass-card rounded-2xl overflow-hidden anim-fade-in">
         <div class="overflow-x-auto">
             <table class="w-full">
                 <thead>
-                    <tr class="border-b border-white/5 text-left">
-                        <th class="p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Anime</th>
+                    <tr class="border-b border-white/5 bg-white/[0.02] text-left">
+                        <th class="p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Title & details</th>
                         <th class="p-4 text-xs font-semibold text-gray-400 uppercase hidden md:table-cell">Type</th>
                         <th class="p-4 text-xs font-semibold text-gray-400 uppercase">Status</th>
                         <th class="p-4 text-xs font-semibold text-gray-400 uppercase hidden lg:table-cell">Episodes</th>
@@ -2666,17 +2831,22 @@ function editAdminAnime(id) {
                         const isMovie = (a?.type || 'anime') !== 'anime';
                         const typeLabel = !isMovie ? 'Series' : (a?.type === 'live-movie' ? 'Live Movie' : 'Animated Movie');
                         const status = a?.status || 'Airing';
+                        const rating = Number(a?.averageRating || a?.rating || 0);
                         const episodesLabel = Array.isArray(a?.episodesMedia)
                                 ? Math.max(1, a.episodesMedia.length)
                                 : (Number.isFinite(Number(a?.episodes)) ? Number(a.episodes) : (a?.episodes || 0));
+                        const genreTokens = (Array.isArray(a?.genres) ? a.genres : [])
+                            .filter(Boolean)
+                            .map(value => String(value).toLowerCase().replace(/\s+/g, '-'));
                         return `
-                        <tr class="border-b border-white/5 hover:bg-white/3 transition-colors">
+                        <tr data-admin-anime-row data-anime-search="${[a?.id, a?.clientId, a?.title, a?.titleJp, a?.studio, a?.year, a?.desc, status, rating, episodesLabel, ...(Array.isArray(a?.genres) ? a.genres : [])].filter(Boolean).join(' ').toLowerCase().replace(/"/g, '&quot;')}" data-anime-title="${String(a?.title || '').toLowerCase().replace(/"/g, '&quot;')}" data-anime-rating="${rating}" data-anime-episodes="${Number(episodesLabel) || 0}" data-anime-created="${new Date(a?.createdAt || 0).getTime() || 0}" data-anime-genres="${genreTokens.join(' ')}" data-anime-status="${status}" data-anime-visibility="${[a?.featured && 'featured', a?.premium && 'premium', a?.trending && 'trending', a?.newEpisode && 'new'].filter(Boolean).join(' ')}" class="border-b border-white/5 hover:bg-white/3 transition-colors">
                             <td class="p-4">
                                 <div class="flex items-center gap-3">
                                     <img src="${ensureHttps(a?.image || '')}" class="w-10 h-14 rounded-lg object-cover" alt="${a?.title || ''}">
                                     <div class="min-w-0">
                                         <p class="font-semibold text-sm truncate">${a?.title || 'Untitled'}</p>
-                                        <p class="text-xs text-gray-500 truncate">${(a?.studio || 'Unknown Studio')} · ${(a?.year || '')}</p>
+                                        <p class="text-xs text-gray-500 truncate">${(a?.studio || 'Unknown Studio')} · ${(a?.year || '')} · ${rating ? `★ ${rating.toFixed(1)}` : 'No rating'}</p>
+                                        <p class="text-[11px] text-gray-600 truncate">${Array.isArray(a?.genres) && a.genres.length ? a.genres.join(', ') : 'No genres listed'}</p>
                                     </div>
                                 </div>
                             </td>
@@ -2885,15 +3055,422 @@ function editAdminAnime(id) {
     }
 
     function renderUserDetailsModal() {
-        return `<div id="admin-user-details-modal" class="hidden fixed inset-0 z-[100] overflow-y-auto bg-black/70 p-4"><div class="mx-auto my-8 w-full max-w-3xl rounded-2xl border border-white/10 bg-[#141225] p-6"><div class="flex justify-between"><h2 class="text-xl font-black">User Profile & Activity</h2><button onclick="closeAdminUserDetails()" class="text-xl text-gray-400">×</button></div><div id="admin-user-details-content" class="mt-5"></div></div></div>`;
+        return `
+        <div id="admin-user-details-modal" class="hidden fixed inset-0 z-[100] overflow-y-auto bg-black/80 backdrop-blur-sm p-4">
+            <div class="mx-auto my-8 w-full max-w-5xl rounded-2xl border border-gold-400/20 bg-gradient-to-br from-[#141225] via-[#1a1a3e] to-[#141225] p-6 shadow-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-black text-white">User Profile & Activity</h2>
+                    <button onclick="closeAdminUserDetails()" class="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <div id="admin-user-details-content" class="space-y-6"></div>
+            </div>
+        </div>`;
     }
 
     async function viewAdminUser(userId) {
         const modal = document.getElementById('admin-user-details-modal'), target = document.getElementById('admin-user-details-content');
-        modal?.classList.remove('hidden'); target.innerHTML = '<p class="text-sm text-gray-400">Loading profile…</p>';
-        try { const res = await fetch(`/api/admin/users/${userId}/details`, { headers: { Authorization: `Bearer ${getAuthToken()}` } }); const data = await res.json(); if (!res.ok || !data.ok) throw new Error(data.error); const u = data.user; target.innerHTML = `<div class="grid gap-5 md:grid-cols-2"><div class="rounded-xl bg-white/5 p-4"><p class="text-lg font-bold">${u.username || u.name || 'User'}</p><p class="text-sm text-gray-400">${u.email}</p><p class="mt-3 text-xs text-gold-400">${(u.roles || ['user']).join(', ')}</p></div><div class="rounded-xl bg-white/5 p-4"><p class="font-bold">Activity</p><p class="mt-2 text-sm text-gray-400">Watch history: ${data.watchHistory.length}</p><p class="text-sm text-gray-400">Comments/reviews: ${data.comments.length}</p><p class="text-sm text-gray-400">Ratings: ${data.ratings.length}</p><p class="mt-2 text-xs text-gray-500">Bookmarks are stored only in the user’s browser.</p></div></div><div class="mt-5"><h3 class="font-bold">Recent watch history</h3><div class="mt-2 space-y-2">${data.watchHistory.length ? data.watchHistory.map(w => `<div class="rounded-lg bg-white/5 p-3 text-sm">Anime #${w.animeId} · Episode ${w.episode || 1}</div>`).join('') : '<p class="text-sm text-gray-500">No watch history.</p>'}</div></div><div class="mt-5"><h3 class="font-bold">Comments & reviews</h3><div class="mt-2 space-y-2">${data.comments.length ? data.comments.map(c => `<div class="rounded-lg bg-white/5 p-3 text-sm text-gray-300">${c.text}</div>`).join('') : '<p class="text-sm text-gray-500">No comments or reviews.</p>'}</div></div>`; } catch (e) { target.textContent = String(e.message || e); }
+        modal?.classList.remove('hidden'); target.innerHTML = `
+            <div class="flex items-center justify-center py-12">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gold-400"></div>
+                <span class="ml-3 text-gray-400">Loading profile…</span>
+            </div>
+        `;
+        try {
+            const res = await fetch(`/api/admin/users/${userId}/details`, { 
+                headers: { Authorization: `Bearer ${getAuthToken()}` } 
+            });
+            const data = await res.json();
+            
+            if (!res.ok || !data.ok) throw new Error(data.error);
+            
+            target.innerHTML = renderEnhancedUserProfile(data, userId);
+            
+            // Reinitialize icons
+            if (window.lucide && typeof lucide.createIcons === 'function') {
+                lucide.createIcons();
+            }
+        } catch (e) {
+            target.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="alert-circle" class="w-8 h-8 text-red-400"></i>
+                    </div>
+                    <p class="text-red-400 font-semibold">Error loading profile</p>
+                    <p class="text-gray-500 text-sm mt-2">${String(e.message || e)}</p>
+                </div>
+            `;
+            if (window.lucide && typeof lucide.createIcons === 'function') {
+                lucide.createIcons();
+            }
+        }
     }
     function closeAdminUserDetails() { document.getElementById('admin-user-details-modal')?.classList.add('hidden'); }
+
+    function renderEnhancedUserProfile(data, userId) {
+        const { user, statistics, watchHistory, comments, ratings, mostWatchedAnime, timeline } = data;
+        
+        const statusColors = {
+            green: 'bg-green-500/20 text-green-400 border-green-500/30',
+            yellow: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+            orange: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+            red: 'bg-red-500/20 text-red-400 border-red-500/30',
+            gray: 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+        };
+        
+        const statusColor = statusColors[user.statusColor] || statusColors.gray;
+        
+        const formatDate = (date) => {
+            if (!date) return 'Unknown';
+            return new Date(date).toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric' 
+            });
+        };
+
+        const getActivityIcon = (type) => {
+            const icons = {
+                watch: 'play-circle',
+                comment: 'message-circle',
+                rating: 'star',
+                account_created: 'user-plus'
+            };
+            return icons[type] || 'activity';
+        };
+
+        const getActivityColor = (type) => {
+            const colors = {
+                watch: 'text-green-400',
+                comment: 'text-blue-400',
+                rating: 'text-yellow-400',
+                account_created: 'text-purple-400'
+            };
+            return colors[type] || 'text-gray-400';
+        };
+
+        return `
+        <!-- User Overview Section -->
+        <div class="glass-card rounded-2xl p-6 border border-gold-400/20 bg-gradient-to-br from-gold-400/5 via-transparent to-transparent">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-gold-400/20 to-purple-400/20 flex items-center justify-center border border-gold-400/30">
+                        <i data-lucide="user" class="w-8 h-8 text-gold-400"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black text-white">${user.username || user.name || 'User'}</h3>
+                        <p class="text-sm text-gray-400">${user.email}</p>
+                        <div class="flex items-center gap-2 mt-2">
+                            <span class="text-xs font-semibold px-2 py-1 rounded-full ${statusColor} border">
+                                ● ${user.status}
+                            </span>
+                            <span class="text-xs text-gray-500">
+                                ${(user.roles || ['user']).join(', ').toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-gray-500">User ID</p>
+                    <p class="text-sm font-mono text-gold-400">#${String(user._id).slice(-6)}</p>
+                    <p class="text-xs text-gray-500 mt-1">Joined</p>
+                    <p class="text-sm text-gray-300">${formatDate(user.createdAt)}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div class="glass-card rounded-xl p-4 border border-white/5 bg-white/5">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="play" class="w-4 h-4 text-green-400"></i>
+                    <p class="text-xs text-gray-500 uppercase tracking-wider">Watched</p>
+                </div>
+                <p class="text-2xl font-black text-white">${statistics.totalWatchEntries}</p>
+                <p class="text-xs text-gray-500">episodes</p>
+            </div>
+            
+            <div class="glass-card rounded-xl p-4 border border-white/5 bg-white/5">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="clock" class="w-4 h-4 text-blue-400"></i>
+                    <p class="text-xs text-gray-500 uppercase tracking-wider">Views</p>
+                </div>
+                <p class="text-2xl font-black text-white">${statistics.totalViews}</p>
+                <p class="text-xs text-gray-500">total</p>
+            </div>
+            
+            <div class="glass-card rounded-xl p-4 border border-white/5 bg-white/5">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="star" class="w-4 h-4 text-yellow-400"></i>
+                    <p class="text-xs text-gray-500 uppercase tracking-wider">Ratings</p>
+                </div>
+                <p class="text-2xl font-black text-white">${statistics.totalRatings}</p>
+                <p class="text-xs text-gray-500">given</p>
+            </div>
+            
+            <div class="glass-card rounded-xl p-4 border border-white/5 bg-white/5">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="message-circle" class="w-4 h-4 text-purple-400"></i>
+                    <p class="text-xs text-gray-500 uppercase tracking-wider">Comments</p>
+                </div>
+                <p class="text-2xl font-black text-white">${statistics.totalComments}</p>
+                <p class="text-xs text-gray-500">posted</p>
+            </div>
+            
+            <div class="glass-card rounded-xl p-4 border border-white/5 bg-white/5">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 text-green-400"></i>
+                    <p class="text-xs text-gray-500 uppercase tracking-wider">Completed</p>
+                </div>
+                <p class="text-2xl font-black text-white">${statistics.episodesCompleted}</p>
+                <p class="text-xs text-gray-500">episodes</p>
+            </div>
+            
+            <div class="glass-card rounded-xl p-4 border border-white/5 bg-white/5">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="percent" class="w-4 h-4 text-gold-400"></i>
+                    <p class="text-xs text-gray-500 uppercase tracking-wider">Rate</p>
+                </div>
+                <p class="text-2xl font-black text-white">${statistics.completionRate}%</p>
+                <p class="text-xs text-gray-500">completion</p>
+            </div>
+        </div>
+
+        <div class="grid gap-6 md:grid-cols-2">
+            <!-- Activity Timeline -->
+            <div class="glass-card rounded-2xl p-6 border border-white/10 bg-white/5">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="font-bold text-white flex items-center gap-2">
+                        <i data-lucide="activity" class="w-5 h-5 text-gold-400"></i>
+                        Recent Activity
+                    </h4>
+                    <span class="text-xs text-gray-500">Last 15 events</span>
+                </div>
+                <div class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                    ${timeline.length > 0 ? timeline.map(activity => `
+                        <div class="flex items-start gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                                <i data-lucide="${getActivityIcon(activity.type)}" class="w-4 h-4 ${getActivityColor(activity.type)}"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-white font-medium truncate">
+                                    ${activity.type === 'account_created' ? 'Account created' : 
+                                      activity.type === 'watch' ? `Watched ${activity.animeTitle}` :
+                                      activity.type === 'comment' ? `Commented on ${activity.animeTitle}` :
+                                      `Rated ${activity.animeTitle}`}
+                                </p>
+                                ${activity.type === 'watch' ? `
+                                    <p class="text-xs text-gray-400">Episode ${activity.episode} • ${activity.progress}%</p>
+                                ` : ''}
+                                ${activity.type === 'comment' ? `
+                                    <p class="text-xs text-gray-400 truncate">"${activity.text}"</p>
+                                ` : ''}
+                                ${activity.type === 'rating' ? `
+                                    <p class="text-xs text-yellow-400">★ ${activity.rating}/10</p>
+                                ` : ''}
+                                <p class="text-xs text-gray-500 mt-1">${activity.timeAgo}</p>
+                            </div>
+                        </div>
+                    `).join('') : `
+                        <div class="text-center py-8">
+                            <i data-lucide="clock" class="w-8 h-8 text-gray-600 mx-auto mb-2"></i>
+                            <p class="text-sm text-gray-500">No recent activity</p>
+                        </div>
+                    `}
+                </div>
+            </div>
+
+            <!-- Most Watched Anime -->
+            <div class="glass-card rounded-2xl p-6 border border-white/10 bg-white/5">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="font-bold text-white flex items-center gap-2">
+                        <i data-lucide="flame" class="w-5 h-5 text-orange-400"></i>
+                        Most Watched Anime
+                    </h4>
+                    <span class="text-xs text-gray-500">Top 5</span>
+                </div>
+                <div class="space-y-3">
+                    ${mostWatchedAnime.length > 0 ? mostWatchedAnime.map((anime, idx) => `
+                        <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+                            <span class="text-sm font-black w-6 text-center ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-amber-600' : 'text-gray-500'}">
+                                #${idx + 1}
+                            </span>
+                            <img src="${anime.image || ''}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-black/40" alt="${anime.title}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23666%22%3E%3Crect x=%222%22 y=%222%22 width=%2220%22 height=%2220%22 rx=%222%22/%3E%3C/svg%3E'">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-bold text-white truncate">${anime.title}</p>
+                                <p class="text-xs text-gray-400">${anime.count} episodes</p>
+                            </div>
+                        </div>
+                    `).join('') : `
+                        <div class="text-center py-8">
+                            <i data-lucide="film" class="w-8 h-8 text-gray-600 mx-auto mb-2"></i>
+                            <p class="text-sm text-gray-500">No watch history</p>
+                        </div>
+                    `}
+                </div>
+            </div>
+        </div>
+
+        <!-- Watch History Section -->
+        <div class="glass-card rounded-2xl p-6 border border-white/10 bg-white/5">
+            <div class="flex items-center justify-between mb-4">
+                <h4 class="font-bold text-white flex items-center gap-2">
+                    <i data-lucide="history" class="w-5 h-5 text-blue-400"></i>
+                    Watch History
+                </h4>
+                <span class="text-xs text-gray-500">${watchHistory.length} entries</span>
+            </div>
+            <div class="space-y-2 max-h-64 overflow-y-auto">
+                ${watchHistory.length > 0 ? watchHistory.slice(0, 10).map(w => `
+                    <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+                        <img src="${w.animeImage || ''}" class="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-black/40" alt="${w.animeTitle}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23666%22%3E%3Crect x=%222%22 y=%222%22 width=%2220%22 height=%2220%22 rx=%222%22/%3E%3C/svg%3E'">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-bold text-white truncate">${w.animeTitle}</p>
+                            <p class="text-xs text-gray-400">Episode ${w.episode} • ${w.progress}% complete</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs px-2 py-1 rounded-full ${w.progress >= 95 ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}">
+                                ${w.progress >= 95 ? 'Completed' : 'Watching'}
+                            </span>
+                            <p class="text-xs text-gray-500 mt-1">${formatDate(w.updatedAt)}</p>
+                        </div>
+                    </div>
+                `).join('') : `
+                    <div class="text-center py-8">
+                        <i data-lucide="clock" class="w-8 h-8 text-gray-600 mx-auto mb-2"></i>
+                        <p class="text-sm text-gray-500">No watch history</p>
+                    </div>
+                `}
+            </div>
+        </div>
+
+        <!-- Ratings & Comments -->
+        <div class="grid gap-6 md:grid-cols-2">
+            <!-- Ratings -->
+            <div class="glass-card rounded-2xl p-6 border border-white/10 bg-white/5">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="font-bold text-white flex items-center gap-2">
+                        <i data-lucide="star" class="w-5 h-5 text-yellow-400"></i>
+                        Ratings
+                    </h4>
+                    <div class="flex items-center gap-2">
+                        ${statistics.averageRating ? `
+                            <span class="text-xs text-gray-500">Avg: </span>
+                            <span class="text-sm font-bold text-yellow-400">${statistics.averageRating}/10</span>
+                        ` : ''}
+                        <span class="text-xs text-gray-500">${ratings.length} total</span>
+                    </div>
+                </div>
+                <div class="space-y-2 max-h-48 overflow-y-auto">
+                    ${ratings.length > 0 ? ratings.slice(0, 5).map(r => `
+                        <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+                            <img src="${r.animeImage || ''}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-black/40" alt="${r.animeTitle}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23666%22%3E%3Crect x=%222%22 y=%222%22 width=%2220%22 height=%2220%22 rx=%222%22/%3E%3C/svg%3E'">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs font-bold text-white truncate">${r.animeTitle}</p>
+                                <p class="text-xs text-yellow-400">★ ${r.rating}/10</p>
+                            </div>
+                            <p class="text-xs text-gray-500">${formatDate(r.updatedAt)}</p>
+                        </div>
+                    `).join('') : `
+                        <div class="text-center py-6">
+                            <i data-lucide="star" class="w-6 h-6 text-gray-600 mx-auto mb-2"></i>
+                            <p class="text-sm text-gray-500">No ratings</p>
+                        </div>
+                    `}
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <div class="glass-card rounded-2xl p-6 border border-white/10 bg-white/5">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="font-bold text-white flex items-center gap-2">
+                        <i data-lucide="message-circle" class="w-5 h-5 text-purple-400"></i>
+                        Comments
+                    </h4>
+                    <span class="text-xs text-gray-500">${comments.length} total</span>
+                </div>
+                <div class="space-y-2 max-h-48 overflow-y-auto">
+                    ${comments.length > 0 ? comments.slice(0, 5).map(c => `
+                        <div class="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+                            <div class="flex items-center justify-between mb-1">
+                                <p class="text-xs font-bold text-white truncate">${c.animeTitle}</p>
+                                ${c.rating ? `<span class="text-xs text-yellow-400">★ ${c.rating}/5</span>` : ''}
+                            </div>
+                            <p class="text-xs text-gray-300 line-clamp-2">"${c.text}"</p>
+                            <p class="text-xs text-gray-500 mt-1">${formatDate(c.createdAt)}</p>
+                        </div>
+                    `).join('') : `
+                        <div class="text-center py-6">
+                            <i data-lucide="message-circle" class="w-6 h-6 text-gray-600 mx-auto mb-2"></i>
+                            <p class="text-sm text-gray-500">No comments</p>
+                        </div>
+                    `}
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Activity & Info -->
+        <div class="glass-card rounded-2xl p-6 border border-white/10 bg-white/5">
+            <h4 class="font-bold text-white flex items-center gap-2 mb-4">
+                <i data-lucide="shield" class="w-5 h-5 text-green-400"></i>
+                Account Activity
+            </h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                    <p class="text-xs text-gray-500">Last Active</p>
+                    <p class="text-sm text-white font-medium">${user.lastActive || 'Unknown'}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Account Status</p>
+                    <p class="text-sm text-white font-medium">${user.status}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Country</p>
+                    <p class="text-sm text-white font-medium">${user.country || 'Unknown'}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Plan</p>
+                    <p class="text-sm text-white font-medium">${user.plan || 'Free'}</p>
+                </div>
+            </div>
+            <div class="mt-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                <p class="text-xs text-yellow-400 flex items-center gap-2">
+                    <i data-lucide="info" class="w-4 h-4"></i>
+                    Bookmarks are stored locally on the user's device and are not available to administrators.
+                </p>
+            </div>
+        </div>
+
+        <!-- Admin Actions -->
+        <div class="glass-card rounded-2xl p-6 border border-white/10 bg-white/5">
+            <h4 class="font-bold text-white flex items-center gap-2 mb-4">
+                <i data-lucide="settings" class="w-5 h-5 text-gray-400"></i>
+                Admin Actions
+            </h4>
+            <div class="flex flex-wrap gap-3">
+                <button onclick="changeUserRole('${userId}', '${(user.roles || ['user'])[0]}')" class="px-4 py-2 rounded-xl bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-colors text-sm font-semibold flex items-center gap-2">
+                    <i data-lucide="shield" class="w-4 h-4"></i> Change Role
+                </button>
+                <button onclick="resetUserPassword('${userId}')" class="px-4 py-2 rounded-xl bg-gold-500/20 text-gold-400 hover:bg-gold-500/30 transition-colors text-sm font-semibold flex items-center gap-2">
+                    <i data-lucide="key" class="w-4 h-4"></i> Reset Password
+                </button>
+                <button onclick="forceUserLogout('${userId}')" class="px-4 py-2 rounded-xl bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 transition-colors text-sm font-semibold flex items-center gap-2">
+                    <i data-lucide="log-out" class="w-4 h-4"></i> Force Logout
+                </button>
+                <button onclick="handleAdminUserAction('${userId}', { status: 'suspended' })" class="px-4 py-2 rounded-xl bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors text-sm font-semibold flex items-center gap-2">
+                    <i data-lucide="alert-triangle" class="w-4 h-4"></i> Suspend
+                </button>
+                <button onclick="openBanUserModal('${userId}', '${user.username || user.name || 'User'}')" class="px-4 py-2 rounded-xl bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors text-sm font-semibold flex items-center gap-2">
+                    <i data-lucide="ban" class="w-4 h-4"></i> Ban User
+                </button>
+                <button onclick="deleteAdminUser('${userId}')" class="px-4 py-2 rounded-xl bg-red-600/20 text-red-500 hover:bg-red-600/30 transition-colors text-sm font-semibold flex items-center gap-2">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Delete User
+                </button>
+            </div>
+        </div>
+        `;
+    }
     async function changeUserRole(id, current) { const role = prompt('Role: user, moderator, shield, or admin', current); if (!role) return; await handleAdminUserAction(id, { roles: [role.trim().toLowerCase()] }); }
     async function resetUserPassword(id) { const password = prompt('Enter a new temporary password (at least 8 characters):'); if (!password) return; const res = await fetch(`/api/admin/users/${id}/reset-password`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` }, body: JSON.stringify({ password }) }); const d = await res.json(); if (!res.ok || !d.ok) return alert(d.error || 'Could not reset password'); if (window.showToast) showToast('Password reset and session ended'); }
     async function forceUserLogout(id) { if (!confirm('End this user’s active session?')) return; const res = await fetch(`/api/admin/users/${id}/force-logout`, { method: 'POST', headers: { Authorization: `Bearer ${getAuthToken()}` } }); const d = await res.json(); if (!res.ok || !d.ok) return alert(d.error || 'Could not force logout'); if (window.showToast) showToast('User logged out'); }
@@ -3654,6 +4231,9 @@ function editAdminAnime(id) {
     function bindWorkspaceInteractions() {
         const workspace = document.getElementById('hub-workspace');
         if (!workspace) return;
+
+        // Bind batch selection/drop handling whenever the workspace is rendered.
+        if (typeof global.initBatchEpisodeUpload === 'function') global.initBatchEpisodeUpload();
 
         const zones = workspace.querySelectorAll('.drop-zone');
         zones.forEach(zone => {
