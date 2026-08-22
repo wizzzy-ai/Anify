@@ -60,7 +60,11 @@
             }
             
             if ((anime?.type || 'anime') !== 'anime') {
-                const qualities = anime?.movieMedia?.qualities || {};
+                const movieQualities = anime?.movieMedia?.qualities || {};
+                // Compatibility fallback for movies uploaded through the old
+                // episode-1 form before movieMedia was populated.
+                const episodeQualities = anime?.episodesMedia?.[0]?.sub?.qualities || {};
+                const qualities = Object.keys(movieQualities).length ? movieQualities : episodeQualities;
                 const url = qualities?.[quality] || qualities?.['1080p'] || qualities?.['720p'] || '';
                 console.log('[Player] Movie source:', { quality, url, availableQualities: Object.keys(qualities) });
                 return url;
@@ -620,7 +624,10 @@
             if (isMovie) {
                 resumeEpisode = 1;
                 // For movies, there's only one source. Load it directly.
-                const quality = Object.keys(anime?.movieMedia?.qualities || {})[0] || '1080p';
+                const movieQualities = anime?.movieMedia?.qualities || {};
+                const episodeQualities = anime?.episodesMedia?.[0]?.sub?.qualities || {};
+                const qualities = Object.keys(movieQualities).length ? movieQualities : episodeQualities;
+                const quality = Object.keys(qualities)[0] || '1080p';
                 this.setPlayerSource('sub', quality); // Language is irrelevant for movies
             } else {
                 resumeEpisode = Number(resume?.episode || 1); // For series, use saved episode

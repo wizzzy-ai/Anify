@@ -7,7 +7,8 @@
     "start": "node server.js",
     "migrate-videos": "node migrate-videos-to-cloudinary.js",
     "migrate-users": "node migrateUserSchema.js",
-    "migrate-otps": "node migrateOtpsToUsers.js"
+    "migrate-otps": "node migrateOtpsToUsers.js",
+    "configure-r2-cors": "node scripts/configure-r2-cors.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1057.0",

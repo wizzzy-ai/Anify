@@ -24,7 +24,14 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 export async function uploadToR2(file, folder = "videos", options = {}) {
   console.log('[R2 Upload] Starting upload...', { filename: file.originalname, size: file.size, mimetype: file.mimetype, folder });
   
-  const { chunkSize = 100 * 1024 * 1024, timeout = 900000 } = options; // 100MB default threshold, 15 min timeout
+  const { chunkSize = 100 * 1024 * 1024, timeout = 900000, metadata = {} } = options; // 100MB default threshold, 15 min timeout
+  const uploadContext = {
+    animeTitle: metadata.animeTitle || 'unknown',
+    animeId: metadata.animeId || 'unknown',
+    episodeNumber: metadata.episodeNumber || 'unknown'
+  };
+
+  console.log('[R2 Upload] Anime/content context:', uploadContext);
   
   // Validate R2_PUBLIC_URL is set
   if (!process.env.R2_PUBLIC_URL || process.env.R2_PUBLIC_URL.trim() === '') {
@@ -66,10 +73,10 @@ export async function uploadToR2(file, folder = "videos", options = {}) {
     if (file.size > chunkSize) {
       console.log('[R2 Upload] Using multipart upload (large file)');
       const result = await Promise.race([
-        uploadMultipart(file, key, filename),
+        uploadMultipart(file, key, filename, uploadContext),
         createTimeoutPromise(timeout)
       ]);
-      console.log('[R2 Upload] Multipart upload complete:', { url: result.url, key: result.key });
+      console.log('[R2 Upload] Multipart upload complete:', { ...uploadContext, url: result.url, key: result.key });
       return result;
     } else {
       console.log('[R2 Upload] Using single part upload (small file)');
@@ -77,7 +84,7 @@ export async function uploadToR2(file, folder = "videos", options = {}) {
         uploadSingle(file, key, filename),
         createTimeoutPromise(timeout)
       ]);
-      console.log('[R2 Upload] Single part upload complete:', { url: result.url, key: result.key });
+      console.log('[R2 Upload] Single part upload complete:', { ...uploadContext, url: result.url, key: result.key });
       return result;
     }
   } catch (error) {
@@ -157,8 +164,8 @@ async function uploadSingle(file, key, filename) {
 /**
  * Multipart upload for large files
  */
-async function uploadMultipart(file, key, filename) {
-  console.log('[R2 Multipart] Initiating multipart upload...', { key, filename, size: file.size });
+async function uploadMultipart(file, key, filename, uploadContext = {}) {
+  console.log('[R2 Multipart] Initiating multipart upload...', { ...uploadContext, key, filename, size: file.size });
   
   const chunkSize = 100 * 1024 * 1024; // 100MB chunks
   const totalChunks = Math.ceil(file.buffer.length / chunkSize);
@@ -176,16 +183,16 @@ async function uploadMultipart(file, key, filename) {
       const end = Math.min(start + chunkSize, file.buffer.length);
       const chunk = file.buffer.slice(start, end);
 
-      console.log(`[R2 Multipart] Uploading part ${i + 1}/${totalChunks}...`);
+      console.log(`[R2 Multipart] Uploading part ${i + 1}/${totalChunks}...`, uploadContext);
       const partETag = await uploadPart(key, uploadId, i + 1, chunk);
       partETags.push(partETag);
-      console.log(`[R2 Multipart] Part ${i + 1}/${totalChunks} uploaded successfully`);
+      console.log(`[R2 Multipart] Part ${i + 1}/${totalChunks} uploaded successfully`, uploadContext);
     }
 
     // Complete multipart upload
     console.log('[R2 Multipart] Completing multipart upload...');
     await completeMultipartUpload(key, uploadId, partETags);
-    console.log('[R2 Multipart] Multipart upload completed successfully');
+    console.log('[R2 Multipart] Multipart upload completed successfully', uploadContext);
 
     const url = `${process.env.R2_PUBLIC_URL}/${key}`;
 

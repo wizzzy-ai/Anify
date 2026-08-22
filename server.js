@@ -12,6 +12,13 @@ import multer from 'multer';
 import cloudinary from "./config/cloudinary.js";
 import { uploadToCloudinary, uploadVideo } from "./utils/cloudinaryUpload.js";
 import { uploadToR2 } from "./utils/uploadToR2.js";
+import {
+  abortDirectMultipartUpload,
+  completeDirectMultipartUpload,
+  createDirectMultipartUpload,
+  listDirectMultipartParts,
+  signDirectMultipartPart,
+} from "./utils/r2DirectMultipart.js";
 import { uploadFile as storageUploadFile } from "./storage/storageService.js";
 import { getStorageHealthForDashboard } from "./storage/healthChecker.js";
 import streamifier from "streamifier";
@@ -497,7 +504,85 @@ const upload = multer({
     fileSize: 1024 * 1024 * 1024, // 1 GB
     fieldSize: 1024 * 1024 * 1024, // 1 GB
   },
+  fileFilter: (req, file, cb) => {
+    console.log('[MULTER] 📁 File upload started:', {
+      fieldname: file.fieldname,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: 'measuring after buffering'
+    });
+    cb(null, true);
+  }
 });
+
+const uploadTerminal = {
+  reset: '\x1b[0m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  dim: '\x1b[2m',
+};
+
+function uploadBar(percent, width = 16) {
+  const filled = Math.round((Math.max(0, Math.min(100, percent)) / 100) * width);
+  return `${'█'.repeat(filled)}${'░'.repeat(width - filled)}`;
+}
+
+function uploadLine(color, icon, message) {
+  console.log(`${color}${icon} ${message}${uploadTerminal.reset}`);
+}
+
+function handleUpload(fieldName) {
+  return (req, res, next) => {
+    const uploadId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    const contentLength = Number(req.headers['content-length']) || 0;
+    let receivedBytes = 0;
+    let lastProgressBucket = -1;
+    const startedAt = Date.now();
+
+    uploadLine(uploadTerminal.cyan, '🚀', `NEW UPLOAD  •  ${uploadId}`);
+    uploadLine(uploadTerminal.dim, '   ', `📍 ${req.method} ${req.originalUrl}  •  field: ${fieldName}  •  ${contentLength ? `${(contentLength / 1024 / 1024).toFixed(2)} MB` : 'size unknown'}`);
+
+    // Multer buffers the multipart request before handing us req.file. Listening
+    // here keeps the terminal useful while the browser is still sending the file.
+    req.on('data', (chunk) => {
+      receivedBytes += chunk.length;
+      if (!contentLength) return;
+
+      const percent = Math.min(100, (receivedBytes / contentLength) * 100);
+      const progressBucket = Math.floor(percent / 5) * 5;
+      if (progressBucket > lastProgressBucket || percent >= 100) {
+        lastProgressBucket = progressBucket;
+        uploadLine(uploadTerminal.yellow, '📥', `Browser → server  ${uploadBar(percent)}  ${percent.toFixed(0)}%  •  ${(receivedBytes / 1024 / 1024).toFixed(2)} / ${(contentLength / 1024 / 1024).toFixed(2)} MB`);
+      }
+    });
+
+    req.on('end', () => {
+      uploadLine(uploadTerminal.green, '✅', `Browser transfer complete  •  ${(receivedBytes / 1024 / 1024).toFixed(2)} MB in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
+    });
+
+    upload.single(fieldName)(req, res, (error) => {
+      if (error) {
+        uploadLine(uploadTerminal.red, '❌', `UPLOAD PARSING FAILED  •  ${error.code || 'UNKNOWN'}: ${error.message}`);
+        return res.status(400).json({ ok: false, error: error.message });
+      }
+
+      req.uploadId = uploadId;
+      let contentContext = req.body?.metadata || null;
+      if (typeof contentContext === 'string') {
+        try {
+          contentContext = JSON.parse(contentContext);
+        } catch {
+          contentContext = { metadata: 'unparseable' };
+        }
+      }
+      uploadLine(uploadTerminal.cyan, '🎬', `Ready for storage  •  ${req.file?.originalname || 'unnamed file'}  •  ${req.file?.size ? `${(req.file.size / 1024 / 1024).toFixed(2)} MB` : 'size unavailable'}`);
+      uploadLine(uploadTerminal.dim, '   ', `🍥 Anime: ${contentContext?.animeTitle || contentContext?.title || 'not provided'}  •  🆔 ${contentContext?.animeId || req.body?.animeId || req.body?.id || 'not provided'}  •  🎞️ Episode: ${contentContext?.episodeNumber || req.body?.episode || '—'}`);
+      next();
+    });
+  };
+}
 
 function makeSafeFilename(originalName) {
   const ext = path.extname(originalName);
@@ -749,7 +834,13 @@ function getErrorMessage(error) {
 
 
 async function sendUploadedFile(req, res, fieldName) {
-  console.log('[UPLOAD] 📁 File received:', { fieldName, filename: req.file?.originalname, mimetype: req.file?.mimetype, size: req.file?.size });
+  console.log('[UPLOAD] 📁 File received:', { 
+    uploadId: req.uploadId,
+    fieldName, 
+    filename: req.file?.originalname, 
+    mimetype: req.file?.mimetype, 
+    size: req.file?.size ? `${(req.file.size / 1024 / 1024).toFixed(2)}MB` : 'unknown' 
+  });
 
   try {
     if (!req.file) {
@@ -761,34 +852,69 @@ async function sendUploadedFile(req, res, fieldName) {
     }
 
     const isVideo = req.file.mimetype.startsWith("video");
-    console.log('[UPLOAD] File type detected:', isVideo ? 'video' : 'image');
+    const rawMetadata = req.body?.metadata || {};
+    const metadata = typeof rawMetadata === 'string' ? JSON.parse(rawMetadata) : (rawMetadata || {});
+    console.log('[UPLOAD] 🎞️ Content context:', metadata);
+    console.log('[UPLOAD] 🎬 File type detected:', isVideo ? 'video' : 'image');
+    console.log('[UPLOAD] 📊 File size:', `${(req.file.size / 1024 / 1024).toFixed(2)}MB`);
 
     let result;
 
     // Use storage layer for uploads
     if (!isVideo) {
-      console.log('[UPLOAD] ☁️ Uploading to Cloudinary...');
+      console.log('[UPLOAD] ☁️ Starting Cloudinary upload for image...');
+      console.log('[UPLOAD] 🎯 Upload details:', {
+        folder: 'anify/posters',
+        resourceType: 'image',
+        filename: req.file.originalname
+      });
+      
       result = await uploadToCloudinary(
         req.file,
         "anify/posters",
-        "image"
+        "image",
+        { logContext: { ...metadata, uploadId: req.uploadId } }
       );
-      console.log('[UPLOAD] ✅ Cloudinary upload SUCCESS:', { url: result.url, public_id: result.public_id });
+      
+      console.log('[UPLOAD] ✅ Cloudinary upload SUCCESS:', { 
+        url: result.url, 
+        public_id: result.public_id,
+        width: result.width,
+        height: result.height
+      });
     } else {
-      console.log('[UPLOAD] ☁️ Uploading video to storage...');
-      const { videoType = 'banner', metadata = {} } = req.body || {};
-      const parsedMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+      console.log('[UPLOAD] ☁️ Starting video upload to storage...');
+      const { videoType = 'banner' } = req.body || {};
+      const parsedMetadata = metadata;
+
+      console.log('[UPLOAD] 🎬 Video upload details:', {
+        videoType,
+        hasMetadata: !!metadata,
+        metadataKeys: Object.keys(parsedMetadata)
+      });
 
       const isBannerVideo = fieldName !== 'video'
         && ['banner', 'banner-video', 'bannerVideo'].includes(String(videoType));
+      
       if (isBannerVideo) {
-        result = await uploadVideo(req.file, 'banner', parsedMetadata);
+        console.log('[UPLOAD] 🎞️ Uploading as banner video...');
+        result = await uploadVideo(req.file, 'banner', { ...parsedMetadata, uploadId: req.uploadId });
       } else {
+        console.log('[UPLOAD] 🎞️ Uploading as content video to R2...');
         // Use extended timeout for large video files (15 minutes)
         const fileTimeout = req.file.size > 100 * 1024 * 1024 ? 900000 : 300000; // 15 min for >100MB, 5 min otherwise
+        console.log('[UPLOAD] ⏱️ Upload timeout:', fileTimeout > 300000 ? '15 minutes (large file)' : '5 minutes');
         result = await uploadToR2(req.file, 'videos', { metadata: parsedMetadata, timeout: fileTimeout });
       }
-      console.log('[UPLOAD] ✅ Video upload SUCCESS:', { url: result.url, key: result.key, storage: result.storage });
+      
+      console.log('[UPLOAD] ✅ Video upload SUCCESS:', { 
+        animeTitle: parsedMetadata?.animeTitle || 'unknown',
+        animeId: parsedMetadata?.animeId || 'unknown',
+        episodeNumber: parsedMetadata?.episodeNumber || 'unknown',
+        url: result.url, 
+        key: result.key, 
+        storage: result.storage 
+      });
     }
 
     console.log('[UPLOAD] 📤 Sending success response to client');
@@ -823,7 +949,7 @@ async function sendUploadedFile(req, res, fieldName) {
 }
 
 // New storage-aware upload endpoints
-app.post('/api/storage/upload', requireAdmin, upload.single('file'), async (req, res) => {
+app.post('/api/storage/upload', requireAdmin, handleUpload('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -860,7 +986,7 @@ app.post('/api/storage/upload', requireAdmin, upload.single('file'), async (req,
   }
 });
 
-app.post('/api/storage/upload/poster', requireAdmin, upload.single('file'), async (req, res) => {
+app.post('/api/storage/upload/poster', requireAdmin, handleUpload('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ ok: false, error: 'No file received' });
@@ -886,7 +1012,7 @@ app.post('/api/storage/upload/poster', requireAdmin, upload.single('file'), asyn
   }
 });
 
-app.post('/api/storage/upload/banner', requireAdmin, upload.single('file'), async (req, res) => {
+app.post('/api/storage/upload/banner', requireAdmin, handleUpload('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ ok: false, error: 'No file received' });
@@ -918,7 +1044,7 @@ app.post('/api/storage/upload/avatar', requireActiveUser, (req, res) => {
   res.status(410).json({ ok: false, error: 'Profile image uploads are disabled. Choose a built-in avatar instead.' });
 });
 
-app.post('/api/storage/upload/video', requireAdmin, upload.single('file'), async (req, res) => {
+app.post('/api/storage/upload/video', requireAdmin, handleUpload('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ ok: false, error: 'No file received' });
@@ -941,6 +1067,56 @@ app.post('/api/storage/upload/video', requireAdmin, upload.single('file'), async
     const statusCode = getErrorStatusCode(e);
     const errorMessage = getErrorMessage(e);
     res.status(statusCode).json({ ok: false, error: errorMessage, code: e.code || 'UPLOAD_ERROR' });
+  }
+});
+
+// Direct-to-R2 multipart upload API. Browser clients receive only short-lived,
+// single-part authorization URLs; R2 credentials never leave this server.
+app.post('/api/admin/r2-multipart/init', requireAdmin, async (req, res) => {
+  try {
+    const session = await createDirectMultipartUpload(req.body || {});
+    console.log('[R2 DIRECT] 🚀 Multipart session created:', { animeId: req.body?.animeId, episodeNumber: req.body?.episodeNumber, key: session.key });
+    res.json({ ok: true, ...session });
+  } catch (error) {
+    console.error('[R2 DIRECT] ❌ Could not create multipart session:', error.message);
+    res.status(400).json({ ok: false, error: error.message || 'Could not create multipart upload.' });
+  }
+});
+
+app.post('/api/admin/r2-multipart/parts', requireAdmin, async (req, res) => {
+  try {
+    const parts = await listDirectMultipartParts(req.body || {});
+    res.json({ ok: true, parts });
+  } catch (error) {
+    res.status(400).json({ ok: false, error: error.message || 'Could not resume multipart upload.' });
+  }
+});
+
+app.post('/api/admin/r2-multipart/sign-part', requireAdmin, async (req, res) => {
+  try {
+    const url = await signDirectMultipartPart(req.body || {});
+    res.json({ ok: true, url });
+  } catch (error) {
+    res.status(400).json({ ok: false, error: error.message || 'Could not authorize upload part.' });
+  }
+});
+
+app.post('/api/admin/r2-multipart/complete', requireAdmin, async (req, res) => {
+  try {
+    const result = await completeDirectMultipartUpload(req.body || {});
+    console.log('[R2 DIRECT] 🎉 Multipart upload completed:', result.key);
+    res.json({ ok: true, ...result, storage: 'r2' });
+  } catch (error) {
+    res.status(400).json({ ok: false, error: error.message || 'Could not complete multipart upload.' });
+  }
+});
+
+app.post('/api/admin/r2-multipart/abort', requireAdmin, async (req, res) => {
+  try {
+    await abortDirectMultipartUpload(req.body || {});
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(400).json({ ok: false, error: error.message || 'Could not cancel multipart upload.' });
   }
 });
 app.get('/api/health', (req, res) => {
@@ -1735,6 +1911,22 @@ app.put('/api/anime/:id/episodes/:episodeNumber', requireDb, requireActiveUser, 
     videoMetadata: videoMetadata,
   };
 
+  // Some older movie upload forms used the episode endpoint with episode 1.
+  // Movies have a single player source, so mirror that upload into
+  // movieMedia as well; this keeps those successfully uploaded R2 objects
+  // playable without requiring a re-upload.
+  if ((anime.type || 'anime') !== 'anime' && Object.keys(subQualities).length) {
+    anime.movieMedia = anime.movieMedia || { qualities: {} };
+    const existingMovieQualities = anime.movieMedia.qualities instanceof Map
+      ? Object.fromEntries(anime.movieMedia.qualities)
+      : (anime.movieMedia.qualities || {});
+    anime.movieMedia.qualities = {
+      ...existingMovieQualities,
+      ...subQualities,
+    };
+    anime.episodes = 1;
+  }
+
   // Remove undefined fields so Mongoose default values can apply on insert
   Object.keys(nextEpisode).forEach((k) => {
     if (nextEpisode[k] === undefined) delete nextEpisode[k];
@@ -2060,6 +2252,8 @@ app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
     studio,
     genres,
     status,
+    releaseDate,
+    releaseTime,
     rating,
     premium,
     featured,
@@ -2098,6 +2292,8 @@ app.put('/api/anime/:id', requireDb, requireActiveUser, async (req, res) => {
     updateData.genres = Array.isArray(genres) ? normalizeGenreList(genres) : genres;
   }
   if (status !== undefined) updateData.status = status;
+  if (releaseDate !== undefined) updateData.releaseDate = releaseDate;
+  if (releaseTime !== undefined) updateData.releaseTime = releaseTime;
   if (rating !== undefined) updateData.rating = rating;
   if (premium !== undefined) updateData.premium = premium;
   if (featured !== undefined) updateData.featured = featured;
@@ -2413,14 +2609,242 @@ app.get('/api/admin/banned-users', requireAdmin, requireDb, async (req, res) => 
 });
 
 app.get('/api/admin/users/:userId/details', requireAdmin, requireDb, async (req, res) => {
-  const user = await User.findById(req.params.userId).select({ passwordHash: 0 }).lean();
-  if (!user) return res.status(404).json({ ok: false, error: 'User not found.' });
-  const [watchHistory, comments, ratings] = await Promise.all([
-    WatchProgress.find({ userId: String(user._id) }).sort({ updatedAt: -1 }).limit(30).lean(),
-    Comment.find({ userId: String(user._id) }).sort({ createdAt: -1 }).limit(30).lean(),
-    Rating.find({ userId: String(user._id) }).sort({ updatedAt: -1 }).limit(30).lean(),
-  ]);
-  res.json({ ok: true, user, watchHistory, comments, ratings });
+  try {
+    const now = new Date();
+    const user = await User.findById(req.params.userId).select({ passwordHash: 0 }).lean();
+    if (!user) return res.status(404).json({ ok: false, error: 'User not found.' });
+
+    // Get all user activity data in parallel
+    const [watchHistory, comments, ratings, recentEpisodeViews] = await Promise.all([
+      WatchProgress.find({ userId: String(user._id) }).sort({ updatedAt: -1 }).limit(50).lean(),
+      Comment.find({ userId: String(user._id) }).sort({ createdAt: -1 }).limit(50).lean(),
+      Rating.find({ userId: String(user._id) }).sort({ updatedAt: -1 }).limit(50).lean(),
+      EpisodeView.find({ userId: String(user._id) }).sort({ viewedAt: -1 }).limit(100).lean(),
+    ]);
+
+    // Get anime details for watch history
+    const animeIds = [...new Set([
+      ...watchHistory.map(w => w.animeId),
+      ...comments.map(c => c.animeId),
+      ...ratings.map(r => r.animeId),
+      ...recentEpisodeViews.map(e => e.animeId)
+    ])];
+
+    const animeMap = new Map();
+    if (animeIds.length > 0) {
+      const animes = await Anime.find({
+        $or: [
+          { clientId: { $in: animeIds.map(id => Number(id)).filter(id => !isNaN(id)) } },
+          { _id: { $in: animeIds.filter(id => isNaN(Number(id))) } }
+        ]
+      }).select({ clientId: 1, title: 1, image: 1, type: 1, episodes: 1 }).lean();
+
+      animes.forEach(anime => {
+        animeMap.set(String(anime.clientId || anime._id), anime);
+      });
+    }
+
+    // Enrich watch history with anime details
+    const enrichedWatchHistory = watchHistory.map(w => {
+      const anime = animeMap.get(String(w.animeId));
+      return {
+        ...w,
+        animeTitle: anime?.title || 'Unknown Anime',
+        animeImage: anime?.image || '',
+        animeType: anime?.type || 'anime',
+        totalEpisodes: anime?.episodes || 0
+      };
+    });
+
+    // Enrich comments with anime details
+    const enrichedComments = comments.map(c => {
+      const anime = animeMap.get(String(c.animeId));
+      return {
+        ...c,
+        animeTitle: anime?.title || 'Unknown Anime',
+        animeImage: anime?.image || ''
+      };
+    });
+
+    // Enrich ratings with anime details
+    const enrichedRatings = ratings.map(r => {
+      const anime = animeMap.get(String(r.animeId));
+      return {
+        ...r,
+        animeTitle: anime?.title || 'Unknown Anime',
+        animeImage: anime?.image || ''
+      };
+    });
+
+    // Calculate statistics
+    const stats = {
+      totalWatchEntries: watchHistory.length,
+      totalComments: comments.length,
+      totalRatings: ratings.length,
+      totalViews: recentEpisodeViews.length,
+      averageRating: ratings.length > 0 
+        ? (ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length).toFixed(1)
+        : null,
+      episodesCompleted: watchHistory.filter(w => w.progress >= 95).length,
+      episodesInProgress: watchHistory.filter(w => w.progress > 0 && w.progress < 95).length,
+    };
+
+    // Calculate completion rate
+    if (stats.totalWatchEntries > 0) {
+      stats.completionRate = ((stats.episodesCompleted / stats.totalWatchEntries) * 100).toFixed(1);
+    } else {
+      stats.completionRate = 0;
+    }
+
+    // Calculate most watched anime
+    const animeWatchCount = new Map();
+    watchHistory.forEach(w => {
+      const count = animeWatchCount.get(String(w.animeId)) || 0;
+      animeWatchCount.set(String(w.animeId), count + 1);
+    });
+
+    const mostWatchedAnime = Array.from(animeWatchCount.entries())
+      .map(([animeId, count]) => {
+        const anime = animeMap.get(animeId);
+        return {
+          animeId,
+          count,
+          title: anime?.title || 'Unknown Anime',
+          image: anime?.image || ''
+        };
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // Create activity timeline
+    const timeline = [];
+
+    // Add watch activities
+    enrichedWatchHistory.slice(0, 10).forEach(w => {
+      const status = w.progress >= 95 ? 'Completed' : 'Watching';
+      timeline.push({
+        type: 'watch',
+        animeTitle: w.animeTitle,
+        episode: w.episode,
+        progress: w.progress,
+        status,
+        timestamp: w.updatedAt,
+        date: w.updatedAt
+      });
+    });
+
+    // Add comment activities
+    enrichedComments.slice(0, 5).forEach(c => {
+      timeline.push({
+        type: 'comment',
+        animeTitle: c.animeTitle,
+        text: c.text,
+        rating: c.rating,
+        timestamp: c.createdAt,
+        date: c.createdAt
+      });
+    });
+
+    // Add rating activities
+    enrichedRatings.slice(0, 5).forEach(r => {
+      timeline.push({
+        type: 'rating',
+        animeTitle: r.animeTitle,
+        rating: r.rating,
+        timestamp: r.updatedAt,
+        date: r.updatedAt
+      });
+    });
+
+    // Add account creation
+    timeline.push({
+      type: 'account_created',
+      timestamp: user.createdAt,
+      date: user.createdAt
+    });
+
+    // Sort timeline by date (most recent first)
+    timeline.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    // Format timeline for display
+    const formattedTimeline = timeline.slice(0, 15).map(activity => {
+      const date = new Date(activity.timestamp);
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      let timeAgo;
+      if (diffMins < 60) timeAgo = `${diffMins} minutes ago`;
+      else if (diffHours < 24) timeAgo = `${diffHours} hours ago`;
+      else if (diffDays < 7) timeAgo = `${diffDays} days ago`;
+      else timeAgo = date.toLocaleDateString();
+
+      return {
+        ...activity,
+        timeAgo,
+        formattedDate: date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric', 
+          year: '2-digit',
+          hour: 'numeric',
+          minute: '2-digit'
+        })
+      };
+    });
+
+    // Get country information from recent views if available
+    let country = null;
+    if (recentEpisodeViews.length > 0) {
+      const latestView = recentEpisodeViews[0];
+      country = latestView.country || null;
+    }
+
+    // Calculate account status
+    const accountStatus = user.status?.toLowerCase() || 'unknown';
+    const statusConfig = {
+      active: { label: 'Active', color: 'green' },
+      pending: { label: 'Pending', color: 'yellow' },
+      suspended: { label: 'Suspended', color: 'orange' },
+      banned: { label: 'Banned', color: 'red' },
+      deleted: { label: 'Deleted', color: 'gray' }
+    };
+    const statusInfo = statusConfig[accountStatus] || { label: 'Unknown', color: 'gray' };
+
+    // Calculate last active time
+    const lastActive = user.updatedAt || user.createdAt;
+    const lastActiveDiff = now - lastActive;
+    const lastActiveMins = Math.floor(lastActiveDiff / 60000);
+    const lastActiveHours = Math.floor(lastActiveDiff / 3600000);
+    const lastActiveDays = Math.floor(lastActiveDiff / 86400000);
+
+    let lastActiveText;
+    if (lastActiveMins < 60) lastActiveText = `${lastActiveMins} minutes ago`;
+    else if (lastActiveHours < 24) lastActiveText = `${lastActiveHours} hours ago`;
+    else lastActiveText = `${lastActiveDays} days ago`;
+
+    res.json({
+      ok: true,
+      user: {
+        ...user,
+        status: statusInfo.label,
+        statusColor: statusInfo.color,
+        lastActive: lastActiveText,
+        lastActiveDate: lastActive,
+        country
+      },
+      statistics: stats,
+      watchHistory: enrichedWatchHistory,
+      comments: enrichedComments,
+      ratings: enrichedRatings,
+      mostWatchedAnime,
+      timeline: formattedTimeline,
+      recentEpisodeViews
+    });
+  } catch (error) {
+    console.error('[Admin User Details] Error:', error);
+    res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
 });
 
 app.post('/api/admin/users/:userId/reset-password', requireAdmin, requireDb, async (req, res) => {
@@ -3326,8 +3750,8 @@ app.post('/api/watch-progress', requireDb, requireActiveUser, async (req, res) =
 });
 
 
-app.post('/api/upload-video', upload.single('video'), (req, res) => sendUploadedFile(req, res, 'video'));
-app.post('/api/upload-media', upload.single('media'), (req, res) => sendUploadedFile(req, res, 'media'));
+app.post('/api/upload-video', handleUpload('video'), (req, res) => sendUploadedFile(req, res, 'video'));
+app.post('/api/upload-media', handleUpload('media'), (req, res) => sendUploadedFile(req, res, 'media'));
 
 // Temporary endpoint to check user data
 app.get('/api/admin/check-user/:email', requireDb, async (req, res) => {

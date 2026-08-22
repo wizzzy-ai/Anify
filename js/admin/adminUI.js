@@ -2759,8 +2759,9 @@ function editAdminAnime(id) {
 
     */
     function renderAdminAnime() {
+        // Keep series and supported movie records visible in one content manager.
         const list = (Array.isArray(animeData) ? animeData : [])
-            .filter(a => (a?.type || 'anime') === 'anime');
+            .filter(a => a && typeof a === 'object');
 
         const sorted = list.sort((a, b) => {
             const at = new Date(a?.createdAt || 0).getTime();
@@ -2775,8 +2776,8 @@ function editAdminAnime(id) {
         return `
     <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
-            <h1 class="text-2xl md:text-3xl font-black anim-slide-up">Anime Management</h1>
-            <p class="text-gray-500 text-sm mt-1">${sorted.length} total anime</p>
+            <h1 class="text-2xl md:text-3xl font-black anim-slide-up">Anime & Movie Management</h1>
+            <p class="text-gray-500 text-sm mt-1">${sorted.length} total titles</p>
         </div>
         <button type="button" onclick="showUploadModal()" class="btn-primary flex items-center gap-2 anim-slide-up anim-delay-1">
             <i data-lucide="plus" class="w-4 h-4"></i> Upload Anime
@@ -2887,8 +2888,8 @@ function editAdminAnime(id) {
                 <div class="w-16 h-16 mx-auto rounded-2xl bg-white/5 flex items-center justify-center mb-3">
                     <i data-lucide="tv" class="w-8 h-8 text-gray-600"></i>
                 </div>
-                <p class="text-lg font-bold mb-1">No anime yet</p>
-                <p class="text-sm text-gray-500 mb-6">Upload your first anime to manage episodes and actions here.</p>
+                <p class="text-lg font-bold mb-1">No titles yet</p>
+                <p class="text-sm text-gray-500 mb-6">Upload your first anime or movie to manage it here.</p>
                 <button type="button" onclick="showUploadModal()" class="btn-primary px-6 py-3">Upload Anime</button>
             </div>
         ` : ''}

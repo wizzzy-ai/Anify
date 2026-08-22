@@ -12,6 +12,15 @@ class CloudinaryUploadError extends Error {
   }
 }
 
+function cloudinaryProgressBar(percent, width = 16) {
+    const filled = Math.round((Math.max(0, Math.min(100, percent)) / 100) * width);
+    return `${'█'.repeat(filled)}${'░'.repeat(width - filled)}`;
+}
+
+function cloudinaryLine(icon, message) {
+    console.log(`\x1b[35m${icon} ${message}\x1b[0m`);
+}
+
 /**
  * Upload a file to Cloudinary
  * 
@@ -23,6 +32,12 @@ class CloudinaryUploadError extends Error {
  */
 export function uploadToCloudinary(file, folder, resourceType = "auto", options = {}) {
     return new Promise((resolve, reject) => {
+        const { logContext: requestedLogContext = {}, ...cloudinaryOptions } = options;
+        const logContext = requestedLogContext || {};
+
+        cloudinaryLine('☁️', `CLOUDINARY START  •  ${file?.originalname || 'unnamed file'}  •  ${file?.size ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'size unknown'}`);
+        console.log('   📁 Folder:', folder, '• 🧩 Type:', resourceType, '• 🍥 Anime:', logContext.animeTitle || logContext.title || 'not provided');
+
         // Validate file
         if (!file || !file.buffer) {
             return reject(new CloudinaryUploadError("Invalid file: missing buffer", "INVALID_FILE"));
@@ -63,8 +78,10 @@ export function uploadToCloudinary(file, folder, resourceType = "auto", options 
         const uploadOptions = {
             folder,
             resource_type: resourceType,
-            ...options
+            ...cloudinaryOptions
         };
+
+        console.log('   ⚙️ Cloudinary stream is connected — transferring your file...');
 
         const stream = cloudinary.uploader.upload_stream(
             uploadOptions,
@@ -91,6 +108,10 @@ export function uploadToCloudinary(file, folder, resourceType = "auto", options 
                     
                     return reject(new CloudinaryUploadError(`Cloudinary upload failed: ${error.message}`, "UPLOAD_FAILED"));
                 }
+
+                cloudinaryLine('🎉', `CLOUDINARY COMPLETE  •  ${file.originalname}  •  ${(result.bytes / 1024 / 1024).toFixed(2)} MB saved`);
+                console.log('   🔗 URL:', result.secure_url);
+                console.log('   🏷️ Public ID:', result.public_id);
                 resolve(result);
             }
         );
@@ -101,7 +122,27 @@ export function uploadToCloudinary(file, folder, resourceType = "auto", options 
             reject(new CloudinaryUploadError(`Stream error: ${error.message}`, "STREAM_ERROR"));
         });
 
-        streamifier.createReadStream(file.buffer).pipe(stream);
+        const readStream = streamifier.createReadStream(file.buffer);
+        let bytesSent = 0;
+        let lastLoggedProgress = -1;
+        const totalBytes = file.size;
+
+        readStream.on('data', (chunk) => {
+            bytesSent += chunk.length;
+            const progress = Math.min(100, (bytesSent / totalBytes) * 100);
+            const progressBucket = Math.floor(progress / 5) * 5;
+
+            if (progressBucket > lastLoggedProgress || progress >= 100) {
+                lastLoggedProgress = progressBucket;
+                cloudinaryLine('☁️', `Server → Cloudinary  ${cloudinaryProgressBar(progress)}  ${progress.toFixed(0)}%  •  ${(bytesSent / 1024 / 1024).toFixed(2)} / ${(totalBytes / 1024 / 1024).toFixed(2)} MB`);
+            }
+        });
+
+        readStream.on('end', () => {
+            cloudinaryLine('⏳', `File sent to Cloudinary — waiting for confirmation: ${file.originalname}`);
+        });
+
+        readStream.pipe(stream);
     });
 }
 
@@ -128,6 +169,7 @@ export async function uploadImage(file, imageType = "poster", metadata = {}) {
     const options = {
         transformation: getTransformationForType(imageType),
         public_id: generatePublicId(imageType, metadata),
+        logContext: metadata,
         ...metadata
     };
 
@@ -293,6 +335,7 @@ export async function uploadVideo(file, videoType = "banner", metadata = {}) {
     // Add metadata to upload
     const options = {
         public_id: generateVideoPublicId(videoType, metadata),
+        logContext: metadata,
         ...metadata
     };
 

@@ -1336,7 +1336,9 @@ function getAnimeVideoSources(anime) {
 function getDefaultPlayerSource(anime) {
     // Movies
     if ((anime?.type || 'anime') !== 'anime') {
-        const qualities = anime?.movieMedia?.qualities || {};
+        const movieQualities = anime?.movieMedia?.qualities || {};
+        const episodeQualities = anime?.episodesMedia?.[0]?.sub?.qualities || {};
+        const qualities = Object.keys(movieQualities).length ? movieQualities : episodeQualities;
         return qualities['1080p'] || qualities['720p'] || '';
     }
 
@@ -3867,10 +3869,9 @@ async function deleteAdminMovie(id) {
 
 */
 function renderAdminAnime() {
-    // Strict separation: Anime Management must show ONLY series.
-    // A record is considered an anime series when type === 'anime' (legacy field).
+    // Keep series and supported movie records visible in one content manager.
     const list = (Array.isArray(animeData) ? animeData : [])
-        .filter(a => (a?.type || 'anime') === 'anime');
+        .filter(a => a && typeof a === 'object');
 
     const sorted = list.sort((a, b) => {
         const at = new Date(a?.createdAt || 0).getTime();

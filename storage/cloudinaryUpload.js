@@ -23,18 +23,29 @@ class CloudinaryUploadError extends Error {
  */
 export function uploadToCloudinary(file, folder, resourceType = "auto", options = {}) {
     return new Promise((resolve, reject) => {
+        console.log('[CLOUDINARY UPLOAD] Starting upload:', {
+            filename: file.originalname,
+            size: (file.size / 1024 / 1024).toFixed(2) + 'MB',
+            mimetype: file.mimetype,
+            folder: folder,
+            resourceType: resourceType
+        });
+
         // Validate file
         if (!file || !file.buffer) {
+            console.error('[CLOUDINARY UPLOAD] Invalid file: missing buffer');
             return reject(new CloudinaryUploadError("Invalid file: missing buffer", "INVALID_FILE"));
         }
 
         if (!file.size || file.size <= 0) {
+            console.error('[CLOUDINARY UPLOAD] Invalid file: size is zero or negative');
             return reject(new CloudinaryUploadError("Invalid file: size is zero or negative", "INVALID_FILE_SIZE"));
         }
 
         // Check file size limit (10MB max for images)
         const MAX_FILE_SIZE = 10 * 1024 * 1024;
         if (file.size > MAX_FILE_SIZE) {
+            console.error('[CLOUDINARY UPLOAD] File too large:', (file.size / 1024 / 1024).toFixed(2) + 'MB');
             return reject(new CloudinaryUploadError(`File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`, "FILE_TOO_LARGE"));
         }
 
@@ -42,6 +53,7 @@ export function uploadToCloudinary(file, folder, resourceType = "auto", options 
         if (resourceType === "image") {
             const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
             if (!file.mimetype || !allowedMimeTypes.includes(file.mimetype)) {
+                console.error('[CLOUDINARY UPLOAD] Invalid file type:', file.mimetype);
                 return reject(new CloudinaryUploadError(`Invalid file type. Allowed: ${allowedMimeTypes.join(', ')}`, "INVALID_FILE_TYPE"));
             }
         }
@@ -52,11 +64,13 @@ export function uploadToCloudinary(file, folder, resourceType = "auto", options 
             ...options
         };
 
+        console.log('[CLOUDINARY UPLOAD] Upload options:', uploadOptions);
+
         const stream = cloudinary.uploader.upload_stream(
             uploadOptions,
             (error, result) => {
                 if (error) {
-                    console.error("Cloudinary Upload Error:", error);
+                    console.error('[CLOUDINARY UPLOAD] Upload failed:', error);
                     
                     // Handle specific Cloudinary errors
                     if (error.http_code === 401) {
@@ -77,17 +91,49 @@ export function uploadToCloudinary(file, folder, resourceType = "auto", options 
                     
                     return reject(new CloudinaryUploadError(`Cloudinary upload failed: ${error.message}`, "UPLOAD_FAILED"));
                 }
+                
+                console.log('[CLOUDINARY UPLOAD] Upload successful:', {
+                    url: result.secure_url,
+                    public_id: result.public_id,
+                    resource_type: result.resource_type,
+                    bytes: result.bytes,
+                    width: result.width,
+                    height: result.height
+                });
+                
                 resolve(result);
             }
         );
 
         // Handle stream errors
         stream.on('error', (error) => {
-            console.error("Cloudinary Stream Error:", error);
+            console.error('[CLOUDINARY UPLOAD] Stream error:', error);
             reject(new CloudinaryUploadError(`Stream error: ${error.message}`, "STREAM_ERROR"));
         });
 
-        streamifier.createReadStream(file.buffer).pipe(stream);
+        // Add progress tracking for the stream
+        const readStream = streamifier.createReadStream(file.buffer);
+        let bytesUploaded = 0;
+        const totalBytes = file.size;
+
+        readStream.on('data', (chunk) => {
+            bytesUploaded += chunk.length;
+            const progress = (bytesUploaded / totalBytes) * 100;
+            const uploadedMB = (bytesUploaded / 1024 / 1024).toFixed(2);
+            const totalMB = (totalBytes / 1024 / 1024).toFixed(2);
+            console.log(`[CLOUDINARY UPLOAD] Progress: ${progress.toFixed(1)}% (${uploadedMB}MB / ${totalMB}MB)`);
+        });
+
+        readStream.on('end', () => {
+            console.log('[CLOUDINARY UPLOAD] Stream complete, waiting for Cloudinary response...');
+        });
+
+        readStream.on('error', (error) => {
+            console.error('[CLOUDINARY UPLOAD] Read stream error:', error);
+        });
+
+        console.log('[CLOUDINARY UPLOAD] Starting stream upload...');
+        readStream.pipe(stream);
     });
 }
 

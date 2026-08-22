@@ -19,6 +19,16 @@
         const endpoint = options.endpoint || UPLOAD_ENDPOINT;
         const fieldName = options.fieldName || 'media';
         const timeout = options.timeout || 300000; // 5 minutes default timeout
+        const metadata = options.metadata || {};
+        let lastLoggedProgress = -1;
+
+        console.log('[UPLOAD CLIENT] Starting upload:', {
+            filename: file.name,
+            size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+            type: file.type,
+            endpoint,
+            ...metadata
+        });
 
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
@@ -30,12 +40,22 @@
                 formData.append('videoType', options.videoType);
             }
             if (options.metadata) {
-                formData.append('metadata', JSON.stringify(options.metadata));
+                formData.append('metadata', JSON.stringify(metadata));
             }
 
             xhr.upload.addEventListener('progress', (e) => {
                 if (e.lengthComputable && typeof onProgress === 'function') {
                     const pct = (e.loaded / e.total) * 100;
+                    const progressBucket = Math.floor(pct / 5) * 5;
+                    if (progressBucket > lastLoggedProgress || pct >= 100) {
+                        lastLoggedProgress = progressBucket;
+                        console.log('[UPLOAD CLIENT] Progress:', {
+                            filename: file.name,
+                            animeTitle: metadata.animeTitle || 'unknown',
+                            percent: `${pct.toFixed(1)}%`,
+                            transferred: `${(e.loaded / 1024 / 1024).toFixed(2)}MB / ${(e.total / 1024 / 1024).toFixed(2)}MB`
+                        });
+                    }
                     onProgress(pct);
                 }
             });
@@ -44,15 +64,18 @@
                 try {
                     const data = JSON.parse(xhr.responseText);
                     if (xhr.status >= 200 && xhr.status < 300 && data.ok) {
+                        console.log('[UPLOAD CLIENT] Upload complete:', {
+                            filename: file.name,
+                            animeTitle: metadata.animeTitle || 'unknown',
+                            url: data.url,
+                            storage: data.storage,
+                            key: data.key || data.public_id || null
+                        });
                         resolve(data);
                     } else {
                         reject(new Error(data.error || `Upload failed (${xhr.status})`));
                     }
                 } catch (e) {
-                    // Log the actual response for debugging
-                    console.error('[Upload Service] Server response:', xhr.responseText);
-                    console.error('[Upload Service] Status:', xhr.status);
-                    console.error('[Upload Service] Content-Type:', xhr.getResponseHeader('Content-Type'));
                     reject(new Error(`Invalid response from server. Status: ${xhr.status}. Response: ${xhr.responseText.substring(0, 200)}`));
                 }
             });
