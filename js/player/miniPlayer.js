@@ -11,7 +11,7 @@
     const STATE_KEY = 'anify-mini-player-state';
     // Bumped whenever the anchor/positioning scheme changes, so stale saved
     // offsets from an older scheme don't fight with the current CSS default.
-    const STATE_VERSION = 3;
+    const STATE_VERSION = 4;
 
     const miniPlayer = {
         init() {
@@ -67,8 +67,12 @@
             const player = document.getElementById('anify-persistent-player');
             if (!player || !player.classList.contains('mini-player')) return;
 
-            // Only drag if not clicking controls
-            if (e.target.closest('#video-controls')) return;
+            // Only drag if not clicking controls, close buttons, action buttons, or dock
+            if (e.target.closest('#video-controls') ||
+                e.target.closest('.floating-player-close') ||
+                e.target.closest('.mini-mobile-close') ||
+                e.target.closest('.mini-mobile-play') ||
+                e.target.closest('#mini-player-dock')) return;
 
             isDragging = true;
             dragMoved = false;
@@ -159,12 +163,20 @@
             const player = document.getElementById('anify-persistent-player');
             if (!player) return;
 
-            player.classList.remove('mini-player-medium', 'mini-player-large');
-            if (size === 'medium') player.classList.add('mini-player-medium');
-            if (size === 'large') player.classList.add('mini-player-large');
+            player.classList.remove('mini-player-small', 'mini-player-medium', 'mini-player-large');
+            if (size === 'small') {
+                player.classList.add('mini-player-small');
+            } else if (size === 'large') {
+                player.classList.add('mini-player-large');
+            } else {
+                player.classList.add('mini-player-medium');
+            }
 
             this.snapToCorner(Boolean(options.silent));
             this.saveState();
+            if (global.lucide && typeof global.lucide.createIcons === 'function') {
+                global.lucide.createIcons();
+            }
         },
 
         updateNowPlaying() {
@@ -230,7 +242,7 @@
                 x: xOffset,
                 y: yOffset,
                 size: player.classList.contains('mini-player-large') ? 'large' :
-                      player.classList.contains('mini-player-medium') ? 'medium' : 'small',
+                      player.classList.contains('mini-player-small') ? 'small' : 'medium',
                 open: previous.open || false,
             };
             localStorage.setItem(STATE_KEY, JSON.stringify(state));
@@ -248,17 +260,16 @@
             player.classList.add('mini-player-no-transition');
 
             if (!state || state.version !== STATE_VERSION) {
-                // Nothing usable saved yet (or it's from an older anchor scheme,
-                // e.g. before the bottom-right default existed) - fall back to
-                // the CSS default position (bottom-right) instead of a stale offset.
+                // Nothing usable saved yet (or it's from an older anchor/size scheme)
+                // Fall back to CSS default position & standard spacious size (480x270).
                 xOffset = 0;
                 yOffset = 0;
+                this.resize('medium', { silent: true });
                 this.setTranslate(0, 0, player);
-                if (state?.size) this.resize(state.size, { silent: true });
             } else {
                 xOffset = state.x || 0;
                 yOffset = state.y || 0;
-                this.resize(state.size, { silent: true });
+                this.resize(state.size || 'medium', { silent: true });
                 this.setTranslate(xOffset, yOffset, player);
             }
 

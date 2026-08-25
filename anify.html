@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: ws: wss: data: blob:; connect-src 'self' https: http: ws: wss: localhost 127.0.0.1 ipinfo.io; img-src 'self' https: http: data: blob:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:;">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: http: ws: wss: data: blob:; connect-src 'self' https: http: ws: wss: localhost 127.0.0.1 ipinfo.io; img-src 'self' https: http: data: blob:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: http:;">
     <title>Anify — Premium Anime Streaming</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,7 +20,9 @@
     <link rel="shortcut icon" href="/pictures/logo2.png" type="image/png">
     <link rel="apple-touch-icon" href="/pictures/logo2.png">
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+        rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     <script>
         // Set the persisted appearance before the stylesheet paints to avoid a mode flash.
@@ -37,9 +41,9 @@
         })();
     </script>
     <script>
-    // Tailwind CDN is OK for development, but not ideal for production.
-    // Keep this for now to avoid breaking the current build setup.
-    tailwind.config = {
+        // Tailwind CDN is OK for development, but not ideal for production.
+        // Keep this for now to avoid breaking the current build setup.
+        tailwind.config = {
 
             darkMode: 'class',
 
@@ -85,12 +89,13 @@
     <style>
         :root {
             --anify-loading-bg: #01010c;
-            --anify-loading-sheen: rgba(255,255,255,0.12);
+            --anify-loading-sheen: rgba(255, 255, 255, 0.12);
             --anify-loading-gold: #fbbf24;
             --anify-loading-purple: #8b5cf6;
         }
 
-        html, body {
+        html,
+        body {
             margin: 0;
             background: var(--anify-loading-bg);
             min-height: 100%;
@@ -110,8 +115,8 @@
             align-items: center;
             justify-content: center;
             background:
-                radial-gradient(circle at center, rgba(139,92,246,0.18), transparent 35%),
-                radial-gradient(circle at center, rgba(251,191,36,0.12), transparent 55%),
+                radial-gradient(circle at center, rgba(139, 92, 246, 0.18), transparent 35%),
+                radial-gradient(circle at center, rgba(251, 191, 36, 0.12), transparent 55%),
                 #01010c;
             z-index: 999999;
             opacity: 1;
@@ -142,7 +147,7 @@
             width: 280px;
             height: 280px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(251,191,36,0.32) 0%, rgba(139,92,246,0.22) 42%, transparent 72%);
+            background: radial-gradient(circle, rgba(251, 191, 36, 0.32) 0%, rgba(139, 92, 246, 0.22) 42%, transparent 72%);
             filter: blur(30px);
             z-index: -1;
             animation: anifyIntroGlowPulse 3s ease-in-out infinite alternate;
@@ -152,7 +157,7 @@
             width: 210px;
             height: auto;
             max-width: 78vw;
-            filter: drop-shadow(0 0 25px rgba(251,191,36,0.5)) drop-shadow(0 0 50px rgba(139,92,246,0.3));
+            filter: drop-shadow(0 0 25px rgba(251, 191, 36, 0.5)) drop-shadow(0 0 50px rgba(139, 92, 246, 0.3));
             display: block;
         }
 
@@ -172,7 +177,7 @@
             font-weight: 800;
             letter-spacing: 0.25em;
             text-transform: uppercase;
-            color: rgba(255,255,255,0.75);
+            color: rgba(255, 255, 255, 0.75);
         }
 
         #anify-intro-overlay .anify-intro-dot {
@@ -191,7 +196,7 @@
             height: 3px;
             overflow: hidden;
             border-radius: 999px;
-            background: rgba(255,255,255,0.08);
+            background: rgba(255, 255, 255, 0.08);
         }
 
         #anify-intro-overlay .anify-intro-progress-fill {
@@ -213,32 +218,53 @@
             gap: 4px;
             padding: 9px 18px;
             border-radius: 999px;
-            border: 1px solid rgba(255,255,255,0.16);
-            background: rgba(255,255,255,0.08);
-            color: rgba(255,255,255,0.85);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.85);
             font-size: 13px;
             font-weight: 600;
             letter-spacing: 0.04em;
             cursor: pointer;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
             opacity: 0;
             transform: translateY(8px);
             transition: all 0.3s ease;
         }
 
         @keyframes anifyIntroGlowPulse {
-            0% { transform: scale(0.9); opacity: 0.6; }
-            100% { transform: scale(1.15); opacity: 1; }
+            0% {
+                transform: scale(0.9);
+                opacity: 0.6;
+            }
+
+            100% {
+                transform: scale(1.15);
+                opacity: 1;
+            }
         }
 
         @keyframes anifyIntroDotPulse {
-            0%, 100% { transform: scale(0.8); opacity: 0.5; }
-            50% { transform: scale(1.3); opacity: 1; }
+
+            0%,
+            100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: scale(1.3);
+                opacity: 1;
+            }
         }
 
         @keyframes anifyIntroProgressShimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
         }
 
         @media (max-width: 768px) {
@@ -270,7 +296,9 @@
             <img class="anify-intro-logo" src="/pictures/logo.png" alt="Anify Logo">
             <div class="anify-intro-loader">
                 <span class="anify-intro-text"><span class="anify-intro-dot"></span>ENTERING UNIVERSE</span>
-                <div class="anify-intro-progress"><div class="anify-intro-progress-fill"></div></div>
+                <div class="anify-intro-progress">
+                    <div class="anify-intro-progress-fill"></div>
+                </div>
             </div>
         </div>
         <button type="button" class="anify-intro-skip" aria-label="Skip intro">Skip</button>
@@ -287,10 +315,12 @@
                     <div class="flex items-center">
                         <!-- Logo -->
                         <div class="flex items-center gap-1 md:gap-2 cursor-pointer" onclick="navigate('home')">
-                            <div class="nav-logo-wrapper h-10 md:h-12 w-auto min-w-[120px] md:min-w-[160px] flex items-center justify-center overflow-hidden transition-all duration-300">
+                            <div
+                                class="nav-logo-wrapper h-10 md:h-12 w-auto min-w-[120px] md:min-w-[160px] flex items-center justify-center overflow-hidden transition-all duration-300">
                                 <img src="/pictures/logo.png" alt="Anify Logo" class="h-full w-auto object-contain" />
                             </div>
-                            <span id="country-code" class="text-[9px] md:text-[11px] font-bold text-amber-600 dark:text-gold-400/80 ml-1 md:ml-1.5 tracking-widest opacity-70 hidden transition-opacity hover:opacity-100"></span>
+                            <span id="country-code"
+                                class="text-[9px] md:text-[11px] font-bold text-amber-600 dark:text-gold-400/80 ml-1 md:ml-1.5 tracking-widest opacity-70 hidden transition-opacity hover:opacity-100"></span>
                         </div>
 
                         <!-- Desktop Nav -->
@@ -317,67 +347,101 @@
                     <div class="flex items-center gap-[12px] md:gap-[16px] ml-auto">
                         <!-- Search -->
                         <div class="relative" id="search-container">
-                            <button onclick="toggleSearch(event)" class="p-2 rounded-xl hover:bg-white/10 transition-all" aria-label="Search" title="Search">
+                            <button onclick="toggleSearch(event)"
+                                class="p-2 rounded-xl hover:bg-white/10 transition-all" aria-label="Search"
+                                title="Search">
                                 <i data-lucide="search" class="w-5 h-5"></i>
                             </button>
 
-                            <div id="search-panel" class="hidden fixed top-3 left-3 right-3 md:top-[4.25rem] md:right-auto md:left-[calc(100%-27rem)] md:w-[440px] search-glass rounded-2xl p-3.5 md:p-4 shadow-[0_16px_50px_rgba(0,0,0,0.85)] z-[9999] transition-all border border-gold-400/30" role="dialog" aria-modal="true" aria-label="Search anime">
+                            <div id="search-panel"
+                                class="hidden fixed top-3 left-3 right-3 md:top-[4.25rem] md:right-auto md:left-[calc(100%-27rem)] md:w-[440px] search-glass rounded-2xl p-3.5 md:p-4 shadow-[0_16px_50px_rgba(0,0,0,0.85)] z-[9999] transition-all border border-gold-400/30"
+                                role="dialog" aria-modal="true" aria-label="Search anime">
                                 <div class="flex items-center gap-2">
                                     <div class="relative flex-1 min-w-0">
-                                        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gold-400 pointer-events-none"></i>
-                                        <input type="text" id="search-input" placeholder="Search anime by title, genre..."
+                                        <i data-lucide="search"
+                                            class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gold-400 pointer-events-none"></i>
+                                        <input type="text" id="search-input"
+                                            placeholder="Search anime by title, genre..."
                                             class="w-full bg-white/5 border border-white/15 rounded-xl pl-10 pr-9 py-2.5 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-gold-400 focus:ring-2 focus:ring-gold-400/30 transition-all"
                                             oninput="handleSearch(this.value)" autocomplete="off">
-                                        <button id="search-clear-btn" type="button" onclick="clearSearchInput(); event.stopPropagation()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors" title="Clear search text">
+                                        <button id="search-clear-btn" type="button"
+                                            onclick="clearSearchInput(); event.stopPropagation()"
+                                            class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                                            title="Clear search text">
                                             <i data-lucide="x" class="w-3.5 h-3.5"></i>
                                         </button>
                                     </div>
-                                    <button type="button" onclick="closeSearchPanel(); event.stopPropagation()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all flex-shrink-0" aria-label="Close search" title="Close search panel">
+                                    <button type="button" onclick="closeSearchPanel(); event.stopPropagation()"
+                                        class="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all flex-shrink-0"
+                                        aria-label="Close search" title="Close search panel">
                                         <i data-lucide="x" class="w-4 h-4"></i>
                                     </button>
                                 </div>
 
-                                <div class="flex items-center gap-1.5 overflow-x-auto py-2 mt-1 no-scrollbar border-b border-white/5 text-[11px] font-semibold">
-                                    <span class="text-gray-400 text-[10px] uppercase tracking-wider mr-1 flex-shrink-0">Quick:</span>
-                                    <button type="button" onclick="setSearchFilter('Action'); event.stopPropagation()" class="search-chip px-2.5 py-1 rounded-lg bg-white/5 hover:bg-gold-400/20 hover:text-gold-300 border border-white/10 whitespace-nowrap transition-all">⚔️ Action</button>
-                                    <button type="button" onclick="setSearchFilter('Romance'); event.stopPropagation()" class="search-chip px-2.5 py-1 rounded-lg bg-white/5 hover:bg-gold-400/20 hover:text-gold-300 border border-white/10 whitespace-nowrap transition-all">💖 Romance</button>
-                                    <button type="button" onclick="setSearchFilter('Fantasy'); event.stopPropagation()" class="search-chip px-2.5 py-1 rounded-lg bg-white/5 hover:bg-gold-400/20 hover:text-gold-300 border border-white/10 whitespace-nowrap transition-all">🌟 Fantasy</button>
-                                    <button type="button" onclick="setSearchFilter('Movie'); event.stopPropagation()" class="search-chip px-2.5 py-1 rounded-lg bg-white/5 hover:bg-gold-400/20 hover:text-gold-300 border border-white/10 whitespace-nowrap transition-all">🎬 Movies</button>
+                                <div
+                                    class="flex items-center gap-1.5 overflow-x-auto py-2 mt-1 no-scrollbar border-b border-white/5 text-[11px] font-semibold">
+                                    <span
+                                        class="text-gray-400 text-[10px] uppercase tracking-wider mr-1 flex-shrink-0">Quick:</span>
+                                    <button type="button" onclick="setSearchFilter('Action'); event.stopPropagation()"
+                                        class="search-chip px-2.5 py-1 rounded-lg bg-white/5 hover:bg-gold-400/20 hover:text-gold-300 border border-white/10 whitespace-nowrap transition-all">⚔️
+                                        Action</button>
+                                    <button type="button" onclick="setSearchFilter('Romance'); event.stopPropagation()"
+                                        class="search-chip px-2.5 py-1 rounded-lg bg-white/5 hover:bg-gold-400/20 hover:text-gold-300 border border-white/10 whitespace-nowrap transition-all">💖
+                                        Romance</button>
+                                    <button type="button" onclick="setSearchFilter('Fantasy'); event.stopPropagation()"
+                                        class="search-chip px-2.5 py-1 rounded-lg bg-white/5 hover:bg-gold-400/20 hover:text-gold-300 border border-white/10 whitespace-nowrap transition-all">🌟
+                                        Fantasy</button>
+                                    <button type="button" onclick="setSearchFilter('Movie'); event.stopPropagation()"
+                                        class="search-chip px-2.5 py-1 rounded-lg bg-white/5 hover:bg-gold-400/20 hover:text-gold-300 border border-white/10 whitespace-nowrap transition-all">🎬
+                                        Movies</button>
                                 </div>
 
-                                <div id="search-results" class="mt-2.5 max-h-[60vh] md:max-h-80 overflow-y-auto space-y-1.5 custom-scrollbar pr-0.5">
-                                    <p class="text-xs text-gray-400 text-center py-6">Start typing to search anime library...</p>
+                                <div id="search-results"
+                                    class="mt-2.5 max-h-[60vh] md:max-h-80 overflow-y-auto space-y-1.5 custom-scrollbar pr-0.5">
+                                    <p class="text-xs text-gray-400 text-center py-6">Start typing to search anime
+                                        library...</p>
                                 </div>
 
                                 <div class="mt-3 pt-2.5 border-t border-white/10 text-center">
-                                    <button type="button" onclick="showDiscoveryHub(); closeSearchPanel(); event.stopPropagation()" class="text-xs font-bold text-gold-400 uppercase tracking-wider hover:text-gold-300 transition-colors flex items-center justify-center gap-2 w-full py-1">
+                                    <button type="button"
+                                        onclick="showDiscoveryHub(); closeSearchPanel(); event.stopPropagation()"
+                                        class="text-xs font-bold text-gold-400 uppercase tracking-wider hover:text-gold-300 transition-colors flex items-center justify-center gap-2 w-full py-1">
                                         <i data-lucide="dices" class="w-4 h-4"></i> Need a surprise? Start Discovery Hub
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <div id="search-backdrop" class="hidden fixed inset-0 bg-black/70 backdrop-blur-md z-[9998]" onclick="closeSearchPanel(); event.stopPropagation()" aria-hidden="true"></div>
+                        <div id="search-backdrop" class="hidden fixed inset-0 bg-black/70 backdrop-blur-md z-[9998]"
+                            onclick="closeSearchPanel(); event.stopPropagation()" aria-hidden="true"></div>
 
                         <!-- Discovery Hub (hidden on mobile) -->
-                        <button onclick="showDiscoveryHub()" class="hidden md:flex p-2 rounded-xl hover:bg-white/10 transition-all text-gold-400 hover:text-gold-300" title="Surprise Me">
+                        <button onclick="showDiscoveryHub()"
+                            class="hidden md:flex p-2 rounded-xl hover:bg-white/10 transition-all text-gold-400 hover:text-gold-300"
+                            title="Surprise Me">
                             <i data-lucide="dices" class="w-5 h-5"></i>
                         </button>
 
                         <!-- Notifications -->
-                        <button onclick="toggleNotifications()" class="relative p-2 rounded-xl hover:bg-white/10 transition-all" aria-label="Notifications" title="Notifications">
+                        <button onclick="toggleNotifications()"
+                            class="relative p-2 rounded-xl hover:bg-white/10 transition-all" aria-label="Notifications"
+                            title="Notifications">
                             <i data-lucide="inbox" class="w-5 h-5"></i>
-                            <span id="notification-badge" class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center font-bold">0</span>
+                            <span id="notification-badge"
+                                class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center font-bold">0</span>
                         </button>
 
                         <!-- Dark/Light Mode Toggle (hidden on mobile) -->
-                        <button type="button" data-theme-toggle onclick="toggleTheme()" class="hidden md:inline-flex p-2 rounded-xl hover:bg-white/10 transition-all" title="Switch to light mode" aria-label="Switch to light mode" aria-pressed="false">
+                        <button type="button" data-theme-toggle onclick="toggleTheme()"
+                            class="hidden md:inline-flex p-2 rounded-xl hover:bg-white/10 transition-all"
+                            title="Switch to light mode" aria-label="Switch to light mode" aria-pressed="false">
                             <i data-lucide="sun" class="w-5 h-5 theme-icon-sun hidden" aria-hidden="true"></i>
                             <i data-lucide="moon" class="w-5 h-5 theme-icon-moon" aria-hidden="true"></i>
                         </button>
 
                         <!-- Auth actions (Sign In / Register Now or profile) -->
-                        <div id="auth-nav" class="hidden md:flex items-center gap-2 md:gap-3" aria-label="Authentication"></div>
+                        <div id="auth-nav" class="hidden md:flex items-center gap-2 md:gap-3"
+                            aria-label="Authentication"></div>
                         <!-- Anime Avatar Capsule Hamburger Menu Trigger -->
                         <div id="auth-nav-compact" class="md:hidden" aria-label="Mobile navigation menu"></div>
                     </div>
@@ -385,7 +449,8 @@
             </div>
 
             <!-- Anime Command Mobile Navigation Drawer -->
-            <div id="mobile-menu" class="hidden md:hidden anime-command-drawer" role="dialog" aria-modal="true" aria-label="Mobile Navigation">
+            <div id="mobile-menu" class="hidden md:hidden anime-command-drawer" role="dialog" aria-modal="true"
+                aria-label="Mobile Navigation">
                 <div class="anime-drawer-bg-cyber" aria-hidden="true"></div>
                 <div class="anime-drawer-glow-orb anime-orb-1" aria-hidden="true"></div>
                 <div class="anime-drawer-glow-orb anime-orb-2" aria-hidden="true"></div>
@@ -402,14 +467,16 @@
                             <span class="anime-header-kanji">ナビ</span>
                         </div>
                     </div>
-                    <button onclick="toggleMobileMenu()" class="anime-drawer-close" aria-label="Close navigation menu" title="Close menu">
+                    <button onclick="toggleMobileMenu()" class="anime-drawer-close" aria-label="Close navigation menu"
+                        title="Close menu">
                         <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
                 </div>
 
                 <!-- Anime Nav Links -->
                 <div class="anime-nav-items-list">
-                    <button onclick="navigate('home'); toggleMobileMenu()" class="anime-menu-item" data-nav="home" style="--item-index: 0" aria-label="Go to Home" title="Home">
+                    <button onclick="navigate('home'); toggleMobileMenu()" class="anime-menu-item" data-nav="home"
+                        style="--item-index: 0" aria-label="Go to Home" title="Home">
                         <span class="anime-item-pip" aria-hidden="true"></span>
                         <span class="anime-item-icon-box"><i data-lucide="home" class="w-4 h-4"></i></span>
                         <div class="anime-item-text-group">
@@ -417,11 +484,15 @@
                             <span class="anime-item-kanji">ホーム</span>
                         </div>
                         <span class="anime-item-arrow" aria-hidden="true">
-                            <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5"><path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5">
+                                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
                         </span>
                     </button>
 
-                    <button onclick="navigate('browse'); toggleMobileMenu()" class="anime-menu-item" data-nav="browse" style="--item-index: 1" aria-label="Go to Browse" title="Browse">
+                    <button onclick="navigate('browse'); toggleMobileMenu()" class="anime-menu-item" data-nav="browse"
+                        style="--item-index: 1" aria-label="Go to Browse" title="Browse">
                         <span class="anime-item-pip" aria-hidden="true"></span>
                         <span class="anime-item-icon-box"><i data-lucide="compass" class="w-4 h-4"></i></span>
                         <div class="anime-item-text-group">
@@ -429,11 +500,15 @@
                             <span class="anime-item-kanji">探索</span>
                         </div>
                         <span class="anime-item-arrow" aria-hidden="true">
-                            <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5"><path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5">
+                                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
                         </span>
                     </button>
 
-                    <button onclick="navigate('movies'); toggleMobileMenu()" class="anime-menu-item" data-nav="movies" style="--item-index: 2" aria-label="Go to Movies" title="Movies">
+                    <button onclick="navigate('movies'); toggleMobileMenu()" class="anime-menu-item" data-nav="movies"
+                        style="--item-index: 2" aria-label="Go to Movies" title="Movies">
                         <span class="anime-item-pip" aria-hidden="true"></span>
                         <span class="anime-item-icon-box"><i data-lucide="film" class="w-4 h-4"></i></span>
                         <div class="anime-item-text-group">
@@ -441,11 +516,15 @@
                             <span class="anime-item-kanji">劇場版</span>
                         </div>
                         <span class="anime-item-arrow" aria-hidden="true">
-                            <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5"><path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5">
+                                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
                         </span>
                     </button>
 
-                    <button onclick="navigate('series'); toggleMobileMenu()" class="anime-menu-item" data-nav="series" style="--item-index: 3" aria-label="Go to Series" title="Series">
+                    <button onclick="navigate('series'); toggleMobileMenu()" class="anime-menu-item" data-nav="series"
+                        style="--item-index: 3" aria-label="Go to Series" title="Series">
                         <span class="anime-item-pip" aria-hidden="true"></span>
                         <span class="anime-item-icon-box"><i data-lucide="tv" class="w-4 h-4"></i></span>
                         <div class="anime-item-text-group">
@@ -453,11 +532,15 @@
                             <span class="anime-item-kanji">シリーズ</span>
                         </div>
                         <span class="anime-item-arrow" aria-hidden="true">
-                            <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5"><path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5">
+                                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
                         </span>
                     </button>
 
-                    <button onclick="navigate('mylist'); toggleMobileMenu()" class="anime-menu-item" data-nav="mylist" style="--item-index: 4" aria-label="Go to My List" title="My List">
+                    <button onclick="navigate('mylist'); toggleMobileMenu()" class="anime-menu-item" data-nav="mylist"
+                        style="--item-index: 4" aria-label="Go to My List" title="My List">
                         <span class="anime-item-pip" aria-hidden="true"></span>
                         <span class="anime-item-icon-box"><i data-lucide="bookmark" class="w-4 h-4"></i></span>
                         <div class="anime-item-text-group">
@@ -465,11 +548,16 @@
                             <span class="anime-item-kanji">マイリスト</span>
                         </div>
                         <span class="anime-item-arrow" aria-hidden="true">
-                            <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5"><path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5">
+                                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
                         </span>
                     </button>
 
-                    <button onclick="showDiscoveryHub(); toggleMobileMenu()" class="anime-menu-item anime-menu-item-surprise" style="--item-index: 5" aria-label="Surprise Me" title="Surprise Me">
+                    <button onclick="showDiscoveryHub(); toggleMobileMenu()"
+                        class="anime-menu-item anime-menu-item-surprise" style="--item-index: 5"
+                        aria-label="Surprise Me" title="Surprise Me">
                         <span class="anime-item-pip" aria-hidden="true"></span>
                         <span class="anime-item-icon-box"><i data-lucide="dices" class="w-4 h-4"></i></span>
                         <div class="anime-item-text-group">
@@ -477,7 +565,10 @@
                             <span class="anime-item-kanji">おまかせ発見</span>
                         </div>
                         <span class="anime-item-arrow text-gold-400" aria-hidden="true">
-                            <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5"><path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            <svg viewBox="0 0 16 16" fill="none" class="w-3.5 h-3.5">
+                                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
                         </span>
                     </button>
                 </div>
@@ -489,14 +580,16 @@
                         <span class="anime-divider-gem"></span>
                         <span class="anime-divider-line"></span>
                     </div>
-                    <div class="flex flex-col gap-2" id="auth-nav-mobile" aria-label="Authentication options" title="Authentication options"></div>
+                    <div class="flex flex-col gap-2" id="auth-nav-mobile" aria-label="Authentication options"
+                        title="Authentication options"></div>
                 </div>
             </div>
 
             <!-- Mobile Menu Backdrop -->
-            <div id="mobile-menu-backdrop" class="hidden fixed inset-0 bg-black/60 backdrop-blur-md z-48 md:hidden" onclick="toggleMobileMenu()" aria-hidden="true"></div>
+            <div id="mobile-menu-backdrop" class="hidden fixed inset-0 bg-black/60 backdrop-blur-md z-48 md:hidden"
+                onclick="toggleMobileMenu()" aria-hidden="true"></div>
 
-    </nav>
+        </nav>
 
         <!-- Mobile Bottom Navigation -->
         <nav id="mobile-bottom-nav" class="mobile-bottom-nav md:hidden" aria-label="Primary mobile navigation">
@@ -525,31 +618,50 @@
 
         <!-- Main Content -->
         <!-- Notification Panel -->
-        <div id="notification-panel" class="notification-panel fixed top-16 right-4 z-50 hidden" aria-label="Notifications">
+        <div id="notification-panel" class="notification-panel fixed top-16 right-4 z-50 hidden"
+            aria-label="Notifications">
             <div class="notification-panel__header">
-                <div class="notification-panel__heading"><span class="notification-panel__icon"><i data-lucide="inbox"></i></span><div><p class="notification-panel__eyebrow">Your inbox</p><h3>Notifications</h3></div></div>
-                <button type="button" onclick="toggleNotifications(false)" class="notification-panel__close" aria-label="Close notifications" title="Close"><i data-lucide="x"></i></button>
+                <div class="notification-panel__heading"><span class="notification-panel__icon"><i
+                            data-lucide="inbox"></i></span>
+                    <div>
+                        <p class="notification-panel__eyebrow">Your inbox</p>
+                        <h3>Notifications</h3>
+                    </div>
+                </div>
+                <button type="button" onclick="toggleNotifications(false)" class="notification-panel__close"
+                    aria-label="Close notifications" title="Close"><i data-lucide="x"></i></button>
             </div>
 
             <div class="notification-panel__actions">
-                <button type="button" onclick="markAllAsRead()" class="notification-panel__read-all" aria-label="Mark all as read"><i data-lucide="check-check"></i> Mark all read</button>
-                <button type="button" onclick="clearAllNotifications()" class="notification-panel__clear" aria-label="Clear all notifications"><i data-lucide="trash-2"></i><span>Clear</span></button>
+                <button type="button" onclick="markAllAsRead()" class="notification-panel__read-all"
+                    aria-label="Mark all as read"><i data-lucide="check-check"></i> Mark all read</button>
+                <button type="button" onclick="clearAllNotifications()" class="notification-panel__clear"
+                    aria-label="Clear all notifications"><i data-lucide="trash-2"></i><span>Clear</span></button>
             </div>
 
             <div class="notification-panel__search">
-                <i data-lucide="search"></i><input id="notification-search" type="text" placeholder="Search your inbox" oninput="handleNotificationSearch(this.value)">
+                <i data-lucide="search"></i><input id="notification-search" type="text" placeholder="Search your inbox"
+                    oninput="handleNotificationSearch(this.value)">
             </div>
 
-                <div class="notification-panel__filters" aria-label="Notification filters">
-                    <button type="button" class="notif-filter-pill active" data-notif-filter="All" onclick="setNotificationFilter('All')">All</button>
-                    <button type="button" class="notif-filter-pill" data-notif-filter="Unread" onclick="setNotificationFilter('Unread')">Unread</button>
-                    <button type="button" class="notif-filter-pill" data-notif-filter="Read" onclick="setNotificationFilter('Read')">Read</button>
-                    <button type="button" class="notif-filter-pill" data-notif-filter="episode" onclick="setNotificationFilter('episode')">Episode</button>
-                    <button type="button" class="notif-filter-pill" data-notif-filter="movie" onclick="setNotificationFilter('movie')">Movies</button>
-                    <button type="button" class="notif-filter-pill" data-notif-filter="trending" onclick="setNotificationFilter('trending')">Trending</button>
-                    <button type="button" class="notif-filter-pill" data-notif-filter="promotion" onclick="setNotificationFilter('promotion')">Promotion</button>
-                    <button type="button" class="notif-filter-pill" data-notif-filter="watchlist" onclick="setNotificationFilter('watchlist')">Watchlist</button>
-                </div>
+            <div class="notification-panel__filters" aria-label="Notification filters">
+                <button type="button" class="notif-filter-pill active" data-notif-filter="All"
+                    onclick="setNotificationFilter('All')">All</button>
+                <button type="button" class="notif-filter-pill" data-notif-filter="Unread"
+                    onclick="setNotificationFilter('Unread')">Unread</button>
+                <button type="button" class="notif-filter-pill" data-notif-filter="Read"
+                    onclick="setNotificationFilter('Read')">Read</button>
+                <button type="button" class="notif-filter-pill" data-notif-filter="episode"
+                    onclick="setNotificationFilter('episode')">Episode</button>
+                <button type="button" class="notif-filter-pill" data-notif-filter="movie"
+                    onclick="setNotificationFilter('movie')">Movies</button>
+                <button type="button" class="notif-filter-pill" data-notif-filter="trending"
+                    onclick="setNotificationFilter('trending')">Trending</button>
+                <button type="button" class="notif-filter-pill" data-notif-filter="promotion"
+                    onclick="setNotificationFilter('promotion')">Promotion</button>
+                <button type="button" class="notif-filter-pill" data-notif-filter="watchlist"
+                    onclick="setNotificationFilter('watchlist')">Watchlist</button>
+            </div>
 
             <!-- Notification list / empty state -->
             <div id="notification-list" class="notification-list">
@@ -562,32 +674,41 @@
             </div>
         </div>
 
-        <div id="notification-reader" class="notification-reader hidden" role="dialog" aria-modal="true" aria-labelledby="notification-reader-title">
+        <div id="notification-reader" class="notification-reader hidden" role="dialog" aria-modal="true"
+            aria-labelledby="notification-reader-title">
             <div class="notification-reader__backdrop" onclick="closeNotificationReader()"></div>
             <article class="notification-reader__card">
-                <button type="button" class="notification-reader__close" onclick="closeNotificationReader()" aria-label="Close notification"><i data-lucide="x"></i></button>
-                <div class="notification-reader__icon"><span id="notification-reader-icon"><i data-lucide="bell"></i></span></div>
+                <button type="button" class="notification-reader__close" onclick="closeNotificationReader()"
+                    aria-label="Close notification"><i data-lucide="x"></i></button>
+                <div class="notification-reader__icon"><span id="notification-reader-icon"><i
+                            data-lucide="bell"></i></span></div>
                 <p id="notification-reader-type" class="notification-reader__type"></p>
                 <h2 id="notification-reader-title"></h2>
                 <p id="notification-reader-time" class="notification-reader__time"></p>
                 <div id="notification-reader-message" class="notification-reader__message"></div>
-                <div class="notification-reader__footer"><button type="button" class="notification-reader__done" onclick="closeNotificationReader()">Done</button><button type="button" id="notification-reader-action" class="notification-reader__action hidden"></button></div>
+                <div class="notification-reader__footer"><button type="button" class="notification-reader__done"
+                        onclick="closeNotificationReader()">Done</button><button type="button"
+                        id="notification-reader-action" class="notification-reader__action hidden"></button></div>
             </article>
         </div>
 
 
-    <main id="main-content" class="min-h-screen">
+        <main id="main-content" class="min-h-screen">
             <!-- Pages injected here -->
         </main>
 
         <!-- Discovery Hub Modal Mount Point -->
-        <div id="surprise-modal" class="hidden fixed inset-0 z-[10001] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"></div>
+        <div id="surprise-modal"
+            class="hidden fixed inset-0 z-[10001] bg-black/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+        </div>
 
         <!-- Support Anify Modal -->
-        <div id="support-modal" class="hidden fixed inset-0 z-[10002] bg-black/70 backdrop-blur-lg flex items-center justify-center p-4">
+        <div id="support-modal"
+            class="hidden fixed inset-0 z-[10002] bg-black/70 backdrop-blur-lg flex items-center justify-center p-4">
             <div class="support-modal-content relative w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <!-- Close Button -->
-                <button onclick="closeSupportModal()" class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all text-white">
+                <button onclick="closeSupportModal()"
+                    class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all text-white">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
 
@@ -596,18 +717,21 @@
                     <!-- Header -->
                     <div class="text-center mb-6">
                         <div class="flex justify-center mb-4">
-                            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center">
+                            <div
+                                class="w-16 h-16 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center">
                                 <i data-lucide="heart" class="w-8 h-8 text-black"></i>
                             </div>
                         </div>
-                        <h2 class="text-2xl md:text-3xl font-black text-center mb-2 bg-gradient-to-r from-gold-300 to-gold-500 bg-clip-text text-transparent">
+                        <h2
+                            class="text-2xl md:text-3xl font-black text-center mb-2 bg-gradient-to-r from-gold-300 to-gold-500 bg-clip-text text-transparent">
                             ❤️ Support Anify
                         </h2>
                         <p class="text-center text-sm md:text-base mb-4" style="color: var(--text-secondary);">
                             Help us keep Anify growing and improving.
                         </p>
                         <p class="text-center text-xs md:text-sm max-w-sm mx-auto" style="color: var(--text-tertiary);">
-                            Your support helps us improve Anify, maintain our infrastructure, and build new features for the community.
+                            Your support helps us improve Anify, maintain our infrastructure, and build new features for
+                            the community.
                         </p>
                     </div>
 
@@ -615,32 +739,41 @@
                     <div class="mb-6">
                         <p class="text-sm font-semibold mb-3" style="color: var(--text-primary);">Select Amount</p>
                         <div class="grid grid-cols-3 gap-3 mb-4">
-                            <button onclick="selectAmount(500)" class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center" data-amount="500">
+                            <button onclick="selectAmount(500)"
+                                class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center"
+                                data-amount="500">
                                 <span class="font-bold text-lg">₦500</span>
                             </button>
-                            <button onclick="selectAmount(1000)" class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center" data-amount="1000">
+                            <button onclick="selectAmount(1000)"
+                                class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center"
+                                data-amount="1000">
                                 <span class="font-bold text-lg">₦1,000</span>
                             </button>
-                            <button onclick="selectAmount(2000)" class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center" data-amount="2000">
+                            <button onclick="selectAmount(2000)"
+                                class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center"
+                                data-amount="2000">
                                 <span class="font-bold text-lg">₦2,000</span>
                             </button>
-                            <button onclick="selectAmount(5000)" class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center" data-amount="5000">
+                            <button onclick="selectAmount(5000)"
+                                class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center"
+                                data-amount="5000">
                                 <span class="font-bold text-lg">₦5,000</span>
                             </button>
-                            <button onclick="selectAmount(10000)" class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center" data-amount="10000">
+                            <button onclick="selectAmount(10000)"
+                                class="amount-btn p-3 rounded-xl border border-white/10 hover:border-gold-400/50 transition-all text-center"
+                                data-amount="10000">
                                 <span class="font-bold text-lg">₦10,000</span>
                             </button>
                         </div>
-                        
+
                         <!-- Custom Amount -->
                         <div class="relative">
                             <p class="text-sm font-semibold mb-2" style="color: var(--text-primary);">Custom Amount</p>
                             <div class="relative">
                                 <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gold-400 font-bold">₦</span>
-                                <input type="number" id="custom-amount" placeholder="Enter custom amount" 
+                                <input type="number" id="custom-amount" placeholder="Enter custom amount"
                                     class="w-full bg-white/10 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30 transition-all"
-                                    oninput="handleCustomAmount(this.value)"
-                                    min="500">
+                                    oninput="handleCustomAmount(this.value)" min="500">
                             </div>
                         </div>
                     </div>
@@ -648,38 +781,45 @@
                     <!-- Email Input -->
                     <div class="mb-6">
                         <p class="text-sm font-semibold mb-2" style="color: var(--text-primary);">Email for Receipt</p>
-                        <input type="email" id="support-email" placeholder="your@email.com" 
+                        <input type="email" id="support-email" placeholder="your@email.com"
                             class="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold-400/50 focus:ring-1 focus:ring-gold-400/30 transition-all">
                     </div>
 
                     <!-- Support Button -->
-                    <button onclick="processDonation()" id="support-btn" class="w-full btn-primary py-4 text-base font-bold flex items-center justify-center gap-2">
-                        <i data-lucide="heart" class="w-5 h-5"></i> 
+                    <button onclick="processDonation()" id="support-btn"
+                        class="w-full btn-primary py-4 text-base font-bold flex items-center justify-center gap-2">
+                        <i data-lucide="heart" class="w-5 h-5"></i>
                         <span>Support Anify</span>
                     </button>
 
                     <!-- Error Message -->
-                    <div id="support-error" class="hidden mt-4 p-3 rounded-xl bg-red-500/20 border border-red-500/50 text-red-400 text-sm text-center"></div>
+                    <div id="support-error"
+                        class="hidden mt-4 p-3 rounded-xl bg-red-500/20 border border-red-500/50 text-red-400 text-sm text-center">
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Support Success Modal -->
-        <div id="support-success-modal" class="hidden fixed inset-0 z-[10002] bg-black/70 backdrop-blur-lg flex items-center justify-center p-4">
+        <div id="support-success-modal"
+            class="hidden fixed inset-0 z-[10002] bg-black/70 backdrop-blur-lg flex items-center justify-center p-4">
             <div class="support-modal-content relative w-full max-w-md">
                 <!-- Close Button -->
-                <button onclick="closeSupportSuccessModal()" class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all text-white">
+                <button onclick="closeSupportSuccessModal()"
+                    class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all text-white">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
 
                 <!-- Success Content -->
                 <div class="support-modal-inner p-8 text-center">
                     <div class="flex justify-center mb-6">
-                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center animate-bounce">
+                        <div
+                            class="w-20 h-20 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center animate-bounce">
                             <i data-lucide="check" class="w-10 h-10 text-black"></i>
                         </div>
                     </div>
-                    <h2 class="text-2xl md:text-3xl font-black text-center mb-2 bg-gradient-to-r from-green-300 to-green-500 bg-clip-text text-transparent">
+                    <h2
+                        class="text-2xl md:text-3xl font-black text-center mb-2 bg-gradient-to-r from-green-300 to-green-500 bg-clip-text text-transparent">
                         ❤️ Thank You!
                     </h2>
                     <p class="text-center text-base mb-6" style="color: var(--text-secondary);">
@@ -692,12 +832,15 @@
                     <!-- Donation Details -->
                     <div class="bg-white/5 rounded-xl p-4 mb-6">
                         <div class="mb-3">
-                            <p class="text-xs uppercase tracking-wider mb-1" style="color: var(--text-tertiary);">Supported Amount</p>
+                            <p class="text-xs uppercase tracking-wider mb-1" style="color: var(--text-tertiary);">
+                                Supported Amount</p>
                             <p class="text-xl font-bold text-gold-400" id="success-amount">₦0</p>
                         </div>
                         <div>
-                            <p class="text-xs uppercase tracking-wider mb-1" style="color: var(--text-tertiary);">Reference</p>
-                            <p class="text-sm font-mono" id="success-reference" style="color: var(--text-secondary);">ANIFY-XXXXXX</p>
+                            <p class="text-xs uppercase tracking-wider mb-1" style="color: var(--text-tertiary);">
+                                Reference</p>
+                            <p class="text-sm font-mono" id="success-reference" style="color: var(--text-secondary);">
+                                ANIFY-XXXXXX</p>
                         </div>
                     </div>
 
@@ -712,13 +855,18 @@
         <div id="persistent-player-wrapper" class="hidden"></div>
 
         <!-- Admin Upload Modal Mount Point (required by script.js) -->
-        <div id="upload-modal" class="hidden fixed inset-0 z-[10000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"></div>
+        <div id="upload-modal"
+            class="hidden fixed inset-0 z-[10000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        </div>
 
         <!-- Guest Preview Limit Modal -->
-        <div id="guest-limit-modal" class="hidden fixed inset-0 z-[10002] bg-black/70 backdrop-blur-lg flex items-center justify-center p-4">
+        <div id="guest-limit-modal"
+            class="hidden fixed inset-0 z-[10002] bg-black/70 backdrop-blur-lg flex items-center justify-center p-4">
             <div class="guest-modal-content relative w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <!-- Close Button -->
-                <button onclick="closeGuestLimitModal()" class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all" style="color: var(--text-primary);">
+                <button onclick="closeGuestLimitModal()"
+                    class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                    style="color: var(--text-primary);">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
 
@@ -726,64 +874,78 @@
                 <div class="guest-modal-inner p-8 md:p-12">
                     <!-- Celebration Icon -->
                     <div class="flex justify-center mb-6">
-                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center animate-bounce">
+                        <div
+                            class="w-20 h-20 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center animate-bounce">
                             <span class="text-4xl">🎉</span>
                         </div>
                     </div>
 
                     <!-- Title -->
-                    <h2 class="text-3xl md:text-4xl font-black text-center mb-3 bg-gradient-to-r from-gold-300 to-gold-500 bg-clip-text text-transparent">
+                    <h2
+                        class="text-3xl md:text-4xl font-black text-center mb-3 bg-gradient-to-r from-gold-300 to-gold-500 bg-clip-text text-transparent">
                         Free Preview Complete
                     </h2>
 
                     <!-- Subtitle -->
-                    <p class="text-center text-base md:text-lg mb-8 max-w-lg mx-auto" style="color: var(--text-secondary);">
-                        You've enjoyed your free preview of Anify. Create a FREE account to continue watching unlimited anime and movies.
+                    <p class="text-center text-base md:text-lg mb-8 max-w-lg mx-auto"
+                        style="color: var(--text-secondary);">
+                        You've enjoyed your free preview of Anify. Create a FREE account to continue watching unlimited
+                        anime and movies.
                     </p>
 
                     <!-- Benefits Grid -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
                         <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
                             <i data-lucide="play-circle" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
-                            <span class="text-sm font-medium" style="color: var(--text-primary);">Continue Watching</span>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Continue
+                                Watching</span>
                         </div>
                         <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
                             <i data-lucide="history" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
-                            <span class="text-sm font-medium" style="color: var(--text-primary);">Save Watch History</span>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Save Watch
+                                History</span>
                         </div>
                         <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
                             <i data-lucide="bookmark" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
-                            <span class="text-sm font-medium" style="color: var(--text-primary);">Bookmarks & Favorites</span>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Bookmarks &
+                                Favorites</span>
                         </div>
                         <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
                             <i data-lucide="bell" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
-                            <span class="text-sm font-medium" style="color: var(--text-primary);">Episode Notifications</span>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Episode
+                                Notifications</span>
                         </div>
                         <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
                             <i data-lucide="sparkles" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
-                            <span class="text-sm font-medium" style="color: var(--text-primary);">Personalized Recommendations</span>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Personalized
+                                Recommendations</span>
                         </div>
                         <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
                             <i data-lucide="smartphone" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
-                            <span class="text-sm font-medium" style="color: var(--text-primary);">Sync Across Devices</span>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Sync Across
+                                Devices</span>
                         </div>
                         <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
                             <i data-lucide="zap" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
-                            <span class="text-sm font-medium" style="color: var(--text-primary);">Faster Streaming</span>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Faster
+                                Streaming</span>
                         </div>
                         <div class="benefit-card flex items-center gap-3 p-4 rounded-xl transition-all">
                             <i data-lucide="crown" class="w-5 h-5 text-gold-400 flex-shrink-0"></i>
-                            <span class="text-sm font-medium" style="color: var(--text-primary);">Exclusive Features</span>
+                            <span class="text-sm font-medium" style="color: var(--text-primary);">Exclusive
+                                Features</span>
                         </div>
                     </div>
 
                     <!-- Action Buttons -->
                     <div class="flex flex-col sm:flex-row gap-3 justify-center">
-                        <button onclick="showRegisterModal()" class="btn-primary px-8 py-4 text-base font-bold flex items-center justify-center gap-2">
+                        <button onclick="showRegisterModal()"
+                            class="btn-primary px-8 py-4 text-base font-bold flex items-center justify-center gap-2">
                             <i data-lucide="user-plus" class="w-5 h-5"></i>
                             Create Free Account
                         </button>
-                        <button onclick="showLoginModal()" class="btn-secondary px-8 py-4 text-base font-bold flex items-center justify-center gap-2 border-2 border-purple-500/50 hover:border-purple-400">
+                        <button onclick="showLoginModal()"
+                            class="btn-secondary px-8 py-4 text-base font-bold flex items-center justify-center gap-2 border-2 border-purple-500/50 hover:border-purple-400">
                             <i data-lucide="log-in" class="w-5 h-5"></i>
                             Sign In
                         </button>
@@ -791,7 +953,9 @@
 
                     <!-- Continue Browsing -->
                     <div class="mt-6 text-center">
-                        <button onclick="closeGuestLimitModal()" class="text-sm transition-colors" style="color: var(--text-tertiary);" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-tertiary)'">
+                        <button onclick="closeGuestLimitModal()" class="text-sm transition-colors"
+                            style="color: var(--text-tertiary);" onmouseover="this.style.color='var(--text-primary)'"
+                            onmouseout="this.style.color='var(--text-tertiary)'">
                             Continue Browsing
                         </button>
                     </div>
@@ -800,10 +964,16 @@
         </div>
 
         <!-- Download Authentication Modal -->
-        <div id="download-auth-modal" class="hidden fixed inset-0 z-[10003] bg-black/75 backdrop-blur-md flex items-center justify-center p-4" onclick="if (event.target === this) closeDownloadAuthModal()" role="dialog" aria-modal="true" aria-labelledby="download-auth-title">
-            <div class="download-auth-modal-content relative w-full max-w-md max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div id="download-auth-modal"
+            class="hidden fixed inset-0 z-[10003] bg-black/75 backdrop-blur-md flex items-center justify-center p-4"
+            onclick="if (event.target === this) closeDownloadAuthModal()" role="dialog" aria-modal="true"
+            aria-labelledby="download-auth-title">
+            <div class="download-auth-modal-content relative w-full max-w-md max-h-[90vh] overflow-y-auto"
+                onclick="event.stopPropagation()">
                 <!-- Close Button -->
-                <button onclick="closeDownloadAuthModal()" class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all" style="color: var(--text-primary);" aria-label="Close download restriction modal">
+                <button onclick="closeDownloadAuthModal()"
+                    class="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                    style="color: var(--text-primary);" aria-label="Close download restriction modal">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
 
@@ -811,35 +981,42 @@
                 <div class="download-auth-modal-inner p-7 sm:p-8 text-center">
                     <!-- Icon / Lock + Download Badge -->
                     <div class="flex justify-center mb-5">
-                        <div class="relative w-18 h-18 p-4 rounded-2xl bg-gradient-to-br from-gold-400/20 via-purple-500/20 to-purple-700/30 border border-gold-400/30 flex items-center justify-center shadow-lg shadow-gold-400/10">
+                        <div
+                            class="relative w-18 h-18 p-4 rounded-2xl bg-gradient-to-br from-gold-400/20 via-purple-500/20 to-purple-700/30 border border-gold-400/30 flex items-center justify-center shadow-lg shadow-gold-400/10">
                             <i data-lucide="download" class="w-10 h-10 text-gold-400"></i>
-                            <div class="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 border-2 border-dark-900 flex items-center justify-center shadow-md">
+                            <div
+                                class="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 border-2 border-dark-900 flex items-center justify-center shadow-md">
                                 <i data-lucide="lock" class="w-3.5 h-3.5 text-white"></i>
                             </div>
                         </div>
                     </div>
 
                     <!-- Title -->
-                    <h2 id="download-auth-title" class="text-2xl sm:text-3xl font-black text-center mb-2 bg-gradient-to-r from-gold-300 via-gold-400 to-amber-500 bg-clip-text text-transparent">
+                    <h2 id="download-auth-title"
+                        class="text-2xl sm:text-3xl font-black text-center mb-2 bg-gradient-to-r from-gold-300 via-gold-400 to-amber-500 bg-clip-text text-transparent">
                         Sign In to Download
                     </h2>
 
                     <!-- Subtitle -->
                     <p class="text-center text-sm mb-6 max-w-sm mx-auto" style="color: var(--text-secondary);">
-                        Offline downloading is reserved for Anify members. Sign in or create a free account to download episodes in full 1080p HD.
+                        Offline downloading is reserved for Anify members. Sign in or create a free account to download
+                        episodes in full 1080p HD.
                     </p>
 
                     <!-- Feature Perks List -->
                     <div class="space-y-2.5 mb-6 text-left">
-                        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs text-gray-300">
+                        <div
+                            class="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs text-gray-300">
                             <i data-lucide="check-circle-2" class="w-4 h-4 text-gold-400 flex-shrink-0"></i>
                             <span>Download full episodes in 1080p HD</span>
                         </div>
-                        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs text-gray-300">
+                        <div
+                            class="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs text-gray-300">
                             <i data-lucide="check-circle-2" class="w-4 h-4 text-gold-400 flex-shrink-0"></i>
                             <span>Watch offline anytime, on any device</span>
                         </div>
-                        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs text-gray-300">
+                        <div
+                            class="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5 text-xs text-gray-300">
                             <i data-lucide="check-circle-2" class="w-4 h-4 text-gold-400 flex-shrink-0"></i>
                             <span>100% Free — No subscription required</span>
                         </div>
@@ -847,11 +1024,13 @@
 
                     <!-- Action Buttons -->
                     <div class="flex flex-col gap-3 justify-center">
-                        <button onclick="handleDownloadAuthSignIn()" class="btn-primary px-8 py-3.5 text-base font-bold flex items-center justify-center gap-2 w-full">
+                        <button onclick="handleDownloadAuthSignIn()"
+                            class="btn-primary px-8 py-3.5 text-base font-bold flex items-center justify-center gap-2 w-full">
                             <i data-lucide="log-in" class="w-5 h-5"></i>
                             Sign In
                         </button>
-                        <button onclick="handleDownloadAuthRegister()" class="btn-secondary px-8 py-3 text-sm font-bold flex items-center justify-center gap-2 w-full border border-gold-400/30 text-gold-400 hover:bg-gold-400/10">
+                        <button onclick="handleDownloadAuthRegister()"
+                            class="btn-secondary px-8 py-3 text-sm font-bold flex items-center justify-center gap-2 w-full border border-gold-400/30 text-gold-400 hover:bg-gold-400/10">
                             <i data-lucide="user-plus" class="w-4 h-4"></i>
                             Create Free Account
                         </button>
@@ -859,7 +1038,9 @@
 
                     <!-- Continue Browsing / Close -->
                     <div class="mt-4 text-center">
-                        <button onclick="closeDownloadAuthModal()" class="text-xs transition-colors" style="color: var(--text-tertiary);" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-tertiary)'">
+                        <button onclick="closeDownloadAuthModal()" class="text-xs transition-colors"
+                            style="color: var(--text-tertiary);" onmouseover="this.style.color='var(--text-primary)'"
+                            onmouseout="this.style.color='var(--text-tertiary)'">
                             Maybe Later
                         </button>
                     </div>
@@ -905,4 +1086,5 @@
     <script src="js/admin/adminUI.js"></script>
     <script src="public_bootstrap.js"></script>
 </body>
+
 </html>

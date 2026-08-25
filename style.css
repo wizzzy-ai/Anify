@@ -240,16 +240,16 @@ html {
     -webkit-backdrop-filter: blur(20px) saturate(140%);
     border: 1px solid color-mix(in srgb, var(--primary, #F59E0B) 35%, rgba(255, 255, 255, 0.1));
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85),
-                0 0 0 1px color-mix(in srgb, var(--primary, #F59E0B) 15%, transparent),
-                0 0 32px color-mix(in srgb, var(--primary, #F59E0B) 18%, transparent);
+        0 0 0 1px color-mix(in srgb, var(--primary, #F59E0B) 15%, transparent),
+        0 0 32px color-mix(in srgb, var(--primary, #F59E0B) 18%, transparent);
 }
 
 .light .search-glass {
     background: color-mix(in srgb, var(--surface, #FFFFFF) 95%, rgba(255, 255, 255, 0.9));
     border-color: color-mix(in srgb, var(--primary, #D97706) 35%, rgba(0, 0, 0, 0.15));
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25),
-                0 0 0 1px color-mix(in srgb, var(--primary, #D97706) 15%, transparent),
-                0 0 32px rgba(245, 158, 11, 0.18);
+        0 0 0 1px color-mix(in srgb, var(--primary, #D97706) 15%, transparent),
+        0 0 32px rgba(245, 158, 11, 0.18);
 }
 
 #search-backdrop {
@@ -280,8 +280,8 @@ html {
     -webkit-backdrop-filter: blur(24px) saturate(160%);
     border: 1px solid color-mix(in srgb, var(--primary, #F59E0B) 32%, rgba(255, 255, 255, 0.12));
     box-shadow: 0 24px 72px rgba(0, 0, 0, 0.9),
-                0 0 0 1px color-mix(in srgb, var(--primary, #F59E0B) 18%, transparent),
-                0 0 40px color-mix(in srgb, var(--primary, #F59E0B) 22%, transparent);
+        0 0 0 1px color-mix(in srgb, var(--primary, #F59E0B) 18%, transparent),
+        0 0 40px color-mix(in srgb, var(--primary, #F59E0B) 22%, transparent);
     z-index: 100001;
     isolation: isolate;
 }
@@ -290,8 +290,8 @@ html {
     background: color-mix(in srgb, var(--surface, #FFFFFF) 98%, rgba(255, 255, 255, 0.95));
     border-color: color-mix(in srgb, var(--primary, #D97706) 32%, rgba(0, 0, 0, 0.18));
     box-shadow: 0 24px 72px rgba(0, 0, 0, 0.3),
-                0 0 0 1px color-mix(in srgb, var(--primary, #D97706) 18%, transparent),
-                0 0 40px rgba(245, 158, 11, 0.22);
+        0 0 0 1px color-mix(in srgb, var(--primary, #D97706) 18%, transparent),
+        0 0 40px rgba(245, 158, 11, 0.22);
 }
 
 #search-panel.hidden {
@@ -303,6 +303,7 @@ html {
         opacity: 0;
         transform: translateY(-8px) scale(0.98);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
@@ -441,6 +442,7 @@ html {
             opacity: 0;
             transform: translateY(-12px) scale(0.98);
         }
+
         to {
             opacity: 1;
             transform: translateY(0) scale(1);
@@ -517,6 +519,7 @@ html {
 }
 
 @media (max-width: 480px) {
+
     /* Further navbar compaction */
     .nav-glass {
         padding: 0.625rem 0.875rem !important;
@@ -551,6 +554,7 @@ html {
 }
 
 @media (max-width: 375px) {
+
     /* Maximum navbar compaction */
     .nav-glass {
         padding: 0.5rem 0.75rem !important;
@@ -796,12 +800,12 @@ html {
     padding: 0 !important;
     margin: 0;
     transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
-                border-color 0.25s ease,
-                box-shadow 0.25s ease,
-                background 0.25s ease;
+        border-color 0.25s ease,
+        box-shadow 0.25s ease,
+        background 0.25s ease;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55),
-                0 0 14px color-mix(in srgb, var(--accent, #8B5CF6) 25%, transparent),
-                inset 0 1px 1px rgba(255, 255, 255, 0.15);
+        0 0 14px color-mix(in srgb, var(--accent, #8B5CF6) 25%, transparent),
+        inset 0 1px 1px rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     z-index: 52;
@@ -823,8 +827,15 @@ html {
 }
 
 @keyframes anime-aura-pulse {
-    0% { transform: scale(0.95); opacity: 0.35; }
-    100% { transform: scale(1.08); opacity: 0.7; }
+    0% {
+        transform: scale(0.95);
+        opacity: 0.35;
+    }
+
+    100% {
+        transform: scale(1.08);
+        opacity: 0.7;
+    }
 }
 
 /* Rotating Anime Energy Ring (Active when Menu is Open) */
@@ -843,9 +854,17 @@ html {
     filter: drop-shadow(0 0 5px color-mix(in srgb, var(--primary, #F59E0B) 80%, transparent)) drop-shadow(0 0 10px color-mix(in srgb, var(--accent, #8B5CF6) 70%, transparent));
 }
 
-#animeRingGrad stop:nth-child(1) { stop-color: var(--primary, #F59E0B); }
-#animeRingGrad stop:nth-child(2) { stop-color: var(--accent, #A855F7); }
-#animeRingGrad stop:nth-child(3) { stop-color: var(--primary-light, #FDE047); }
+#animeRingGrad stop:nth-child(1) {
+    stop-color: var(--primary, #F59E0B);
+}
+
+#animeRingGrad stop:nth-child(2) {
+    stop-color: var(--accent, #A855F7);
+}
+
+#animeRingGrad stop:nth-child(3) {
+    stop-color: var(--primary-light, #FDE047);
+}
 
 .anime-hamburger-btn.is-active .anime-energy-ring,
 .anime-hamburger-btn[aria-expanded="true"] .anime-energy-ring {
@@ -855,8 +874,13 @@ html {
 }
 
 @keyframes anime-ring-orbit {
-    from { transform: scale(1.06) rotate(0deg); }
-    to { transform: scale(1.06) rotate(360deg); }
+    from {
+        transform: scale(1.06) rotate(0deg);
+    }
+
+    to {
+        transform: scale(1.06) rotate(360deg);
+    }
 }
 
 /* Expanding Shockwave on Click */
@@ -881,10 +905,12 @@ html {
         opacity: 0.95;
         border-color: var(--primary-light, #FDE047);
     }
+
     50% {
         opacity: 0.75;
         border-color: var(--accent, #A855F7);
     }
+
     100% {
         transform: scale(2);
         opacity: 0;
@@ -911,43 +937,108 @@ html {
     transform: scale(0);
 }
 
-.anime-sparks .s-1 { top: -2px; left: 22%; }
-.anime-sparks .s-2 { bottom: -2px; right: 18%; }
-.anime-sparks .s-3 { top: 32%; right: -3px; }
-.anime-sparks .s-4 { bottom: 28%; left: -3px; }
+.anime-sparks .s-1 {
+    top: -2px;
+    left: 22%;
+}
+
+.anime-sparks .s-2 {
+    bottom: -2px;
+    right: 18%;
+}
+
+.anime-sparks .s-3 {
+    top: 32%;
+    right: -3px;
+}
+
+.anime-sparks .s-4 {
+    bottom: 28%;
+    left: -3px;
+}
 
 .anime-hamburger-btn:hover .anime-sparks .s-1 {
     animation: anime-spark-1 1.2s ease-in-out infinite;
 }
+
 .anime-hamburger-btn:hover .anime-sparks .s-2 {
     animation: anime-spark-2 1.4s ease-in-out infinite 0.2s;
 }
+
 .anime-hamburger-btn:hover .anime-sparks .s-3 {
     animation: anime-spark-3 1.1s ease-in-out infinite 0.1s;
 }
+
 .anime-hamburger-btn:hover .anime-sparks .s-4 {
     animation: anime-spark-4 1.3s ease-in-out infinite 0.3s;
 }
 
 @keyframes anime-spark-1 {
-    0% { transform: translateY(0) scale(0); opacity: 0; }
-    40% { transform: translateY(-7px) scale(1.3); opacity: 1; }
-    100% { transform: translateY(-14px) scale(0.2); opacity: 0; }
+    0% {
+        transform: translateY(0) scale(0);
+        opacity: 0;
+    }
+
+    40% {
+        transform: translateY(-7px) scale(1.3);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(-14px) scale(0.2);
+        opacity: 0;
+    }
 }
+
 @keyframes anime-spark-2 {
-    0% { transform: translateY(0) scale(0); opacity: 0; }
-    40% { transform: translateY(7px) scale(1.2); opacity: 1; }
-    100% { transform: translateY(14px) scale(0.2); opacity: 0; }
+    0% {
+        transform: translateY(0) scale(0);
+        opacity: 0;
+    }
+
+    40% {
+        transform: translateY(7px) scale(1.2);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(14px) scale(0.2);
+        opacity: 0;
+    }
 }
+
 @keyframes anime-spark-3 {
-    0% { transform: translateX(0) scale(0); opacity: 0; }
-    40% { transform: translateX(7px) scale(1.1); opacity: 1; }
-    100% { transform: translateX(12px) scale(0.2); opacity: 0; }
+    0% {
+        transform: translateX(0) scale(0);
+        opacity: 0;
+    }
+
+    40% {
+        transform: translateX(7px) scale(1.1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateX(12px) scale(0.2);
+        opacity: 0;
+    }
 }
+
 @keyframes anime-spark-4 {
-    0% { transform: translateX(0) scale(0); opacity: 0; }
-    40% { transform: translateX(-7px) scale(1.1); opacity: 1; }
-    100% { transform: translateX(-12px) scale(0.2); opacity: 0; }
+    0% {
+        transform: translateX(0) scale(0);
+        opacity: 0;
+    }
+
+    40% {
+        transform: translateX(-7px) scale(1.1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateX(-12px) scale(0.2);
+        opacity: 0;
+    }
 }
 
 /* Stylized Anime Lines / Blades */
@@ -968,10 +1059,10 @@ html {
     height: 2.5px;
     border-radius: 1px;
     transition: transform 0.35s cubic-bezier(0.22, 1.25, 0.36, 1),
-                opacity 0.25s ease,
-                background 0.3s ease,
-                box-shadow 0.3s ease,
-                width 0.3s ease;
+        opacity 0.25s ease,
+        background 0.3s ease,
+        box-shadow 0.3s ease,
+        width 0.3s ease;
     box-shadow: 0 0 8px color-mix(in srgb, var(--primary, #F59E0B) 75%, transparent), 0 0 14px color-mix(in srgb, var(--accent, #A855F7) 50%, transparent);
 }
 
@@ -1019,9 +1110,9 @@ html {
     transform: scale(1.06);
     border-color: color-mix(in srgb, var(--primary, #F59E0B) 80%, transparent);
     box-shadow: 0 6px 22px rgba(0, 0, 0, 0.65),
-                0 0 22px color-mix(in srgb, var(--primary, #F59E0B) 45%, transparent),
-                0 0 32px color-mix(in srgb, var(--accent, #7C3AED) 40%, transparent),
-                inset 0 1px 2px rgba(255, 255, 255, 0.25);
+        0 0 22px color-mix(in srgb, var(--primary, #F59E0B) 45%, transparent),
+        0 0 32px color-mix(in srgb, var(--accent, #7C3AED) 40%, transparent),
+        inset 0 1px 2px rgba(255, 255, 255, 0.25);
 }
 
 .anime-hamburger-btn:hover .anime-btn-aura {
@@ -1049,9 +1140,9 @@ html {
     background: linear-gradient(135deg, color-mix(in srgb, var(--accent, #8B5CF6) 32%, rgba(18, 10, 38, 0.95)) 0%, color-mix(in srgb, var(--primary, #F59E0B) 22%, rgba(10, 6, 22, 0.98)) 100%);
     border-color: var(--primary, #F59E0B);
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7),
-                0 0 26px color-mix(in srgb, var(--primary, #F59E0B) 60%, transparent),
-                0 0 38px color-mix(in srgb, var(--accent, #8B5CF6) 50%, transparent),
-                inset 0 0 14px color-mix(in srgb, var(--primary, #F59E0B) 25%, transparent);
+        0 0 26px color-mix(in srgb, var(--primary, #F59E0B) 60%, transparent),
+        0 0 38px color-mix(in srgb, var(--accent, #8B5CF6) 50%, transparent),
+        inset 0 0 14px color-mix(in srgb, var(--primary, #F59E0B) 25%, transparent);
 }
 
 .anime-hamburger-btn.is-active .anime-line-top,
@@ -1095,27 +1186,28 @@ html {
     height: 100vh;
     height: 100dvh;
     background: radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--accent, #7C3AED) 24%, transparent) 0%, transparent 55%),
-                radial-gradient(circle at 0% 100%, color-mix(in srgb, var(--primary, #F59E0B) 18%, transparent) 0%, transparent 45%),
-                linear-gradient(175deg, color-mix(in srgb, var(--surface, #0A0A1C) 90%, #0A0616) 0%, color-mix(in srgb, var(--background, #01010C) 95%, #05030A) 100%);
+        radial-gradient(circle at 0% 100%, color-mix(in srgb, var(--primary, #F59E0B) 18%, transparent) 0%, transparent 45%),
+        linear-gradient(175deg, color-mix(in srgb, var(--surface, #0A0A1C) 90%, #0A0616) 0%, color-mix(in srgb, var(--background, #01010C) 95%, #05030A) 100%);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     border-left: 1px solid color-mix(in srgb, var(--primary, #F59E0B) 45%, transparent);
     box-shadow: -12px 0 45px color-mix(in srgb, var(--accent, #7C3AED) 40%, transparent),
-                -2px 0 16px color-mix(in srgb, var(--primary, #F59E0B) 30%, transparent),
-                inset 1px 0 0 rgba(255, 255, 255, 0.1);
+        -2px 0 16px color-mix(in srgb, var(--primary, #F59E0B) 30%, transparent),
+        inset 1px 0 0 rgba(255, 255, 255, 0.1);
     z-index: 51;
     display: flex;
     flex-direction: column;
     transform: translateX(0);
     transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1),
-                opacity 0.3s ease;
+        opacity 0.3s ease;
     overflow: hidden;
 }
 
 #mobile-menu.anime-command-drawer.hidden {
     transform: translateX(105%);
     pointer-events: none;
-    display: flex !important; /* Keep flex layout active for smooth transition */
+    display: flex !important;
+    /* Keep flex layout active for smooth transition */
     opacity: 0;
 }
 
@@ -1188,8 +1280,17 @@ html {
 }
 
 @keyframes anime-dot-breathe {
-    0%, 100% { opacity: 0.6; transform: scale(0.9); }
-    50% { opacity: 1; transform: scale(1.2); }
+
+    0%,
+    100% {
+        opacity: 0.6;
+        transform: scale(0.9);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.2);
+    }
 }
 
 .anime-header-badge {
@@ -1285,6 +1386,7 @@ html {
         opacity: 0;
         transform: translateX(28px);
     }
+
     100% {
         opacity: 1;
         transform: translateX(0);
@@ -1355,7 +1457,7 @@ html {
     color: #FFFFFF;
     transform: translateX(4px);
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4),
-                0 0 15px color-mix(in srgb, var(--primary, #F59E0B) 20%, transparent);
+        0 0 15px color-mix(in srgb, var(--primary, #F59E0B) 20%, transparent);
 }
 
 .anime-menu-item:hover .anime-item-pip {
@@ -1388,8 +1490,8 @@ html {
     background: linear-gradient(90deg, color-mix(in srgb, var(--primary, #F59E0B) 28%, transparent) 0%, color-mix(in srgb, var(--accent, #8B5CF6) 20%, transparent) 60%, rgba(255, 255, 255, 0.04) 100%);
     border-color: color-mix(in srgb, var(--primary, #F59E0B) 70%, transparent);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5),
-                0 0 22px color-mix(in srgb, var(--primary, #F59E0B) 35%, transparent),
-                0 0 32px color-mix(in srgb, var(--accent, #8B5CF6) 30%, transparent);
+        0 0 22px color-mix(in srgb, var(--primary, #F59E0B) 35%, transparent),
+        0 0 32px color-mix(in srgb, var(--accent, #8B5CF6) 30%, transparent);
 }
 
 .anime-menu-item.active .anime-item-pip {
@@ -1492,7 +1594,7 @@ body.mobile-nav-locked {
         width: 88vw;
         max-width: 300px;
     }
-    
+
     .anime-hamburger-btn {
         width: 38px;
         height: 38px;
@@ -1504,17 +1606,25 @@ body.mobile-nav-locked {
         width: 20px;
         height: 16px;
     }
-    
-    .anime-line-top { width: 17px; }
-    .anime-line-mid { width: 20px; }
-    .anime-line-bot { width: 15px; }
+
+    .anime-line-top {
+        width: 17px;
+    }
+
+    .anime-line-mid {
+        width: 20px;
+    }
+
+    .anime-line-bot {
+        width: 15px;
+    }
 
     .anime-hamburger-btn.is-active .anime-line-top,
     .anime-hamburger-btn[aria-expanded="true"] .anime-line-top {
         width: 20px;
         transform: translateY(6.75px) rotate(45deg);
     }
-    
+
     .anime-hamburger-btn.is-active .anime-line-bot,
     .anime-hamburger-btn[aria-expanded="true"] .anime-line-bot {
         width: 20px;
@@ -1524,6 +1634,7 @@ body.mobile-nav-locked {
 
 /* Accessibility: Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
+
     .anime-hamburger-btn,
     .anime-btn-aura,
     .anime-energy-ring,
@@ -1536,7 +1647,7 @@ body.mobile-nav-locked {
         animation-duration: 0.01ms !important;
         transform: none !important;
     }
-    
+
     #mobile-menu.anime-command-drawer.hidden {
         display: none !important;
     }
@@ -1544,24 +1655,25 @@ body.mobile-nav-locked {
 
 /* Enhanced mobile navbar button visibility and touch targets */
 @media (max-width: 768px) {
+
     /* Navbar container - prevent horizontal overflow */
     #navbar {
         overflow: hidden;
     }
 
-    #navbar > div {
+    #navbar>div {
         overflow-x: auto;
         overflow-y: hidden;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
     }
 
-    #navbar > div::-webkit-scrollbar {
+    #navbar>div::-webkit-scrollbar {
         display: none;
     }
 
     /* Main navbar flex container */
-    #navbar > div > div {
+    #navbar>div>div {
         display: flex;
         flex-wrap: nowrap;
         min-width: 100%;
@@ -1597,7 +1709,7 @@ body.mobile-nav-locked {
     }
 
     /* Improve right navbar spacing */
-    #navbar > div > div:last-child {
+    #navbar>div>div:last-child {
         gap: 0.375rem;
         margin-left: auto;
         flex-shrink: 0;
@@ -1645,12 +1757,13 @@ body.mobile-nav-locked {
 }
 
 @media (max-width: 480px) {
+
     /* Ultra-compact mode for very small screens */
     #navbar {
         margin-bottom: 0.5rem;
     }
 
-    #navbar > div {
+    #navbar>div {
         padding: 0.5rem 0.75rem;
         gap: 0.375rem;
     }
@@ -1678,7 +1791,7 @@ body.mobile-nav-locked {
     }
 
     /* Right side items spacing */
-    #navbar > div > div:last-child {
+    #navbar>div>div:last-child {
         gap: 0.25rem !important;
     }
 }
@@ -1813,6 +1926,7 @@ body.mobile-nav-locked {
         opacity: 0;
         transform: translateY(25px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -1836,6 +1950,7 @@ body.mobile-nav-locked {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     .hero-banner::after,
     .trending-reveal-card,
     .home-section--trending.is-visible .trending-reveal-card {
@@ -2438,6 +2553,7 @@ body.mobile-nav-locked {
 }
 
 @media (max-width: 768px) {
+
     #anify-persistent-player:fullscreen,
     #anify-persistent-player:-webkit-full-screen {
         width: 100vw !important;
@@ -4819,16 +4935,76 @@ body.mobile-nav-locked {
         border-radius 0.6s ease;
 }
 
+/* Floating / Mini Player Close Button */
+.floating-player-close {
+    position: absolute !important;
+    top: 0.65rem !important;
+    right: 0.65rem !important;
+    width: 2rem !important;
+    height: 2rem !important;
+    border-radius: 9999px !important;
+    background: rgba(10, 10, 28, 0.78) !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    color: #FFFFFF !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    z-index: 40 !important;
+    opacity: 0.9 !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    pointer-events: auto !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    -webkit-tap-highlight-color: transparent !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+}
+
+.floating-player-close:hover {
+    opacity: 1 !important;
+    transform: scale(1.1) !important;
+    background: rgba(239, 68, 68, 0.88) !important;
+    border-color: rgba(239, 68, 68, 0.6) !important;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.45) !important;
+}
+
+.floating-player-close:active {
+    transform: scale(0.92) !important;
+}
+
+.floating-player-close i,
+.floating-player-close svg {
+    width: 1rem !important;
+    height: 1rem !important;
+    stroke-width: 2.5 !important;
+    color: #FFFFFF !important;
+    pointer-events: none !important;
+}
+
+/* Hide close button when in normal inline player mode */
 #anify-persistent-player:not(.mini-player) .floating-player-close {
     display: none !important;
+}
+
+/* Show close button when in mini-player mode */
+#anify-persistent-player.mini-player .floating-player-close {
+    display: flex !important;
+}
+
+/* Show close button when in floating-player mode */
+#persistent-player-wrapper.floating-player .floating-player-close {
+    display: flex !important;
 }
 
 #anify-persistent-player.mini-player {
     position: fixed;
     bottom: 2rem;
     right: 2rem;
-    width: 320px;
-    height: 180px;
+    width: 480px;
+    height: 270px;
+    max-width: calc(100vw - 4rem);
+    aspect-ratio: 16 / 9;
     border-radius: 1.25rem;
     box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 0 1px rgba(246, 178, 26, 0.22);
     overflow: hidden;
@@ -4848,6 +5024,11 @@ body.mobile-nav-locked {
     transition: none !important;
 }
 
+#anify-persistent-player.mini-player-small {
+    width: 320px;
+    height: 180px;
+}
+
 #anify-persistent-player.mini-player-medium {
     width: 480px;
     height: 270px;
@@ -4859,8 +5040,71 @@ body.mobile-nav-locked {
 }
 
 #anify-persistent-player.mini-player .video-controls {
-    padding: 0.75rem;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.4) 100%);
+    padding: 0.5rem 0.75rem;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.4) 100%);
+    box-sizing: border-box;
+    width: 100%;
+}
+
+#anify-persistent-player.mini-player .mini-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+#anify-persistent-player.mini-player .mini-left-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+
+#anify-persistent-player.mini-player .mini-right-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+}
+
+#anify-persistent-player.mini-player-small .video-controls {
+    padding: 0.35rem 0.5rem;
+}
+
+#anify-persistent-player.mini-player-small .mini-controls-row {
+    gap: 0.25rem;
+}
+
+#anify-persistent-player.mini-player-small .mini-left-controls {
+    gap: 0.25rem;
+}
+
+#anify-persistent-player.mini-player-small .mini-right-controls {
+    gap: 0.25rem;
+}
+
+#anify-persistent-player.mini-player-small #player-time {
+    display: none !important;
+}
+
+#anify-persistent-player.mini-player-small .full-only-skip {
+    display: none !important;
+}
+
+#anify-persistent-player.mini-player-small .player-control-btn {
+    padding: 0.2rem !important;
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+}
+
+#anify-persistent-player.mini-player-small .player-control-btn i,
+#anify-persistent-player.mini-player-small .player-control-btn svg {
+    width: 0.95rem !important;
+    height: 0.95rem !important;
 }
 
 #anify-persistent-player.mini-player .player-select,
@@ -4873,7 +5117,7 @@ body.mobile-nav-locked {
 }
 
 .mini-player .mini-only {
-    display: flex;
+    display: inline-flex !important;
 }
 
 .mini-player .full-only {
@@ -5194,16 +5438,16 @@ body.mobile-nav-locked {
     border: 1.5px solid color-mix(in srgb, var(--primary, #F59E0B) 55%, transparent);
     background: linear-gradient(135deg, color-mix(in srgb, var(--accent, #8B5CF6) 22%, rgba(20, 12, 38, 0.95)) 0%, color-mix(in srgb, var(--primary, #F59E0B) 16%, rgba(10, 6, 20, 0.98)) 100%);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55),
-                0 0 14px color-mix(in srgb, var(--accent, #8B5CF6) 25%, transparent),
-                inset 0 1px 1px rgba(255, 255, 255, 0.15);
+        0 0 14px color-mix(in srgb, var(--accent, #8B5CF6) 25%, transparent),
+        inset 0 1px 1px rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     cursor: pointer;
     overflow: visible;
     transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
-                border-color 0.25s ease,
-                box-shadow 0.25s ease,
-                background 0.25s ease;
+        border-color 0.25s ease,
+        box-shadow 0.25s ease,
+        background 0.25s ease;
     z-index: 52;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
@@ -5214,8 +5458,8 @@ body.mobile-nav-locked {
     transform: translateY(-1px) scale(1.04);
     border-color: var(--primary, #F59E0B);
     box-shadow: 0 6px 22px rgba(0, 0, 0, 0.65),
-                0 0 20px color-mix(in srgb, var(--primary, #F59E0B) 45%, transparent),
-                0 0 30px color-mix(in srgb, var(--accent, #8B5CF6) 35%, transparent);
+        0 0 20px color-mix(in srgb, var(--primary, #F59E0B) 45%, transparent),
+        0 0 30px color-mix(in srgb, var(--accent, #8B5CF6) 35%, transparent);
 }
 
 .anime-capsule-hamburger.is-active,
@@ -5224,8 +5468,8 @@ body.mobile-nav-locked {
     border-color: var(--primary, #F59E0B);
     background: linear-gradient(135deg, color-mix(in srgb, var(--accent, #8B5CF6) 32%, rgba(28, 16, 52, 0.95)) 0%, color-mix(in srgb, var(--primary, #F59E0B) 24%, rgba(16, 8, 30, 0.98)) 100%);
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7),
-                0 0 26px color-mix(in srgb, var(--primary, #F59E0B) 60%, transparent),
-                0 0 38px color-mix(in srgb, var(--accent, #8B5CF6) 50%, transparent);
+        0 0 26px color-mix(in srgb, var(--primary, #F59E0B) 60%, transparent),
+        0 0 38px color-mix(in srgb, var(--accent, #8B5CF6) 50%, transparent);
 }
 
 .mobile-profile-avatar {
@@ -5364,41 +5608,24 @@ body.mobile-nav-locked {
         stroke-width: 2.5;
     }
 
-    #anify-persistent-player.mini-player .mini-mobile-close {
-        display: none !important;
-    }
-
-    #persistent-player-wrapper.floating-player .floating-player-close {
-        display: none !important;
-    }
-
-    #anify-persistent-player.mini-player .mini-mobile-close {
-        top: 0.45rem;
-        right: 0.85rem;
-        width: 2.25rem;
-        height: 2.25rem;
-        border-radius: 0;
-        color: #FFFFFF;
-        background: transparent;
-        font-size: 2.5rem;
-        font-weight: 300;
-        line-height: 1;
-        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-    }
-
+    #anify-persistent-player.mini-player .mini-mobile-close,
     #anify-persistent-player.mini-player .floating-player-close {
-        display: flex !important;
-        top: 0.45rem !important;
-        right: 0.85rem !important;
+        position: absolute !important;
+        top: 0.5rem !important;
+        right: 0.5rem !important;
         width: 2.25rem !important;
         height: 2.25rem !important;
-        opacity: 1 !important;
+        border-radius: 9999px !important;
+        color: #FFFFFF !important;
+        background: rgba(10, 10, 28, 0.78) !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        z-index: 40 !important;
         pointer-events: auto !important;
-        background: transparent !important;
-        border: 0 !important;
-        border-radius: 0 !important;
-        font-size: 2.5rem !important;
-        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
     }
 
     #persistent-player-wrapper {
@@ -5419,7 +5646,7 @@ body.mobile-nav-locked {
         overflow: hidden !important;
         background: #000 !important;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65),
-                0 2px 8px rgba(0, 0, 0, 0.35) !important;
+            0 2px 8px rgba(0, 0, 0, 0.35) !important;
         transform: translateY(0) scale(1) !important;
         opacity: 1 !important;
         pointer-events: auto !important;
@@ -5431,6 +5658,7 @@ body.mobile-nav-locked {
             opacity: 0;
             transform: translateY(0.75rem) scale(0.78);
         }
+
         to {
             opacity: 1;
             transform: translateY(0) scale(1);
@@ -5496,31 +5724,32 @@ body.mobile-nav-locked {
         right: 0.5rem !important;
         width: 2.25rem !important;
         height: 2.25rem !important;
-        background: transparent !important;
-        border: 0 !important;
-        border-radius: 0 !important;
+        border-radius: 9999px !important;
+        background: rgba(10, 10, 28, 0.8) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         cursor: pointer !important;
-        z-index: 10 !important;
-        opacity: 1 !important;
-        transition: transform 0.2s ease !important;
+        z-index: 40 !important;
+        opacity: 0.95 !important;
+        transition: transform 0.2s ease, background 0.2s ease !important;
         pointer-events: auto !important;
-        font-size: 2.5rem !important;
-        font-weight: 300 !important;
-        line-height: 1 !important;
-        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
     }
 
-    .floating-player-close:hover {
-        transform: scale(1.08);
+    .floating-player-close:hover,
+    .floating-player-close:active {
+        transform: scale(1.08) !important;
+        background: rgba(239, 68, 68, 0.88) !important;
     }
 
     .floating-player-close i,
     .floating-player-close svg {
         width: 1rem !important;
         height: 1rem !important;
+        stroke-width: 2.5 !important;
         color: white !important;
     }
 
@@ -5545,11 +5774,6 @@ body.mobile-nav-locked {
         inset: 0;
         z-index: 5;
         cursor: pointer;
-    }
-
-    /* Hide close button tap area behind the main tap area */
-    #persistent-player-wrapper.floating-player .floating-player-close {
-        z-index: 15;
     }
 
     #persistent-player-wrapper.floating-player .floating-player-close:focus-visible {
@@ -6691,15 +6915,15 @@ body.mobile-nav-locked {
     .hero-title--short {
         font-size: clamp(2.2rem, 6vw, 3.2rem);
     }
-    
+
     .hero-title--medium {
         font-size: clamp(1.95rem, 5.5vw, 2.8rem);
     }
-    
+
     .hero-title--long {
         font-size: clamp(1.7rem, 4.75vw, 2.4rem);
     }
-    
+
     .hero-title--extra-long {
         font-size: clamp(1.5rem, 4.25vw, 2.1rem);
     }
@@ -6711,27 +6935,27 @@ body.mobile-nav-locked {
         max-width: 100%;
         margin-bottom: 0.65rem;
     }
-    
+
     .hero-title-wrap {
         width: 100%;
     }
-    
+
     .hero-title--short {
         font-size: clamp(1.9rem, 8vw, 2.6rem);
     }
-    
+
     .hero-title--medium {
         font-size: clamp(1.7rem, 7vw, 2.3rem);
     }
-    
+
     .hero-title--long {
         font-size: clamp(1.5rem, 6vw, 2rem);
     }
-    
+
     .hero-title--extra-long {
         font-size: clamp(1.35rem, 5.5vw, 1.8rem);
     }
-    
+
     .hero-title-tooltip {
         width: min(18rem, calc(100vw - 2rem));
         font-size: 0.85rem;
@@ -11470,7 +11694,7 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
     overflow: hidden;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    box-shadow: 
+    box-shadow:
         0 8px 32px color-mix(in srgb, var(--primary) 15%, transparent),
         inset 0 1px 0 color-mix(in srgb, var(--primary) 20%, transparent);
     animation: fadeInUp 0.6s ease-out;
@@ -11481,6 +11705,7 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -11511,10 +11736,13 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
 }
 
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
         transform: scale(1);
     }
+
     50% {
         opacity: 0.7;
         transform: scale(1.1);
@@ -11551,10 +11779,13 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
 }
 
 @keyframes glowPulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 0.3;
         transform: translate(-50%, -50%) scale(1);
     }
+
     50% {
         opacity: 0.6;
         transform: translate(-50%, -50%) scale(1.1);
@@ -11642,11 +11873,11 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
         gap: 8px;
         padding: 16px;
     }
-    
+
     .countdown-value {
         font-size: 20px;
     }
-    
+
     .countdown-label {
         font-size: 10px;
     }
@@ -11657,11 +11888,11 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
         gap: 6px;
         padding: 14px;
     }
-    
+
     .countdown-value {
         font-size: 18px;
     }
-    
+
     .countdown-label {
         font-size: 9px;
     }
@@ -11764,6 +11995,7 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     .coming-card-countdown,
     .coming-card img {
         transition: none;
@@ -11923,10 +12155,21 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
 }
 
 @media (max-width: 900px) {
-    #anime-detail-root .hero-title--short { font-size: clamp(2.7rem, 8vw, 3.6rem); }
-    #anime-detail-root .hero-title--medium { font-size: clamp(2.35rem, 7vw, 3.1rem); }
-    #anime-detail-root .hero-title--long { font-size: clamp(2rem, 6vw, 2.7rem); }
-    #anime-detail-root .hero-title--extra-long { font-size: clamp(1.8rem, 5.5vw, 2.35rem); }
+    #anime-detail-root .hero-title--short {
+        font-size: clamp(2.7rem, 8vw, 3.6rem);
+    }
+
+    #anime-detail-root .hero-title--medium {
+        font-size: clamp(2.35rem, 7vw, 3.1rem);
+    }
+
+    #anime-detail-root .hero-title--long {
+        font-size: clamp(2rem, 6vw, 2.7rem);
+    }
+
+    #anime-detail-root .hero-title--extra-long {
+        font-size: clamp(1.8rem, 5.5vw, 2.35rem);
+    }
 }
 
 @media (max-width: 560px) {
@@ -11939,10 +12182,21 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
         width: 100%;
     }
 
-    #anime-detail-root .hero-title--short { font-size: clamp(2.25rem, 10vw, 2.9rem); }
-    #anime-detail-root .hero-title--medium { font-size: clamp(2rem, 8.5vw, 2.5rem); }
-    #anime-detail-root .hero-title--long { font-size: clamp(1.75rem, 7.5vw, 2.15rem); }
-    #anime-detail-root .hero-title--extra-long { font-size: clamp(1.55rem, 6.7vw, 1.95rem); }
+    #anime-detail-root .hero-title--short {
+        font-size: clamp(2.25rem, 10vw, 2.9rem);
+    }
+
+    #anime-detail-root .hero-title--medium {
+        font-size: clamp(2rem, 8.5vw, 2.5rem);
+    }
+
+    #anime-detail-root .hero-title--long {
+        font-size: clamp(1.75rem, 7.5vw, 2.15rem);
+    }
+
+    #anime-detail-root .hero-title--extra-long {
+        font-size: clamp(1.55rem, 6.7vw, 1.95rem);
+    }
 
     .hero-title-tooltip {
         width: min(19rem, calc(100vw - 2rem));
@@ -11956,7 +12210,7 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
     }
 }
 
-.notification-reader__card > * {
+.notification-reader__card>* {
     position: relative;
     z-index: 1;
 }
@@ -12061,7 +12315,7 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
     border-radius: 8px;
 }
 
-.countdown-item + .countdown-item {
+.countdown-item+.countdown-item {
     border-left: 1px solid color-mix(in srgb, var(--primary) 16%, transparent);
 }
 
@@ -12076,10 +12330,13 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     .hero-coming-soon-card,
     .coming-soon-icon,
     .coming-soon-glow,
-    .coming-soon-particle { animation: none; }
+    .coming-soon-particle {
+        animation: none;
+    }
 }
 
 .coming-soon-decorative {
@@ -12119,10 +12376,13 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
 }
 
 @keyframes float {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateY(0) scale(1);
         opacity: 0.4;
     }
+
     50% {
         transform: translateY(-20px) scale(1.2);
         opacity: 0.6;
@@ -12208,15 +12468,15 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
     .coming-soon-countdown {
         grid-template-columns: repeat(2, 1fr);
     }
-    
+
     .countdown-value {
         font-size: 16px;
     }
-    
+
     .hero-coming-soon-card {
         padding: 20px;
     }
-    
+
     .detail-episodes-coming-soon {
         padding: 32px 16px;
     }
@@ -12226,19 +12486,19 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
     .coming-soon-badge {
         padding: 6px 12px;
     }
-    
+
     .coming-soon-text {
         font-size: 10px;
     }
-    
+
     .coming-soon-jp {
         font-size: 9px;
     }
-    
+
     .countdown-value {
         font-size: 14px;
     }
-    
+
     .countdown-label {
         font-size: 8px;
     }
@@ -12290,12 +12550,17 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
 
 /* ============ PERFORMANCE & SKELETON OPTIMIZATIONS ============ */
 @keyframes contentShimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
 }
 
 .skeleton-shimmer {
-    background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
     background-size: 200% 100%;
     animation: contentShimmer 1.8s infinite linear;
 }
@@ -12305,6 +12570,7 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
     transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
 }
 
-.hero-media img, .hero-media video {
+.hero-media img,
+.hero-media video {
     content-visibility: auto;
 }

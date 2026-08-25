@@ -47,14 +47,14 @@ function formatReleaseDate(releaseDate, releaseTime) {
 
     const date = getReleaseDateTime(releaseDate, releaseTime);
     if (!date) return 'To be announced';
-    
+
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     let formatted = date.toLocaleDateString('en-US', options);
-    
+
     if (releaseTime) {
         formatted += ` • ${releaseTime}`;
     }
-    
+
     return formatted;
 }
 
@@ -78,7 +78,7 @@ function getCountdown(releaseDate, releaseTime = '') {
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-    
+
     return { days, hours, minutes, seconds };
 }
 
@@ -113,36 +113,36 @@ function startCountdownUpdates() {
     if (window.countdownInterval) {
         clearInterval(window.countdownInterval);
     }
-    
+
     const updateCountdown = (countdownEl) => {
-            const releaseDateStr = countdownEl.dataset.releaseDate;
-            if (!releaseDateStr) return;
-            
-            const countdown = getCountdown(releaseDateStr);
-            
-            if (!countdown) {
-                // Re-fetch the anime so the server's status/episode data controls
-                // the transition instead of inventing availability in the client.
-                countdownEl.innerHTML = '<span class="text-gold-400 font-bold">NOW AVAILABLE</span>';
-                const animeId = countdownEl.dataset.animeId;
-                if (animeId && !countdownEl.dataset.refreshStarted) {
-                    countdownEl.dataset.refreshStarted = 'true';
-                    if (typeof loadAnimeFromApi === 'function') {
-                        loadAnimeFromApi().then(() => navigate('anime', Number(animeId))).catch(() => {});
-                    }
+        const releaseDateStr = countdownEl.dataset.releaseDate;
+        if (!releaseDateStr) return;
+
+        const countdown = getCountdown(releaseDateStr);
+
+        if (!countdown) {
+            // Re-fetch the anime so the server's status/episode data controls
+            // the transition instead of inventing availability in the client.
+            countdownEl.innerHTML = '<span class="text-gold-400 font-bold">NOW AVAILABLE</span>';
+            const animeId = countdownEl.dataset.animeId;
+            if (animeId && !countdownEl.dataset.refreshStarted) {
+                countdownEl.dataset.refreshStarted = 'true';
+                if (typeof loadAnimeFromApi === 'function') {
+                    loadAnimeFromApi().then(() => navigate('anime', Number(animeId))).catch(() => { });
                 }
-                return;
             }
-            
-            const daysEl = countdownEl.querySelector('.countdown-days');
-            const hoursEl = countdownEl.querySelector('.countdown-hours');
-            const minutesEl = countdownEl.querySelector('.countdown-minutes');
-            const secondsEl = countdownEl.querySelector('.countdown-seconds');
-            
-            if (daysEl) daysEl.textContent = String(countdown.days).padStart(2, '0');
-            if (hoursEl) hoursEl.textContent = String(countdown.hours).padStart(2, '0');
-            if (minutesEl) minutesEl.textContent = String(countdown.minutes).padStart(2, '0');
-            if (secondsEl) secondsEl.textContent = String(countdown.seconds).padStart(2, '0');
+            return;
+        }
+
+        const daysEl = countdownEl.querySelector('.countdown-days');
+        const hoursEl = countdownEl.querySelector('.countdown-hours');
+        const minutesEl = countdownEl.querySelector('.countdown-minutes');
+        const secondsEl = countdownEl.querySelector('.countdown-seconds');
+
+        if (daysEl) daysEl.textContent = String(countdown.days).padStart(2, '0');
+        if (hoursEl) hoursEl.textContent = String(countdown.hours).padStart(2, '0');
+        if (minutesEl) minutesEl.textContent = String(countdown.minutes).padStart(2, '0');
+        if (secondsEl) secondsEl.textContent = String(countdown.seconds).padStart(2, '0');
     };
 
     // Paint the current value immediately, then keep it synchronized every
@@ -155,7 +155,7 @@ function startCountdownUpdates() {
 // ============ BAN CHECK - Run immediately on page load ============
 (async function checkBanStatus() {
     const token = localStorage.getItem('anify-token');
-    
+
     if (!token) return;
 
     try {
@@ -198,13 +198,13 @@ function startCountdownUpdates() {
     try {
         // Request country from our server (secure backend calls IPinfo)
         const response = await fetch('/api/country');
-        
+
         if (!response.ok) {
             throw new Error('Geolocation service unavailable');
         }
-        
+
         const data = await response.json();
-        
+
         if (data.ok && data.country) {
             const countryCodeElement = document.getElementById('country-code');
             if (countryCodeElement) {
@@ -245,7 +245,7 @@ const categories = ["All"];
 let notificationFilter = 'All';
 let notificationSearchQuery = '';
 const fallbackGenres = [
-    'Action','Adventure','Comedy','Drama','Fantasy','Sci-Fi','Romance','Slice of Life','Mystery','Thriller','Horror','Supernatural','Psychological','Sports','Music','Mecha','Military','Historical','Samurai','Martial Arts','Magic','Isekai','School','Shounen','Shoujo','Seinen','Josei','Ecchi','Harem','Reverse Harem','Idol','Cooking','Medical','Detective','Crime','Police','Spy','Family','Vampire','Demons','Monsters','Space','Survival','Game','Parody','Post-Apocalyptic','Superpower'
+    'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Sci-Fi', 'Romance', 'Slice of Life', 'Mystery', 'Thriller', 'Horror', 'Supernatural', 'Psychological', 'Sports', 'Music', 'Mecha', 'Military', 'Historical', 'Samurai', 'Martial Arts', 'Magic', 'Isekai', 'School', 'Shounen', 'Shoujo', 'Seinen', 'Josei', 'Ecchi', 'Harem', 'Reverse Harem', 'Idol', 'Cooking', 'Medical', 'Detective', 'Crime', 'Police', 'Spy', 'Family', 'Vampire', 'Demons', 'Monsters', 'Space', 'Survival', 'Game', 'Parody', 'Post-Apocalyptic', 'Superpower'
 ];
 
 // Synchronously hydrate animeData from cache for instant 0ms first render
@@ -254,7 +254,7 @@ try {
     if (Array.isArray(cachedAnime) && cachedAnime.length) {
         animeData.splice(0, animeData.length, ...cachedAnime);
     }
-} catch (e) {}
+} catch (e) { }
 
 window.animeData = animeData;
 window.categories = categories;
@@ -732,27 +732,27 @@ function getAuthToken() {
 
 function timeAgo(ts) {
     if (!ts) return 'Just now';
-    
+
     const date = new Date(ts);
     if (isNaN(date.getTime())) return 'Just now';
-    
+
     const diffMs = Date.now() - date.getTime();
     const diffMin = Math.floor(diffMs / 60000);
-    
+
     if (diffMin < 1) return 'Just now';
     if (diffMin < 60) return `${diffMin}m ago`;
-    
+
     const diffHr = Math.floor(diffMin / 60);
     if (diffHr < 24) return `${diffHr}h ago`;
-    
+
     const diffDay = Math.floor(diffHr / 24);
     if (diffDay === 1) return 'Yesterday';
     if (diffDay < 7) return `${diffDay} days ago`;
-    
+
     const diffWeek = Math.floor(diffDay / 7);
     if (diffWeek === 1) return '1 week ago';
     if (diffWeek < 4) return `${diffWeek} weeks ago`;
-    
+
     const diffMonth = Math.floor(diffDay / 30);
     if (diffMonth === 1) return '1 month ago';
     return `${diffMonth} months ago`;
@@ -781,7 +781,7 @@ async function loadCommentsForAnime(animeId) {
                 likes: c.likes || 0,
             });
         }
-        
+
         // Re-render comments section
         updateCommentsSection();
     } catch (e) {
@@ -930,7 +930,7 @@ async function loadUserRating(animeId) {
             headers
         });
         const data = await res.json().catch(() => ({}));
-        
+
         if (res.ok && data.ok && data.authenticated && data.rating !== null) {
             const slider = document.getElementById('user-rating-slider');
             const display = document.getElementById('user-rating-value');
@@ -963,7 +963,7 @@ async function submitUserRating(animeId, rating) {
         });
 
         const data = await res.json().catch(() => ({}));
-        
+
         if (!res.ok || !data.ok) {
             alertGold(data.error || 'Failed to submit rating');
             return;
@@ -1128,7 +1128,7 @@ async function loadAnimeFromApi() {
             animeData.splice(0, animeData.length, ...data.anime);
             try {
                 localStorage.setItem('anify-cached-anime', JSON.stringify(data.anime));
-            } catch (e) {}
+            } catch (e) { }
             return true;
         }
     } catch (e) {
@@ -1190,7 +1190,7 @@ async function saveWatchProgressToApi(entry) {
         if (token) {
             headers.Authorization = `Bearer ${token}`;
         }
-        
+
         await fetch('/api/watch-progress', {
             method: 'POST',
             headers: headers,
@@ -1296,7 +1296,7 @@ function renderHeroMedia(anime) {
 function getHeroTitleInfo(fullTitle) {
     const length = fullTitle.length;
     let displayTitle = fullTitle;
-    
+
     // Truncate extremely long titles (81+ characters) to max 3 lines
     if (length > 80) {
         const words = fullTitle.split(/\s+/);
@@ -1313,16 +1313,16 @@ function getHeroTitleInfo(fullTitle) {
         displayTitle,
         className: length <= 25 ? 'hero-title--short'
             : length <= 50 ? 'hero-title--medium'
-            : length <= 80 ? 'hero-title--long'
-            : 'hero-title--extra-long',
+                : length <= 80 ? 'hero-title--long'
+                    : 'hero-title--extra-long',
     };
 }
 
 function renderHeroContent(anime) {
     if (!anime) return '';
-    
+
     const heroTitleInfo = getHeroTitleInfo(anime.title || 'Unknown');
-    
+
     return `
         <div class="anim-slide-up anim-delay-1 flex items-center gap-2 mb-4">
             ${anime.newEpisode ? '<span class="badge-new">New Episode</span>' : ''}
@@ -1406,13 +1406,13 @@ function getEpisodeQualitySources(episodeObj, language) {
 function getEpisodeVideoUrl(episodeObj, language, quality) {
     const qualities = getEpisodeQualitySources(episodeObj, language);
     const url = qualities?.[quality] || qualities?.['1080p'] || qualities?.['720p'] || '';
-    
+
     // S3 endpoint restriction removed for testing - recommend using custom domain in production
-    
+
     if (url) {
         console.log('[Playback] Video URL:', url);
     }
-    
+
     return url;
 }
 
@@ -1438,7 +1438,7 @@ function renderEpisodeList(anime, language = 'sub') {
         ? [...new Set(episodesMedia
             .map(e => Number(e?.episodeNumber))
             .filter(n => Number.isFinite(n) && n >= 1))
-          ].sort((a, b) => a - b)
+        ].sort((a, b) => a - b)
         : Array.from({ length: Math.min(anime?.episodes || 1, 24) }, (_, i) => i + 1);
 
     // Keep UI bounded (still consistent with previous behavior)
@@ -1473,7 +1473,7 @@ function renderEpisodeList(anime, language = 'sub') {
 
 
 // ============ NAVIGATION ============
-async function initializeApp(){
+async function initializeApp() {
     const app = document.getElementById('app');
 
     window.addEventListener('hashchange', handleRouteChange);
@@ -1553,7 +1553,7 @@ function updateLocalAnimeData(updatedAnime) {
 
 async function uploadVideoFile(file, onProgress = null) {
     if (window.uploadService && typeof uploadService.uploadVideo === 'function') {
-        try { 
+        try {
             console.log('[UPLOAD] Using admin video upload service for:', file.name);
             const progressCallback = (progress) => {
                 console.log(`[UPLOAD] Video upload progress: ${progress.toFixed(1)}%`);
@@ -1561,7 +1561,7 @@ async function uploadVideoFile(file, onProgress = null) {
                     onProgress(progress);
                 }
             };
-            return await uploadService.uploadVideo(file, progressCallback); 
+            return await uploadService.uploadVideo(file, progressCallback);
         } catch (e) { console.warn('uploadService.uploadVideo failed:', e); }
     }
     return uploadMediaFile(file);
@@ -1570,7 +1570,7 @@ async function uploadVideoFile(file, onProgress = null) {
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[App] DOMContentLoaded fired');
-    
+
     // Play cinematic intro animation
     if (window.initAnifyIntro) {
         console.log('[App] Initializing intro animation...');
@@ -1578,7 +1578,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.warn('[App] initAnifyIntro not available');
     }
-    
+
     applyTheme(getCurrentTheme());
     authService.restoreSession();
     applyProfileTheme(authService.getCurrentUser()?.profileTheme || getProfileConfig().DEFAULT_PROFILE_THEME);
@@ -1643,7 +1643,7 @@ function setupHeroLiveWallpapers() {
         active = (active + 1) % heroList.length;
         const anime = heroList[active];
         if (!anime) return; // Skip undefined anime objects
-        
+
         heroMedia.innerHTML = renderHeroMedia(anime);
         heroContent.innerHTML = renderHeroContent(anime);
         lucide.createIcons();
@@ -1737,7 +1737,7 @@ function handleRouteChange() {
         case 'movies': content.innerHTML = renderBrowse('Movie'); break;
         case 'series': content.innerHTML = renderBrowse('Series'); break;
         case 'mylist': content.innerHTML = renderMyList(); break;
-        case 'anime': 
+        case 'anime':
             content.innerHTML = renderAnimeDetail(Number(data));
             loadCommentsForAnime(Number(data));
             loadUserRating(Number(data));
@@ -1750,9 +1750,9 @@ function handleRouteChange() {
             content.innerHTML = renderProfile();
             loadProfileActivity();
             break;
-        case 'admin': 
+        case 'admin':
             if (!ensureAdminOrRedirect()) return;
-            content.innerHTML = renderAdmin(); 
+            content.innerHTML = renderAdmin();
             break;
         default:
             currentPage = 'home';
@@ -1860,11 +1860,11 @@ function renderHome() {
                 ${renderSectionHeader('Browse by Genre', 'Explore cinematic worlds by mood, pace, and story type.', 'grid-3x3', 'genre-showcase-title')}
                 <div class="genre-showcase-grid">
                     ${genreList.map((cat, i) => {
-                        const count = genreService.getGenreCount(cat);
-                        const countLabel = count > 0 ? `${count} ${count === 1 ? 'title' : 'titles'}` : 'No titles yet';
+        const count = genreService.getGenreCount(cat);
+        const countLabel = count > 0 ? `${count} ${count === 1 ? 'title' : 'titles'}` : 'No titles yet';
 
-                        return `
-                            <button onclick="filterByGenre('${cat}')" class="genre-card premium-genre-card anim-slide-up anim-delay-${Math.min(i+1, 5)}" style="--genre-hue:${getGenreHue(cat)}deg">
+        return `
+                            <button onclick="filterByGenre('${cat}')" class="genre-card premium-genre-card anim-slide-up anim-delay-${Math.min(i + 1, 5)}" style="--genre-hue:${getGenreHue(cat)}deg">
                                 <span class="genre-card-glow"></span>
                                 <span class="genre-card-icon">
                                     <i data-lucide="${getGenreIcon(cat)}"></i>
@@ -1876,7 +1876,7 @@ function renderHome() {
                                 <span class="genre-card-action">Explore <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></span>
                             </button>
                         `;
-                    }).join('')}
+    }).join('')}
                 </div>
             </div>
         </section>
@@ -1925,11 +1925,11 @@ function renderHome() {
                     </div>
                     <div class="premium-feature-grid">
                         ${[
-                            ['badge-check', 'No Ads'],
-                            ['monitor-up', '4K Streaming'],
-                            ['download', 'Offline Downloads'],
-                            ['sparkles', 'Early Episodes']
-                        ].map(([icon, label]) => `
+            ['badge-check', 'No Ads'],
+            ['monitor-up', '4K Streaming'],
+            ['download', 'Offline Downloads'],
+            ['sparkles', 'Early Episodes']
+        ].map(([icon, label]) => `
                             <div class="premium-feature">
                                 <i data-lucide="${icon}" class="w-5 h-5"></i>
                                 <span>${label}</span>
@@ -2051,7 +2051,7 @@ function renderAnimeCard(a, revealIndex = null) {
 // ============ RENDER: CONTINUE WATCHING ============
 function renderContinueWatching() {
     const entries = continueWatching || [];
-    
+
     if (entries.length === 0) {
         return `
         <section class="home-section anim-fade-in">
@@ -2100,13 +2100,13 @@ function renderContinueWatching() {
         <div class="cw-carousel-container">
             <div class="cw-grid-track no-scrollbar" id="cw-track">
                 ${entries.map((cw, index) => {
-                    const a = animeData.find(a => a.id === cw.id);
-                    if (!a) return '';
-                    
-                    const lastWatchedText = formatLastWatched(cw.updatedAt);
-                    const epTitle = cw.episodeTitle || '';
+        const a = animeData.find(a => a.id === cw.id);
+        if (!a) return '';
 
-                    return `
+        const lastWatchedText = formatLastWatched(cw.updatedAt);
+        const epTitle = cw.episodeTitle || '';
+
+        return `
                     <div class="cw-card group" id="cw-card-${cw.id}">
                         <img src="${ensureHttps(a.image)}" class="cw-card-image" alt="${a.title}" loading="lazy">
                         <div class="cw-card-overlay"></div>
@@ -2142,7 +2142,7 @@ function renderContinueWatching() {
                             </div>
                         </div>
                     </div>`;
-                }).join('')}
+    }).join('')}
             </div>
         </div>
     </section>`;
@@ -2174,7 +2174,7 @@ function resumePlayback(id, ep, lang, qual, time) {
 function removeCW(id, event) {
     if (event) event.stopPropagation();
     const card = document.getElementById(`cw-card-${id}`);
-    
+
     if (window.gsap && card) {
         gsap.to(card, {
             opacity: 0,
@@ -2187,7 +2187,7 @@ function removeCW(id, event) {
                     continueWatchingService.remove(id);
                     window.continueWatching = continueWatchingService.getEntries();
                     card.remove(); // Remove only the card
-                    
+
                     // If empty, re-render section for empty state
                     if (window.continueWatching.length === 0) {
                         const section = document.getElementById('cw-section');
@@ -2385,7 +2385,7 @@ function renderBrowse(type, selectedGenre = null) {
 
 // ============ RENDER: MY LIST ============
 function renderMyList() {
-const listAnime = animeData.filter(a => isBookmarked(a.id));
+    const listAnime = animeData.filter(a => isBookmarked(a.id));
     return `
 
     <div class="pt-24 pb-20 min-h-screen">
@@ -2448,8 +2448,8 @@ function getSmartHeroTitle(title) {
         displayTitle,
         className: length <= 25 ? 'hero-title--short'
             : length <= 50 ? 'hero-title--medium'
-            : length <= 80 ? 'hero-title--long'
-            : 'hero-title--extra-long',
+                : length <= 80 ? 'hero-title--long'
+                    : 'hero-title--extra-long',
     };
 }
 
@@ -2467,10 +2467,10 @@ function renderAnimeDetail(id) {
     const inWatchlist = isBookmarked(a.id);
     const releaseReminderEnabled = hasReleaseReminder(a.id);
     const heroTitleInfo = getSmartHeroTitle(a.title);
-    
+
     // Check if anime is Coming Soon
     const isComingSoon = String(a.status || '').toLowerCase() === 'coming soon';
-    
+
     console.log('[renderAnimeDetail] Anime ID:', a.id);
     console.log('[renderAnimeDetail] Status:', a.status, 'isComingSoon:', isComingSoon);
     console.log('[renderAnimeDetail] releaseDate:', a.releaseDate, 'Type:', typeof a.releaseDate);
@@ -2510,7 +2510,7 @@ function renderAnimeDetail(id) {
         ? [...new Set(episodesMedia
             .map(e => Number(e?.episodeNumber))
             .filter(n => Number.isFinite(n) && n >= 1))
-          ].sort((x, y) => x - y)
+        ].sort((x, y) => x - y)
         : Array.from({ length: Math.min(Number(a?.episodes || 1), 24) }, (_, i) => i + 1);
 
     const displayedEpisodes = episodeNumbers.slice(0, 24).length;
@@ -2518,7 +2518,7 @@ function renderAnimeDetail(id) {
         ? Math.max(1, episodeNumbers.length)
         : Math.max(1, Number(a.episodes || 1));
 
-    const movieSection = isComingSoon 
+    const movieSection = isComingSoon
         ? `
             <section class="detail-section detail-episodes anim-fade-in">
                 <div class="detail-section-head detail-heading-accent">
@@ -2540,7 +2540,7 @@ function renderAnimeDetail(id) {
                 </div>
             </section>`
         : ((a.type || 'anime') === 'anime')
-        ? `
+            ? `
             <section class="detail-section detail-episodes anim-fade-in">
                 <div class="detail-section-head detail-heading-accent">
                     <h2>Episodes</h2>
@@ -2548,17 +2548,18 @@ function renderAnimeDetail(id) {
                 </div>
                 <div class="detail-episode-grid">
                     ${episodeNumbers.slice(0, 24).map((epNum, i) => {
-                        const epObj = Array.isArray(episodesMedia) ? episodesMedia.find(e => Number(e?.episodeNumber) === Number(epNum)) : null;
-                        const epViews = Number(epObj?.views) || 0;
-                        const formattedViews = formatViewCount(epViews);
-                        return `
+                const epObj = Array.isArray(episodesMedia) ? episodesMedia.find(e => Number(e?.episodeNumber) === Number(epNum)) : null;
+                const epViews = Number(epObj?.views) || 0;
+                const formattedViews = formatViewCount(epViews);
+                return `
                         <button onclick="navigate('player', ${a.id})" class="detail-episode-tile ${i === 0 ? 'is-active' : ''}" aria-label="Watch episode ${epNum} (${formattedViews})" title="Episode ${epNum} • ${formattedViews}">
                             <span>${epNum}</span>
                         </button>
-                    `;}).join('')}
+                    `;
+            }).join('')}
                 </div>
             </section>`
-        : `
+            : `
             <section class="detail-section detail-episodes anim-fade-in">
                 <div class="detail-section-head detail-heading-accent">
                     <h2>Movie</h2>
@@ -2933,7 +2934,7 @@ function renderPlayer(id) {
         console.error('Error: playerService is not defined. Make sure playerService.js is loaded before script.js.');
         return `<div class="pt-24 text-center text-red-400">Player service failed to load.</div>`;
     }
-    
+
     // Navigation to a new anime (or re-loading via details page) resets binge counter
     if (playerService.state) {
         playerService.state.bingeCount = 0;
@@ -3210,15 +3211,15 @@ function renderAvatarPicker(selectedAvatarId) {
         <div class="profile-avatar-grid-wrap">
             <div class="profile-avatar-grid" role="group" aria-label="Choose an avatar">
                 ${config.PROFILE_AVATARS.map((avatar) => {
-                    const selected = avatar.id === selectedAvatarId;
-                    return `
+        const selected = avatar.id === selectedAvatarId;
+        return `
                         <button type="button" class="profile-avatar-option" data-profile-avatar-option data-avatar-id="${avatar.id}" aria-label="${escapeHtml(avatar.label)} avatar, ${escapeHtml(avatar.category)}" aria-pressed="${selected}" onclick="selectProfileAvatar('${avatar.id}')">
                             <img src="${config.getAvatarUrl(avatar.id)}" alt="${escapeHtml(avatar.label)} anime-inspired avatar" loading="lazy">
                             ${selected ? '<span class="profile-avatar-option__check" aria-hidden="true"><i data-lucide="check"></i></span>' : ''}
                             <span class="profile-avatar-option__label">${escapeHtml(avatar.label)}</span>
                         </button>
                     `;
-                }).join('')}
+    }).join('')}
             </div>
         </div>`;
 }
@@ -3571,7 +3572,7 @@ async function loadProfileActivity() {
             const time = timeAgo(item.createdAt);
             const text = item.type === 'watched' ? `Watched episode ${Number(item.episode) || 1} of ${title}`
                 : item.type === 'commented' ? `Commented on ${title}`
-                : `Rated ${title} ${Number(item.rating) || 0}/10`;
+                    : `Rated ${title} ${Number(item.rating) || 0}/10`;
             return `<div class="flex items-start gap-3 rounded-xl bg-white/5 p-3"><i data-lucide="${item.type === 'watched' ? 'play-circle' : item.type === 'commented' ? 'message-circle' : 'star'}" class="w-4 h-4 mt-0.5 text-gold-400"></i><div><p class="text-sm text-gray-300">${text}</p><p class="text-xs text-gray-500 mt-1">${time}</p></div></div>`;
         }).join('') : '<p>No activity yet. Watch, rate, or comment on an anime to build your timeline.</p>';
         createLucideIconsSafe();
@@ -3599,7 +3600,7 @@ function switchAdminTab(tab) {
         n.classList.remove('text-gold-400');
         n.classList.add('text-gray-500');
     });
-    
+
     const activeNav = document.querySelector(`[data-admin-nav="${tab}"]`);
     const activeMobile = document.querySelector(`[data-admin-nav-mobile="${tab}"]`);
     if (activeNav) activeNav.classList.add('active');
@@ -3622,7 +3623,7 @@ function switchAdminTab(tab) {
         return;
     }
 
-    switch(tab) {
+    switch (tab) {
         case 'dashboard': content.innerHTML = renderAdminDashboard(); break;
         case 'anime': content.innerHTML = renderAdminAnime(); break;
         case 'users':
@@ -3734,12 +3735,12 @@ function renderAdminDashboard() {
         <h3 class="font-bold mb-4">Recent Activity</h3>
         <div class="space-y-3">
             ${[
-                { icon: 'user-plus', color: 'text-green-400', text: 'New user registered: AnimeFan_99', time: '2 min ago' },
-                { icon: 'upload', color: 'text-blue-400', text: 'New episode uploaded: Jujutsu Kaisen S3E1', time: '15 min ago' },
-                { icon: 'crown', color: 'text-gold-400', text: 'User upgraded to Premium: OtakuLord', time: '1 hour ago' },
-                { icon: 'flag', color: 'text-red-400', text: 'Report filed: Spam comment on Episode 24', time: '2 hours ago' },
-                { icon: 'trending-up', color: 'text-purple-400', text: 'Solo Leveling hit 1M views milestone', time: '5 hours ago' },
-            ].map(a => `
+            { icon: 'user-plus', color: 'text-green-400', text: 'New user registered: AnimeFan_99', time: '2 min ago' },
+            { icon: 'upload', color: 'text-blue-400', text: 'New episode uploaded: Jujutsu Kaisen S3E1', time: '15 min ago' },
+            { icon: 'crown', color: 'text-gold-400', text: 'User upgraded to Premium: OtakuLord', time: '1 hour ago' },
+            { icon: 'flag', color: 'text-red-400', text: 'Report filed: Spam comment on Episode 24', time: '2 hours ago' },
+            { icon: 'trending-up', color: 'text-purple-400', text: 'Solo Leveling hit 1M views milestone', time: '5 hours ago' },
+        ].map(a => `
                 <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-all">
                     <div class="w-8 h-8 rounded-lg ${a.color.replace('text-', 'bg-').replace('400', '400/10')} flex items-center justify-center flex-shrink-0">
                         <i data-lucide="${a.icon}" class="w-4 h-4 ${a.color}"></i>
@@ -3995,11 +3996,11 @@ function renderAdminAnime() {
                 </thead>
                 <tbody>
                     ${sorted.map(a => {
-                        const isMovie = (a?.type || 'anime') !== 'anime';
-                        const typeLabel = !isMovie ? 'Series' : (a?.type === 'live-movie' ? 'Live Movie' : 'Animated Movie');
-                        const status = a?.status || 'Airing';
-                        const episodesLabel = Number.isFinite(Number(a?.episodes)) ? Number(a.episodes) : (a?.episodes || 0);
-                        return `
+        const isMovie = (a?.type || 'anime') !== 'anime';
+        const typeLabel = !isMovie ? 'Series' : (a?.type === 'live-movie' ? 'Live Movie' : 'Animated Movie');
+        const status = a?.status || 'Airing';
+        const episodesLabel = Number.isFinite(Number(a?.episodes)) ? Number(a.episodes) : (a?.episodes || 0);
+        return `
                         <tr class="border-b border-white/5 hover:bg-white/3 transition-colors">
                             <td class="p-4">
                                 <div class="flex items-center gap-3">
@@ -4034,7 +4035,7 @@ function renderAdminAnime() {
                             </td>
                         </tr>
                         `;
-                    }).join('')}
+    }).join('')}
                 </tbody>
             </table>
         </div>
@@ -4156,16 +4157,16 @@ async function loadAdminUsersTable() {
                 </thead>
                 <tbody>
                     ${users.map(u => {
-                        const roles = Array.isArray(u?.roles) ? u.roles : [];
-                        const isSeedAdmin = roles.includes('admin') && String(u?.email || '').toLowerCase() === 'anify@gmail.com';
-                        if (isSeedAdmin) return '';
+            const roles = Array.isArray(u?.roles) ? u.roles : [];
+            const isSeedAdmin = roles.includes('admin') && String(u?.email || '').toLowerCase() === 'anify@gmail.com';
+            if (isSeedAdmin) return '';
 
-                        const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' }) : '';
-                        const plan = u.plan || 'Free';
-                        const status = u.status || 'Active';
-                        const name = u.username || u.name || 'User';
-                        const avatar = typeof getProfileAvatarUrl === 'function' ? getProfileAvatarUrl(u.avatarId) : u.avatar;
-                        return `
+            const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short' }) : '';
+            const plan = u.plan || 'Free';
+            const status = u.status || 'Active';
+            const name = u.username || u.name || 'User';
+            const avatar = typeof getProfileAvatarUrl === 'function' ? getProfileAvatarUrl(u.avatarId) : u.avatar;
+            return `
                             <tr class="border-b border-white/5 hover:bg-white/3 transition-colors">
                                 <td class="p-4">
                                     <div class="flex items-center gap-3">
@@ -4199,7 +4200,7 @@ async function loadAdminUsersTable() {
                                 </td>
 
                             </tr>`;
-                    }).join('')}
+        }).join('')}
                 </tbody>
             </table>`;
         if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
@@ -4219,11 +4220,11 @@ function renderAdminAnalytics() {
             <h3 class="font-bold mb-4">Revenue Breakdown</h3>
             <div class="space-y-4">
                 ${[
-                    { label: "Premium Subscriptions", amount: "$52,400", pct: 62, color: "from-gold-400 to-gold-500" },
-                    { label: "Ad Revenue", amount: "$18,200", pct: 22, color: "from-purple-400 to-purple-500" },
-                    { label: "Merchandise", amount: "$9,800", pct: 12, color: "from-blue-400 to-blue-500" },
-                    { label: "Other", amount: "$3,600", pct: 4, color: "from-pink-400 to-pink-500" },
-                ].map(r => `
+            { label: "Premium Subscriptions", amount: "$52,400", pct: 62, color: "from-gold-400 to-gold-500" },
+            { label: "Ad Revenue", amount: "$18,200", pct: 22, color: "from-purple-400 to-purple-500" },
+            { label: "Merchandise", amount: "$9,800", pct: 12, color: "from-blue-400 to-blue-500" },
+            { label: "Other", amount: "$3,600", pct: 4, color: "from-pink-400 to-pink-500" },
+        ].map(r => `
                     <div>
                         <div class="flex items-center justify-between mb-1">
                             <span class="text-sm">${r.label}</span>
@@ -4242,7 +4243,7 @@ function renderAdminAnalytics() {
                 ${[40, 55, 70, 45, 80, 65, 90, 75, 95, 85, 100, 92].map((v, i) => `
                     <div class="flex-1 flex flex-col items-center gap-1">
                         <div class="w-full bg-gradient-to-t from-gold-400/60 to-gold-400 rounded-t-md" style="height: ${v}%"></div>
-                        <span class="text-[9px] text-gray-500">${['J','F','M','A','M','J','J','A','S','O','N','D'][i]}</span>
+                        <span class="text-[9px] text-gray-500">${['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'][i]}</span>
                     </div>
                 `).join('')}
             </div>
@@ -4252,12 +4253,12 @@ function renderAdminAnalytics() {
         <h3 class="font-bold mb-4">Genre Distribution</h3>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             ${categories.filter(c => c !== 'All').map((c, i) => {
-                const count = animeData.filter(a => Array.isArray(a.genres) && a.genres.includes(c)).length;
-                return `<div class="bg-white/3 rounded-xl p-3 text-center">
+            const count = animeData.filter(a => Array.isArray(a.genres) && a.genres.includes(c)).length;
+            return `<div class="bg-white/3 rounded-xl p-3 text-center">
                     <p class="text-2xl font-black text-gold-400">${count}</p>
                     <p class="text-xs text-gray-500 mt-1">${c}</p>
                 </div>`;
-            }).join('')}
+        }).join('')}
         </div>
     </div>`;
 }
@@ -4433,12 +4434,12 @@ function renderAdminSettings() {
 function saveGuestLimit() {
     const input = document.getElementById('guest-limit-input');
     const newLimit = parseInt(input?.value, 10);
-    
+
     if (!Number.isFinite(newLimit) || newLimit < 1 || newLimit > 20) {
         alert('Please enter a valid limit between 1 and 20');
         return;
     }
-    
+
     if (guestPreviewService) {
         guestPreviewService.setGuestLimit(newLimit);
         showToast(`Guest preview limit updated to ${newLimit} videos`);
@@ -4599,7 +4600,7 @@ async function handleLoginSubmit() {
         // Required log: current stored user data
         try {
             console.log('[Auth] stored anify-user-profile:', authService.getCurrentUser());
-        } catch {}
+        } catch { }
 
         // Check if user is banned
         console.log('[Auth] Checking ban status:', {
@@ -4623,7 +4624,7 @@ async function handleLoginSubmit() {
     } catch (e) {
         const errorMessage = String(e?.message || e);
         alert(errorMessage);
-        
+
         // Re-enable button and restore original text
         if (submitBtn) {
             submitBtn.disabled = false;
@@ -4662,7 +4663,7 @@ async function handleRegisterSubmit() {
         window.location.href = `#login`;
     } catch (e) {
         alert(String(e?.message || e));
-        
+
         // Re-enable button and restore original text
         if (submitBtn) {
             submitBtn.disabled = false;
@@ -4912,7 +4913,7 @@ function openSearchPanel() {
             }
         }, 60);
     }
-    
+
     setupSearchEventListeners();
     if (window.lucide && typeof lucide.createIcons === 'function') {
         lucide.createIcons();
@@ -4956,7 +4957,7 @@ function clearSearchInput() {
     const searchInput = document.getElementById('search-input');
     const clearBtn = document.getElementById('search-clear-btn');
     const results = document.getElementById('search-results');
-    
+
     if (searchInput) {
         searchInput.value = '';
         searchInput.focus();
@@ -4964,10 +4965,10 @@ function clearSearchInput() {
     if (clearBtn) {
         clearBtn.classList.add('hidden');
     }
-    
+
     // Clear active chips
     document.querySelectorAll('.search-chip').forEach(c => c.classList.remove('active'));
-    
+
     if (results) {
         results.innerHTML = '<p class="text-xs text-gray-400 text-center py-6">Start typing to search anime library...</p>';
     }
@@ -4976,9 +4977,9 @@ function clearSearchInput() {
 function setSearchFilter(filterName) {
     const searchInput = document.getElementById('search-input');
     if (!searchInput) return;
-    
+
     searchInput.value = filterName;
-    
+
     // Highlight active chip
     document.querySelectorAll('.search-chip').forEach(chip => {
         if (chip.textContent.toLowerCase().includes(filterName.toLowerCase())) {
@@ -4987,7 +4988,7 @@ function setSearchFilter(filterName) {
             chip.classList.remove('active');
         }
     });
-    
+
     handleSearch(filterName);
     searchInput.focus();
 }
@@ -5264,9 +5265,9 @@ function handleSearch(query) {
     const results = document.getElementById('search-results');
     const clearBtn = document.getElementById('search-clear-btn');
     if (!results) return;
-    
+
     const trimmed = (query || '').trim();
-    
+
     if (clearBtn) {
         if (trimmed.length > 0) {
             clearBtn.classList.remove('hidden');
@@ -5274,12 +5275,12 @@ function handleSearch(query) {
             clearBtn.classList.add('hidden');
         }
     }
-    
+
     if (!trimmed) {
         results.innerHTML = '<p class="text-xs text-gray-400 text-center py-6">Start typing to search anime library...</p>';
         return;
     }
-    
+
     const queryLower = trimmed.toLowerCase();
     const filtered = (typeof animeData !== 'undefined' && Array.isArray(animeData))
         ? animeData.filter(a => {
@@ -5399,7 +5400,7 @@ function updatePlayerUI() {
                 }
             }
         }
-        
+
         // Sync volume UI with actual video state
         syncVolumeUI();
 
@@ -5416,10 +5417,10 @@ function updatePlayerUI() {
 
         const introBtn = document.getElementById('skip-intro-btn');
         const outroBtn = document.getElementById('skip-outro-btn');
-        
+
         // Initialize timing variables with defaults
         let introStart = 0, introEnd = 90, outroStart = 0, outroEnd = 0;
-        
+
         if (anime) {
             const epNum = Number(video.dataset.episodeNumber || 1);
             const timing = typeof getTimingConfig === 'function'
@@ -5647,16 +5648,16 @@ function handleMiniPlayerTransition(newPage) {
             // Minimize to Mini Player
             wrapper.appendChild(player);
             player.classList.add('mini-player');
-            
+
             // Clear full-size inline styles so the .mini-player class 
             // and saved state (transform) can take over.
             player.style.width = '';
             player.style.height = '';
-            
+
             // Show mini-only controls
             player.querySelectorAll('.mini-only').forEach(el => el.classList.remove('hidden'));
             player.querySelectorAll('.full-only').forEach(el => el.classList.add('hidden'));
-            
+
             // Apply the saved size/position before revealing the wrapper so
             // re-entering an already-open mini player doesn't visibly resize.
             if (window.initMiniPlayer) {
@@ -5671,6 +5672,10 @@ function handleMiniPlayerTransition(newPage) {
             // Show dock
             const dock = document.getElementById('mini-player-dock');
             if (dock) dock.classList.remove('hidden');
+
+            if (window.lucide && typeof lucide.createIcons === 'function') {
+                lucide.createIcons();
+            }
         } else {
             // Not playing or explicitly closed, hide it
             wrapper.classList.add('hidden');
@@ -5762,6 +5767,12 @@ function disableFloatingPlayer() {
     mount.appendChild(player);
     wrapper.classList.remove('floating-player');
     wrapper.classList.add('hidden');
+    player.classList.remove('mini-player', 'mini-player-medium', 'mini-player-large', 'mini-settings-open', 'mini-player-appear');
+    player.querySelectorAll('.mini-only').forEach(el => el.classList.add('hidden'));
+    player.querySelectorAll('.full-only').forEach(el => el.classList.remove('hidden'));
+    player.style.transform = '';
+    player.style.width = '100%';
+    player.style.height = '100%';
     isFloatingPlayer = false;
 }
 
@@ -5769,7 +5780,12 @@ function closeFloatingPlayer() {
     const mount = document.getElementById('persistent-player-mount');
     const wrapper = document.getElementById('persistent-player-wrapper');
     const player = document.getElementById('anify-persistent-player');
-    if (!mount || !wrapper || !player) return;
+    if (!wrapper || !player) return;
+
+    if (player.classList.contains('mini-player') || !mount || !isFloatingPlayer) {
+        hideMiniPlayer();
+        return;
+    }
 
     mount.appendChild(player);
     wrapper.classList.remove('floating-player');
@@ -5780,13 +5796,29 @@ function closeFloatingPlayer() {
     // The player continues playing in its normal position
 }
 
+function closeFloatingOrMiniPlayer(event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    const player = document.getElementById('anify-persistent-player');
+    if (player && player.classList.contains('mini-player')) {
+        hideMiniPlayer();
+    } else if (isFloatingPlayer) {
+        closeFloatingPlayer();
+    } else {
+        hideMiniPlayer();
+    }
+}
+window.closeFloatingOrMiniPlayer = closeFloatingOrMiniPlayer;
+
 // Add click handler for returning to main player when tapping floating player
 document.addEventListener('click', (e) => {
     const wrapper = document.getElementById('persistent-player-wrapper');
     if (!wrapper || !isFloatingPlayer) return;
 
     // Check if click is on the wrapper but not on the close button
-    if (wrapper.contains(e.target) && !e.target.closest('.floating-player-close')) {
+    if (wrapper.contains(e.target) && !e.target.closest('.floating-player-close') && !e.target.closest('.mini-mobile-close')) {
         returnToMainPlayer();
     }
 });
@@ -5817,17 +5849,26 @@ function returnToMainPlayer() {
  */
 function handlePlayerVideoClick(event) {
     event.stopPropagation();
-    
+
     // On mobile, don't handle click if it was a double-tap
     if (preventClick) {
         preventClick = false;
         return;
     }
-    
+
     if (window.__miniPlayerJustDragged) {
         window.__miniPlayerJustDragged = false;
         return;
     }
+
+    // Do not trigger video play/navigate if clicking close button, mobile controls, or controls bar
+    if (event.target.closest('.floating-player-close') ||
+        event.target.closest('.mini-mobile-close') ||
+        event.target.closest('.mini-mobile-play') ||
+        event.target.closest('#video-controls')) {
+        return;
+    }
+
     const player = document.getElementById('anify-persistent-player');
     if (player && player.classList.contains('mini-player')) {
         const video = playerService.getVideoElement();
@@ -5846,7 +5887,7 @@ function handlePlayerVideoClick(event) {
 function handlePlayerVideoDoubleClick(event) {
     event.stopPropagation();
     event.preventDefault();
-    
+
     const video = playerService.getVideoElement();
     if (!video) return;
 
@@ -5893,11 +5934,11 @@ let preventClick = false;
 function handlePlayerVideoTouchEnd(event) {
     const currentTime = new Date().getTime();
     const tapInterval = currentTime - lastTapTime;
-    
+
     // Get touch position
     const touch = event.changedTouches[0];
     const tapX = touch.clientX;
-    
+
     const video = playerService.getVideoElement();
     if (!video) return;
 
@@ -5918,7 +5959,7 @@ function handlePlayerVideoTouchEnd(event) {
     if (!hasShownDoubleTapHint && 'ontouchstart' in window) {
         video.classList.add('double-tap-hint');
         hasShownDoubleTapHint = true;
-        
+
         // Hide hint after 2 seconds
         setTimeout(() => {
             video.classList.remove('double-tap-hint');
@@ -5956,7 +5997,7 @@ function handlePlayerVideoTouchEnd(event) {
             // Center third - normal play/pause, no seeking
             preventClick = false;
         }
-        
+
         // Reset to prevent triple-tap
         lastTapTime = 0;
         lastTapX = 0;
@@ -5965,12 +6006,12 @@ function handlePlayerVideoTouchEnd(event) {
         lastTapTime = currentTime;
         lastTapX = tapX;
         preventClick = false;
-        
+
         // Clear previous timeout if exists
         if (tapTimeout) {
             clearTimeout(tapTimeout);
         }
-        
+
         // Set timeout to reset preventClick flag
         tapTimeout = setTimeout(() => {
             preventClick = false;
@@ -6016,11 +6057,11 @@ function restoreMiniPlayerFromRefresh() {
     if (!wrapper) return;
     wrapper.appendChild(player);
     player.classList.add('mini-player');
-    
+
     // Clear any leftover inline full-size styles
     player.style.width = '';
     player.style.height = '';
-    
+
     player.querySelectorAll('.mini-only').forEach(el => el.classList.remove('hidden'));
     player.querySelectorAll('.full-only').forEach(el => el.classList.add('hidden'));
 
@@ -6070,20 +6111,30 @@ function restoreMiniPlayerFromRefresh() {
 function hideMiniPlayer() {
     const video = document.getElementById('anify-video');
     const wrapper = document.getElementById('persistent-player-wrapper');
-    
+    const player = document.getElementById('anify-persistent-player');
+
     if (video) {
         playerService.pause();
         playerService.saveProgress();
     }
-    
+
     if (wrapper) {
         wrapper.classList.add('hidden');
+        wrapper.classList.remove('floating-player');
     }
-    
+
     // Clear now playing dock
     const dock = document.getElementById('mini-player-dock');
     if (dock) dock.classList.add('hidden');
 
+    if (player) {
+        player.classList.remove('mini-player', 'mini-player-medium', 'mini-player-large', 'mini-settings-open', 'mini-player-appear');
+        player.style.transform = '';
+        player.querySelectorAll('.mini-only').forEach(el => el.classList.add('hidden'));
+        player.querySelectorAll('.full-only').forEach(el => el.classList.remove('hidden'));
+    }
+
+    isFloatingPlayer = false;
     window.miniPlayer?.setOpenFlag?.(false);
 }
 
@@ -6128,19 +6179,19 @@ function triggerAutoNext() {
 
     const overlay = document.getElementById('auto-next-overlay');
     if (!overlay || !overlay.classList.contains('hidden')) return;
-    
+
     // ... existing auto-next logic ...
     const nextEpObj = getEpisodeObject(anime, nextEpNum);
     const poster = document.getElementById('auto-next-poster');
     const title = document.getElementById('auto-next-title');
     const info = document.getElementById('auto-next-ep-info');
-    
+
     if (poster) poster.src = ensureHttps(anime.banner || anime.image);
     if (title) title.textContent = anime.title;
     if (info) info.textContent = `Episode ${nextEpNum} • ${nextEpObj?.title || 'Next Episode'}`;
 
     overlay.classList.remove('hidden');
-    
+
     const isBinge = bingeCount >= 1; // Subtle binge styling after just 1 auto-play
     const kicker = document.getElementById('auto-next-kicker');
     const subtitle = document.getElementById('auto-next-subtitle');
@@ -6170,7 +6221,7 @@ function showStillWatchingPrompt() {
 function confirmStillWatching() {
     const overlay = document.getElementById('still-watching-overlay');
     if (overlay) overlay.classList.add('hidden');
-    
+
     // Reset count and proceed with the normal auto-next flow
     playerService.state.bingeCount = 0;
     triggerAutoNext();
@@ -6179,7 +6230,7 @@ function confirmStillWatching() {
 function stopWatching() {
     const overlay = document.getElementById('still-watching-overlay');
     if (overlay) overlay.classList.add('hidden');
-    
+
     const anime = playerService.getAnime();
     if (anime) {
         navigate('anime', anime.id);
@@ -6223,15 +6274,15 @@ function playNextEpisode() {
     const video = document.getElementById('anify-video');
     const anime = playerService.getAnime();
     if (!video || !anime) return;
-    
+
     const nextEp = Number(video.dataset.episodeNumber || 1) + 1;
     if (isEpisodeAvailable(anime, video.dataset.language || 'sub', nextEp)) {
         // Increment binge count
         playerService.state.bingeCount = (playerService.state.bingeCount || 0) + 1;
-        
+
         playerService.selectEpisode(video.dataset.language || 'sub', nextEp);
         if (window.miniPlayer) window.miniPlayer.updateNowPlaying();
-        
+
         // Hide overlay if it was shown
         cancelAutoNext();
     } else {
@@ -6251,10 +6302,11 @@ function cancelAutoNext() {
 function toggleMiniPlayerSize() {
     if (!window.miniPlayer) return;
     const player = document.getElementById('anify-persistent-player');
-    const sizes = ['small', 'medium', 'large'];
-    let current = player.classList.contains('mini-player-large') ? 'large' : 
-                  player.classList.contains('mini-player-medium') ? 'medium' : 'small';
-    
+    if (!player) return;
+    const sizes = ['medium', 'large', 'small'];
+    let current = player.classList.contains('mini-player-large') ? 'large' :
+        player.classList.contains('mini-player-small') ? 'small' : 'medium';
+
     let next = sizes[(sizes.indexOf(current) + 1) % sizes.length];
     window.miniPlayer.resize(next);
 }
@@ -6268,19 +6320,19 @@ function showSeekFeedback(direction, seconds = 5, accumulate = false) {
     const textId = direction === 'backward' ? 'seek-feedback-text-left' : 'seek-feedback-text-right';
     const feedback = document.getElementById(feedbackId);
     const text = document.getElementById(textId);
-    
+
     if (!feedback || !text) return;
 
     const key = direction === 'backward' ? 'left' : 'right';
-    
+
     if (accumulate) {
         // Accumulate seek amount for multiple taps
         seekAccumulator[key] += seconds;
-        
+
         // Reset opposite side accumulator
         const oppositeKey = direction === 'backward' ? 'right' : 'left';
         seekAccumulator[oppositeKey] = 0;
-        
+
         // Update text with accumulated amount
         text.textContent = `${seekAccumulator[key]} seconds`;
     } else {
@@ -6302,12 +6354,12 @@ function showSeekFeedback(direction, seconds = 5, accumulate = false) {
 
     // Show feedback
     feedback.classList.remove('hidden');
-    
+
     // Clear existing timeout if any
     if (seekFeedbackTimeout) {
         clearTimeout(seekFeedbackTimeout);
     }
-    
+
     // Auto-hide after 800ms and reset accumulator
     seekFeedbackTimeout = setTimeout(() => {
         feedback.classList.add('hidden');
@@ -6344,7 +6396,7 @@ function setupCustomPlayer() {
     if (!mount.contains(player)) {
         mount.appendChild(player);
     }
-    
+
     player.classList.remove('mini-player', 'mini-player-medium', 'mini-player-large', 'mini-settings-open');
     player.style.transform = '';
     player.style.width = '100%';
@@ -6376,7 +6428,7 @@ function setupCustomPlayer() {
             video.addEventListener('timeupdate', updatePlayerUI);
             video.addEventListener('loadedmetadata', updatePlayerUI);
             video.addEventListener('volumechange', syncVolumeUI);
-            
+
             // Custom logic for auto-next should also be a stable listener
             if (!window._handleAutoNext) {
                 window._handleAutoNext = () => {
@@ -6393,10 +6445,10 @@ function setupCustomPlayer() {
                         const animeId = video.dataset.animeId;
                         const episodeId = window.currentEpisode || 1;
                         const result = guestPreviewService.recordVideoWatch(animeId, episodeId);
-                        
+
                         // Save for resume after registration
                         guestPreviewService.saveLastWatched(animeId, episodeId, video.currentTime || 0);
-                        
+
                         // Check if limit reached after this watch
                         console.log('Guest watch recorded:', result);
                         if (!result.canWatchMore) {
@@ -6414,7 +6466,7 @@ function setupCustomPlayer() {
             syncVolumeUI();
         }
     }
-    
+
     // Hide mini player wrapper if we are in full player
     const wrapper = document.getElementById('persistent-player-wrapper');
     if (wrapper) wrapper.classList.add('hidden');
@@ -6514,8 +6566,8 @@ function createPersistentPlayer() {
 
         <div class="anime-player-vignette" aria-hidden="true"></div>
 
-        <!-- Floating Player Close Button -->
-        <button class="floating-player-close" onclick="event.stopPropagation(); closeFloatingPlayer();" aria-label="Close floating player">
+        <!-- Floating / Mini Player Top-Right Close Button -->
+        <button type="button" class="floating-player-close" onclick="closeFloatingOrMiniPlayer(event)" aria-label="Close player" title="Close">
             <i data-lucide="x" class="w-4 h-4"></i>
         </button>
 
@@ -6528,7 +6580,9 @@ function createPersistentPlayer() {
             <button type="button" class="mini-mobile-play" onclick="event.stopPropagation(); togglePlay();" aria-label="Play or pause">
                 <i id="mini-mobile-play-symbol" data-lucide="play" aria-hidden="true"></i>
             </button>
-            <button type="button" class="mini-mobile-close" onclick="event.stopPropagation(); hideMiniPlayer();" aria-label="Close mini player">×</button>
+            <button type="button" class="mini-mobile-close" onclick="closeFloatingOrMiniPlayer(event)" aria-label="Close mini player" title="Close">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
         </div>
         
         <!-- Mini Player Dock Overlay (Hidden in Full) -->
@@ -6554,22 +6608,21 @@ function createPersistentPlayer() {
                 <div class="timeline-marker timeline-marker--outro" data-timeline-marker="outro" tabindex="0" hidden></div>
                 <div class="progress-fill" style="width: 0%;" id="progress-bar"></div>
             </div>
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <button class="player-control-btn" onclick="skipBackwardWithFeedback()" title="Skip Backward 5 Seconds"><i data-lucide="skip-back" class="w-5 h-5"></i></button>
+            <div class="flex items-center justify-between mini-controls-row">
+                <div class="flex items-center gap-3 mini-left-controls">
+                    <button class="player-control-btn full-only-skip" onclick="skipBackwardWithFeedback()" title="Skip Backward 5 Seconds"><i data-lucide="skip-back" class="w-5 h-5"></i></button>
                     <button class="player-control-btn" onclick="togglePlay()"><i data-lucide="play" class="w-5 h-5" id="player-play-icon"></i></button>
                     <button class="player-control-btn mini-only hidden" onclick="playNextEpisode()" title="Next Episode"><i data-lucide="skip-forward" class="w-4 h-4"></i></button>
-                    <button class="player-control-btn" onclick="skipForwardWithFeedback()" title="Skip Forward 5 Seconds"><i data-lucide="skip-forward" class="w-5 h-5"></i></button>
+                    <button class="player-control-btn full-only-skip" onclick="skipForwardWithFeedback()" title="Skip Forward 5 Seconds"><i data-lucide="skip-forward" class="w-5 h-5"></i></button>
                     <button class="player-control-btn" onclick="togglePlayerMute()"><i data-lucide="volume-2" class="w-5 h-5" id="player-volume-icon"></i></button>
                     <span class="text-xs text-gray-400" id="player-time">0:00 / 0:00</span>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 mini-right-controls">
                     <!-- Mini Player Specific Controls -->
                     <button class="player-control-btn hidden mini-only" onclick="toggleMiniPlayerSize()" title="Resize"><i data-lucide="scaling" class="w-4 h-4"></i></button>
                     <button class="player-control-btn hidden mini-only" onclick="playerService.skipIntro()" title="Skip Intro"><i data-lucide="fast-forward" class="w-4 h-4"></i></button>
                     <button class="player-control-btn hidden mini-only" onclick="toggleMiniSettings()" title="Settings"><i data-lucide="settings" class="w-4 h-4"></i></button>
-                    <button class="player-control-btn hidden mini-only" onclick="navigate('player', playerService.getVideoElement().dataset.animeId)" title="Restore Full Player"><i data-lucide="maximize-2" class="w-4 h-4"></i></button>
-                    <button class="player-control-btn hidden mini-only" onclick="hideMiniPlayer()" title="Close"><i data-lucide="x" class="w-4 h-4"></i></button>
+                    <button type="button" class="player-control-btn hidden mini-only" onclick="closeFloatingOrMiniPlayer(event)" title="Close"><i data-lucide="x" class="w-4 h-4"></i></button>
 
                     <select id="player-speed-select" class="player-select full-only" onchange="setPlayerSpeed(this.value)">
                         <option value="1">1x</option>
@@ -6720,17 +6773,17 @@ function showDiscoveryHub() {
 
     modal.innerHTML = renderDiscoveryModalContent();
     modal.classList.remove('hidden');
-    
+
     // GSAP Entry
     if (window.gsap) {
-        gsap.fromTo("#discovery-content", 
+        gsap.fromTo("#discovery-content",
             { y: 50, opacity: 0, scale: 0.9, filter: 'blur(10px)' },
             { y: 0, opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.6, ease: "power4.out" }
         );
     }
-    
+
     createLucideIconsSafe();
-    
+
     // Backdrop click to close
     modal.onclick = (e) => {
         if (e.target === modal) hideDiscoveryHub();
@@ -6754,12 +6807,12 @@ function showDiscoveryHub() {
 function hideDiscoveryHub() {
     const modal = document.getElementById('surprise-modal');
     if (!modal) return;
-    
+
     if (discoveryShuffleInterval) {
         clearInterval(discoveryShuffleInterval);
         discoveryShuffleInterval = null;
     }
-    
+
     if (window.gsap) {
         gsap.to("#discovery-content, #reveal-content", {
             y: 30, opacity: 0, scale: 0.95, duration: 0.3, ease: "power2.in",
@@ -6884,7 +6937,7 @@ function setDiscoveryFilter(key, value) {
 
 function triggerDiscovery(mode) {
     const anime = window.surpriseService?.getRecommendation(discoveryFilters, mode);
-    
+
     if (!anime) {
         if (window.showToast) showToast("No anime found with these filters. Try expanding your search!");
         return;
@@ -6912,9 +6965,9 @@ function triggerDiscovery(mode) {
     const posters = animeData.map(a => a.image).filter(Boolean);
     const posterEl = document.getElementById('shuffle-poster');
     let count = 0;
-    
+
     if (discoveryShuffleInterval) clearInterval(discoveryShuffleInterval);
-    
+
     discoveryShuffleInterval = setInterval(() => {
         if (posterEl) posterEl.src = posters[Math.floor(Math.random() * posters.length)];
         count++;
@@ -6931,7 +6984,7 @@ function triggerDiscovery(mode) {
 function doDiscoveryReveal(anime) {
     const modal = document.getElementById('surprise-modal');
     const label = window.surpriseService?.getCollectionLabel(anime) || '✨ Your Surprise Pick';
-    
+
     modal.innerHTML = `
     <div class="discovery-modal relative overflow-hidden p-0 max-w-5xl shadow-[0_0_100px_rgba(0,0,0,0.8)]" id="reveal-content" onclick="event.stopPropagation()">
         <img src="${ensureHttps(anime.banner)}" class="reveal-banner" alt="">
@@ -6981,14 +7034,14 @@ function doDiscoveryReveal(anime) {
             <i data-lucide="x" class="w-6 h-6"></i>
         </button>
     </div>`;
-    
+
     createLucideIconsSafe();
-    
+
     if (window.gsap) {
-        gsap.from("#reveal-content", { 
-            scale: 0.85, 
-            autoAlpha: 0, 
-            duration: 0.8, 
+        gsap.from("#reveal-content", {
+            scale: 0.85,
+            autoAlpha: 0,
+            duration: 0.8,
             ease: "expo.out",
             clearProps: "all"
         });
@@ -7011,14 +7064,14 @@ function showSupportModal() {
     if (modal) {
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
-        
+
         // Pre-fill email if user is logged in
         const userEmail = getCurrentUserEmail();
         if (userEmail) {
             const emailInput = document.getElementById('support-email');
             if (emailInput) emailInput.value = userEmail;
         }
-        
+
         createLucideIconsSafe();
     }
 }
@@ -7028,7 +7081,7 @@ function closeSupportModal() {
     if (modal) {
         modal.classList.add('hidden');
         document.body.style.overflow = '';
-        
+
         // Reset form
         selectedAmount = null;
         document.querySelectorAll('.amount-btn').forEach(btn => btn.classList.remove('selected'));
@@ -7040,7 +7093,7 @@ function closeSupportModal() {
 
 function selectAmount(amount) {
     selectedAmount = amount;
-    
+
     // Update UI
     document.querySelectorAll('.amount-btn').forEach(btn => {
         btn.classList.remove('selected');
@@ -7048,7 +7101,7 @@ function selectAmount(amount) {
             btn.classList.add('selected');
         }
     });
-    
+
     // Clear custom amount
     document.getElementById('custom-amount').value = '';
 }
@@ -7056,7 +7109,7 @@ function selectAmount(amount) {
 function handleCustomAmount(value) {
     if (value) {
         selectedAmount = parseInt(value);
-        
+
         // Remove selection from preset buttons
         document.querySelectorAll('.amount-btn').forEach(btn => btn.classList.remove('selected'));
     }
@@ -7077,18 +7130,18 @@ function getCurrentUserEmail() {
 
 async function processDonation() {
     if (isProcessingDonation) return;
-    
+
     const errorDiv = document.getElementById('support-error');
     const supportBtn = document.getElementById('support-btn');
     const emailInput = document.getElementById('support-email');
-    
+
     // Validate amount
     if (!selectedAmount || selectedAmount < 500) {
         errorDiv.textContent = 'Please select an amount of at least ₦500';
         errorDiv.classList.remove('hidden');
         return;
     }
-    
+
     // Validate email
     const email = emailInput.value.trim();
     if (!email || !email.includes('@')) {
@@ -7096,14 +7149,14 @@ async function processDonation() {
         errorDiv.classList.remove('hidden');
         return;
     }
-    
+
     // Start processing
     isProcessingDonation = true;
     supportBtn.disabled = true;
     supportBtn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Processing...';
     errorDiv.classList.add('hidden');
     createLucideIconsSafe();
-    
+
     try {
         const response = await fetch('/api/donations/initialize', {
             method: 'POST',
@@ -7116,9 +7169,9 @@ async function processDonation() {
                 email: email
             })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.ok && result.authorization_url) {
             // Redirect to Paystack
             window.location.href = result.authorization_url;
@@ -7161,7 +7214,7 @@ function checkDonationSuccess() {
     const urlParams = new URLSearchParams(window.location.search);
     const reference = urlParams.get('reference');
     const supportSuccess = urlParams.get('support');
-    
+
     if (supportSuccess === 'success' && reference) {
         // Verify the donation
         fetch('/api/donations/verify', {
@@ -7171,21 +7224,21 @@ function checkDonationSuccess() {
             },
             body: JSON.stringify({ reference })
         })
-        .then(response => response.json())
-        .then(result => {
-            if (result.ok && result.donation) {
-                showSupportSuccessModal(result.donation.amount, result.donation.reference);
-                // Clean URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-            } else {
-                console.error('Donation verification failed:', result.error);
-                alert('Payment verification failed. Please contact support if you completed the payment.');
-            }
-        })
-        .catch(error => {
-            console.error('Donation verification error:', error);
-            alert('Failed to verify donation. Please contact support if you completed the payment.');
-        });
+            .then(response => response.json())
+            .then(result => {
+                if (result.ok && result.donation) {
+                    showSupportSuccessModal(result.donation.amount, result.donation.reference);
+                    // Clean URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } else {
+                    console.error('Donation verification failed:', result.error);
+                    alert('Payment verification failed. Please contact support if you completed the payment.');
+                }
+            })
+            .catch(error => {
+                console.error('Donation verification error:', error);
+                alert('Failed to verify donation. Please contact support if you completed the payment.');
+            });
     }
 }
 
@@ -7228,7 +7281,7 @@ function handleDownloadAuthRegister() {
 // Close download auth modal on ESC key
 function addDownloadAuthModalListeners() {
     if (downloadAuthModalListenersAdded) return;
-    
+
     // ESC key handler
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -7238,7 +7291,7 @@ function addDownloadAuthModalListeners() {
             }
         }
     });
-    
+
     downloadAuthModalListenersAdded = true;
 }
 
@@ -7285,7 +7338,7 @@ function toggleMobileMenu(forceState) {
     const backdrop = document.getElementById('mobile-menu-backdrop');
     const menuToggle = document.getElementById('mobile-menu-toggle');
     const profileDropdown = document.querySelector('.mobile-profile-dropdown');
-    
+
     if (!mobileMenu) return;
 
     const isCurrentlyHidden = mobileMenu.classList.contains('hidden');
@@ -7353,10 +7406,10 @@ function closeMobileMenu() {
 }
 
 // Close mobile menu when clicking on backdrop
-document.addEventListener('click', function(event) {
+document.addEventListener('click', function (event) {
     const mobileMenu = document.getElementById('mobile-menu');
     const backdrop = document.getElementById('mobile-menu-backdrop');
-    
+
     if (backdrop && !backdrop.classList.contains('hidden')) {
         if (event.target === backdrop) {
             closeMobileMenu();
@@ -7365,7 +7418,7 @@ document.addEventListener('click', function(event) {
 });
 
 // Close mobile menu on escape key and return focus to toggle
-document.addEventListener('keydown', function(event) {
+document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape') {
         const mobileMenu = document.getElementById('mobile-menu');
         const menuToggle = document.getElementById('mobile-menu-toggle');
