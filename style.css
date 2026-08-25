@@ -153,6 +153,7 @@ html {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border);
+    z-index: 100;
 }
 
 /* Mobile navbar optimization - reduce padding */
@@ -256,7 +257,7 @@ html {
     background: rgba(6, 4, 14, 0.76);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    z-index: 49;
+    z-index: 9998;
 }
 
 #search-backdrop:not(.hidden) {
@@ -346,7 +347,7 @@ html {
         border-radius: 1.25rem !important;
         margin: 0 auto !important;
         padding: 0.875rem !important;
-        z-index: 60 !important;
+        z-index: 9999 !important;
         animation: anime-search-drop 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 
@@ -364,6 +365,7 @@ html {
     #search-results {
         max-height: calc(65vh - 120px) !important;
         overflow-y: auto !important;
+        z-index: 9999 !important;
         -webkit-overflow-scrolling: touch;
     }
 
@@ -1601,12 +1603,13 @@ body.mobile-nav-locked {
     height: 85vh;
     min-height: 500px;
     overflow: hidden;
+    z-index: 1;
 }
 
 .hero-media {
     position: absolute;
     inset: 0;
-    z-index: 0;
+    z-index: 1;
 }
 
 .hero-media img,

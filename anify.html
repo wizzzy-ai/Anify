@@ -321,7 +321,7 @@
                                 <i data-lucide="search" class="w-5 h-5"></i>
                             </button>
 
-                            <div id="search-panel" class="hidden fixed top-3 left-3 right-3 md:top-[4.25rem] md:right-auto md:left-[calc(100%-27rem)] md:w-[440px] search-glass rounded-2xl p-3.5 md:p-4 shadow-[0_16px_50px_rgba(0,0,0,0.85)] z-50 transition-all border border-gold-400/30" role="dialog" aria-modal="true" aria-label="Search anime">
+                            <div id="search-panel" class="hidden fixed top-3 left-3 right-3 md:top-[4.25rem] md:right-auto md:left-[calc(100%-27rem)] md:w-[440px] search-glass rounded-2xl p-3.5 md:p-4 shadow-[0_16px_50px_rgba(0,0,0,0.85)] z-[9999] transition-all border border-gold-400/30" role="dialog" aria-modal="true" aria-label="Search anime">
                                 <div class="flex items-center gap-2">
                                     <div class="relative flex-1">
                                         <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gold-400"></i>
@@ -357,7 +357,7 @@
                             </div>
                         </div>
 
-                        <div id="search-backdrop" class="hidden fixed inset-0 bg-black/70 backdrop-blur-md z-49" onclick="closeSearchPanel(); event.stopPropagation()" aria-hidden="true"></div>
+                        <div id="search-backdrop" class="hidden fixed inset-0 bg-black/70 backdrop-blur-md z-[9998]" onclick="closeSearchPanel(); event.stopPropagation()" aria-hidden="true"></div>
 
                         <!-- Discovery Hub (hidden on mobile) -->
                         <button onclick="showDiscoveryHub()" class="hidden md:flex p-2 rounded-xl hover:bg-white/10 transition-all text-gold-400 hover:text-gold-300" title="Surprise Me">
