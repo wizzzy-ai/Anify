@@ -124,7 +124,7 @@
             run.canvas = canvas;
 
             const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
             renderer.setSize(width, height, false);
             const scene = new THREE.Scene();
             const camera = new THREE.Camera();
@@ -194,7 +194,10 @@
             } else {
                 const textureLoader = new THREE.TextureLoader();
                 textureLoader.setCrossOrigin('anonymous');
-                textureLoader.load(media.currentSrc || media.src, startReveal, undefined, fail);
+                textureLoader.load(media.currentSrc || media.src, texture => {
+                    texture.colorSpace = THREE.SRGBColorSpace;
+                    startReveal(texture);
+                }, undefined, fail);
             }
 
             run.resizeObserver = new ResizeObserver(() => {
