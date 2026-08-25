@@ -88,7 +88,7 @@
         const media = container?.querySelector('img, video');
         if (!canReveal(media)) {
             if (media && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-                gsap.fromTo(media, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: 'power1.out', clearProps: 'opacity' });
+                gsap.fromTo(media, { opacity: 0 }, { opacity: 1, duration: 0.55, ease: 'power1.out', clearProps: 'opacity' });
             } else if (media) {
                 fallback(media);
             }
