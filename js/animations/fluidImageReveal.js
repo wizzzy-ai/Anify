@@ -139,6 +139,11 @@
             const draw = () => renderer.render(scene, camera);
             const startReveal = texture => {
                 if (!active.has(run)) { texture.dispose(); return; }
+                const textureWidth = texture.image?.videoWidth || texture.image?.naturalWidth || texture.image?.width;
+                const textureHeight = texture.image?.videoHeight || texture.image?.naturalHeight || texture.image?.height;
+                if (textureWidth && textureHeight) {
+                    material.uniforms.uImageSize.value.set(textureWidth, textureHeight);
+                }
                 clearTimeout(run.fallbackTimer);
                 run.fallbackTimer = null;
                 material.uniforms.uTexture.value = texture;
@@ -163,6 +168,7 @@
                 const beginVideo = () => {
                     try {
                         const texture = new THREE.VideoTexture(media);
+                        material.uniforms.uImageSize.value.set(media.videoWidth || width, media.videoHeight || height);
                         texture.colorSpace = THREE.SRGBColorSpace;
                         startReveal(texture);
                     } catch (error) {
