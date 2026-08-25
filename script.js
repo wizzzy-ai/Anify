@@ -1285,7 +1285,7 @@ function renderHeroMedia(anime) {
 
     if (shouldShowBannerVideo(anime)) {
         return `
-            <video class="is-active" muted autoplay loop playsinline preload="metadata" poster="${ensureHttps(anime.banner || anime.image || '')}">
+            <video class="is-active" muted autoplay loop playsinline preload="metadata">
                 <source src="${ensureHttps(anime.bannerVideo || '')}" type="video/mp4">
             </video>`;
     }
@@ -1324,7 +1324,7 @@ function renderHeroContent(anime) {
     const heroTitleInfo = getHeroTitleInfo(anime.title || 'Unknown');
 
     return `
-        <div class="anim-slide-up anim-delay-1 flex items-center gap-2 mb-4">
+        <div class="hero-meta flex items-center gap-2 mb-4">
             ${anime.newEpisode ? '<span class="badge-new">New Episode</span>' : ''}
             ${anime.premium ? '<span class="badge-premium">Premium</span>' : ''}
             <span class="text-xs text-gray-400 font-medium flex items-center gap-1">
@@ -1332,22 +1332,22 @@ function renderHeroContent(anime) {
             </span>
         </div>
         <div class="hero-title-wrap">
-            <h1 class="anim-slide-up anim-delay-2 hero-title ${heroTitleInfo.className}" data-full-title="${escapeHtml(anime.title)}" tabindex="0" aria-label="${escapeHtml(anime.title)}">${escapeHtml(heroTitleInfo.displayTitle)}<span class="hero-title-info" aria-hidden="true">ⓘ</span></h1>
+            <h1 class="hero-title ${heroTitleInfo.className}" data-full-title="${escapeHtml(anime.title)}" tabindex="0" aria-label="${escapeHtml(anime.title)}">${escapeHtml(heroTitleInfo.displayTitle)}<span class="hero-title-info" aria-hidden="true">ⓘ</span></h1>
             <span class="hero-title-tooltip" role="tooltip">${escapeHtml(anime.title)}</span>
         </div>
-         <p class="anim-slide-up anim-delay-2 text-gold-400/80 text-sm mb-4">${anime.titleJp || ''}</p>
-        <p class="anim-slide-up anim-delay-3 text-gray-300 text-sm md:text-base line-clamp-3 mb-6 max-w-lg">${anime.desc || ''}</p>
-        <div class="anim-slide-up anim-delay-3 flex flex-wrap gap-2 mb-6">
+         <p class="hero-jp text-gold-400/80 text-sm mb-4">${anime.titleJp || ''}</p>
+        <p class="hero-description text-gray-300 text-sm md:text-base line-clamp-3 mb-6 max-w-lg">${anime.desc || ''}</p>
+        <div class="hero-genres flex flex-wrap gap-2 mb-6">
             ${Array.isArray(anime.genres) ? anime.genres.map(g => `<span class="category-pill text-xs">${g}</span>`).join('') : ''}
         </div>
-        <div class="anim-slide-up anim-delay-4 flex items-center gap-3">
-            <button onclick="navigate('player', ${anime.id})" class="btn-primary hero-watch-now flex items-center gap-2 text-base px-6 py-3">
+        <div class="hero-actions flex items-center gap-3">
+            <button onclick="navigate('player', ${anime.id})" data-magnetic class="btn-primary hero-watch-now flex items-center gap-2 text-base px-6 py-3">
                 <i data-lucide="play" class="w-5 h-5 fill-current"></i> Watch Now
             </button>
             <button onclick="navigate('anime', ${anime.id})" class="btn-secondary flex items-center gap-2 px-6 py-3">
                 <i data-lucide="info" class="w-5 h-5"></i> Details
             </button>
-<button onclick="toggleBookmark(${anime.id})" class="p-3 rounded-xl bg-white/5 border border-white/10 hover:border-gold-400/30 transition-all" title="Add to Watchlist">
+<button onclick="toggleBookmark(${anime.id})" class="hero-bookmark p-3 rounded-xl bg-white/5 border border-white/10 hover:border-gold-400/30 transition-all" title="Add to Watchlist">
                 <i data-lucide="${isBookmarked(anime.id) ? 'bookmark-check' : 'bookmark'}" class="w-5 h-5 ${isBookmarked(anime.id) ? 'text-gold-400' : ''}"></i>
             </button>
         </div>`;
@@ -1647,6 +1647,7 @@ function setupHeroLiveWallpapers() {
         heroMedia.innerHTML = renderHeroMedia(anime);
         heroContent.innerHTML = renderHeroContent(anime);
         lucide.createIcons();
+        if (window.AnifyFluidImageReveal) window.AnifyFluidImageReveal.reveal(heroMedia);
     }, 9000);
 }
 
@@ -1770,9 +1771,8 @@ function handleRouteChange() {
     setTimeout(() => lucide.createIcons(), 100);
     if (page === 'home') {
         setupHeroLiveWallpapers();
-        animateCWCards();
-        setupTrendingReveal();
     }
+    if (window.AnifyAnimationManager) window.AnifyAnimationManager.refresh(page);
     if (page === 'player') setupCustomPlayer();
 }
 
@@ -1828,6 +1828,7 @@ function renderHome() {
         <div class="hero-media" id="home-hero-media">
             ${renderHeroMedia(featured)}
         </div>
+        <span class="hero-light-sweep" aria-hidden="true"></span>
         <div class="hero-overlay"></div>
         <div class="hero-bottom-overlay"></div>
 
@@ -2027,7 +2028,7 @@ function renderAnimeCard(a, revealIndex = null) {
                 ${a.newEpisode ? '<span class="badge-new">NEW EP</span>' : ''}
             </div>
             <div class="absolute top-2 right-2">
-<button onclick="event.stopPropagation(); toggleBookmark(${a.id})" class="p-1.5 rounded-lg bg-black/50 hover:bg-black/70 transition-all">
+<button onclick="event.stopPropagation(); toggleBookmark(${a.id})" class="card-bookmark p-1.5 rounded-lg bg-black/50 hover:bg-black/70 transition-all">
                     <i data-lucide="bookmark" class="w-3.5 h-3.5 ${isBookmarked(a.id) ? 'fill-gold-400 text-gold-400' : ''}"></i>
                 </button>
             </div>
@@ -2497,7 +2498,7 @@ function renderAnimeDetail(id) {
 
 
     const backdropMedia = shouldShowBannerVideo(a)
-        ? `<video class="hero-backdrop-media" muted autoplay loop playsinline poster="${ensureHttps(a.banner || a.image)}">
+        ? `<video class="hero-backdrop-media" muted autoplay loop playsinline>
                 <source src="${ensureHttps(a.bannerVideo || '')}" type="video/mp4">
            </video>`
         : `<img class="hero-backdrop-media" src="${ensureHttps(a.banner || a.image)}" alt="${a.title} backdrop">`;
@@ -4900,6 +4901,12 @@ function openSearchPanel() {
         backdrop.classList.remove('hidden');
     }
 
+    if (window.gsap && !window.AnifyAnimationManager?.reducedMotion) {
+        gsap.fromTo(panel, { opacity: 0, y: -10, scale: 0.98 }, {
+            opacity: 1, y: 0, scale: 1, duration: 0.2, ease: 'power2.out', clearProps: 'transform'
+        });
+    }
+
     isSearchOpen = true;
     searchPreviousBodyOverflow = document.body.style.overflow;
     document.body.classList.add('mobile-nav-locked');
@@ -4924,8 +4931,11 @@ function closeSearchPanel() {
     const panel = document.getElementById('search-panel');
     const backdrop = document.getElementById('search-backdrop');
 
-    if (panel) {
-        panel.classList.add('hidden');
+    const finishClose = () => panel?.classList.add('hidden');
+    if (panel && window.gsap && !window.AnifyAnimationManager?.reducedMotion && !panel.classList.contains('hidden')) {
+        gsap.to(panel, { opacity: 0, y: -10, scale: 0.98, duration: 0.16, ease: 'power2.in', overwrite: true, onComplete: finishClose });
+    } else if (panel) {
+        finishClose();
     }
     if (backdrop) {
         backdrop.classList.add('hidden');
