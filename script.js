@@ -1771,8 +1771,26 @@ function handleRouteChange() {
     if (page === 'home') {
         setupHeroLiveWallpapers();
         animateCWCards();
+        setupTrendingReveal();
     }
     if (page === 'player') setupCustomPlayer();
+}
+
+function setupTrendingReveal() {
+    const section = document.querySelector('.home-section--trending');
+    if (!section) return;
+    if (!('IntersectionObserver' in window)) {
+        section.classList.add('is-visible');
+        return;
+    }
+
+    const observer = new IntersectionObserver((entries, currentObserver) => {
+        if (!entries.some(entry => entry.isIntersecting)) return;
+        section.classList.add('is-visible');
+        currentObserver.disconnect();
+    }, { threshold: 0.12 });
+
+    observer.observe(section);
 }
 
 function animateCWCards() {
@@ -1968,7 +1986,7 @@ function renderCarousel(title, items, description = 'Hand-picked titles ready fo
                     ? 'Fresh drops and newly added titles.'
                     : description;
     return `
-    <section class="home-section anim-fade-in">
+    <section class="home-section anim-fade-in${displayTitle === 'Trending Now' ? ' home-section--trending' : ''}">
         <div class="flex items-center justify-between mb-5">
             ${renderSectionHeader(displayTitle, displayDescription, displayIcon)}
             <div class="flex gap-2">
@@ -1981,7 +1999,7 @@ function renderCarousel(title, items, description = 'Hand-picked titles ready fo
             </div>
         </div>
         <div class="carousel-container flex gap-4 pb-4">
-            ${safeItems.map(a => renderAnimeCard(a)).join('')}
+            ${safeItems.map((a, index) => renderAnimeCard(a, displayTitle === 'Trending Now' ? index : null)).join('')}
         </div>
     </section>`;
 }
@@ -1997,9 +2015,10 @@ function scrollCarousel(button, direction) {
     }
 }
 
-function renderAnimeCard(a) {
+function renderAnimeCard(a, revealIndex = null) {
+    const revealStyle = revealIndex === null ? '' : ` style="--reveal-index:${revealIndex}"`;
     return `
-    <div onclick="navigate('anime', ${a.id})" class="anime-card flex-shrink-0 w-44 md:w-52">
+    <div onclick="navigate('anime', ${a.id})"${revealStyle} class="anime-card flex-shrink-0 w-44 md:w-52${revealIndex === null ? '' : ' trending-reveal-card'}">
         <div class="relative aspect-[3/4] rounded-2xl overflow-hidden bg-dark-700">
             <img src="${ensureHttps(a.image)}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy" decoding="async">
             <div class="card-overlay"></div>
@@ -5371,7 +5390,15 @@ function updatePlayerUI() {
         if (playIcon) playIcon.setAttribute('data-lucide', state.isPlaying ? 'pause' : 'play');
         if (overlay) overlay.classList.toggle('hidden', state.isPlaying);
         const miniPlaySymbol = document.getElementById('mini-mobile-play-symbol');
-        if (miniPlaySymbol) miniPlaySymbol.textContent = state.isPlaying ? 'Ⅱ' : '▶';
+        if (miniPlaySymbol) {
+            const iconName = state.isPlaying ? 'pause' : 'play';
+            if (miniPlaySymbol.getAttribute('data-lucide') !== iconName) {
+                miniPlaySymbol.setAttribute('data-lucide', iconName);
+                if (window.lucide && typeof lucide.createIcons === 'function') {
+                    lucide.createIcons();
+                }
+            }
+        }
         
         // Sync volume UI with actual video state
         syncVolumeUI();
@@ -5668,8 +5695,16 @@ function handleMiniPlayerTransition(newPage) {
 function setupFloatingPlayerObserver() {
     cleanupFloatingPlayerObserver();
 
-    const wrapper = document.getElementById('persistent-player-wrapper');
-    if (!wrapper) return;
+    const mount = document.getElementById('persistent-player-mount');
+    if (!mount) return;
+
+    const mobileNav = document.getElementById('mobile-bottom-nav');
+    if (mobileNav) {
+        document.documentElement.style.setProperty(
+            '--mobile-bottom-nav-height',
+            `${Math.ceil(mobileNav.getBoundingClientRect().height)}px`
+        );
+    }
 
     floatingPlayerScrollPosition = window.scrollY;
 
@@ -5688,7 +5723,7 @@ function setupFloatingPlayerObserver() {
         rootMargin: '-50px 0px -50px 0px'
     });
 
-    floatingPlayerObserver.observe(wrapper);
+    floatingPlayerObserver.observe(mount);
 }
 
 function cleanupFloatingPlayerObserver() {
@@ -5699,14 +5734,17 @@ function cleanupFloatingPlayerObserver() {
 }
 
 function enableFloatingPlayer() {
+    const mount = document.getElementById('persistent-player-mount');
     const wrapper = document.getElementById('persistent-player-wrapper');
-    if (!wrapper || isFloatingPlayer) return;
+    const player = document.getElementById('anify-persistent-player');
+    if (!mount || !wrapper || !player || isFloatingPlayer) return;
 
     // Save current scroll position
     floatingPlayerScrollPosition = window.scrollY;
 
-    // Add floating class
+    wrapper.appendChild(player);
     wrapper.classList.add('floating-player');
+    wrapper.classList.remove('hidden');
     isFloatingPlayer = true;
 
     // Initialize Lucide icons for the close button
@@ -5716,20 +5754,26 @@ function enableFloatingPlayer() {
 }
 
 function disableFloatingPlayer() {
+    const mount = document.getElementById('persistent-player-mount');
     const wrapper = document.getElementById('persistent-player-wrapper');
-    if (!wrapper || !isFloatingPlayer) return;
+    const player = document.getElementById('anify-persistent-player');
+    if (!mount || !wrapper || !player || !isFloatingPlayer) return;
 
-    // Remove floating class
+    mount.appendChild(player);
     wrapper.classList.remove('floating-player');
+    wrapper.classList.add('hidden');
     isFloatingPlayer = false;
 }
 
 function closeFloatingPlayer() {
+    const mount = document.getElementById('persistent-player-mount');
     const wrapper = document.getElementById('persistent-player-wrapper');
-    if (!wrapper) return;
+    const player = document.getElementById('anify-persistent-player');
+    if (!mount || !wrapper || !player) return;
 
-    // Remove floating state
+    mount.appendChild(player);
     wrapper.classList.remove('floating-player');
+    wrapper.classList.add('hidden');
     isFloatingPlayer = false;
 
     // Don't stop video, just remove floating state
@@ -5748,16 +5792,21 @@ document.addEventListener('click', (e) => {
 });
 
 function returnToMainPlayer() {
+    const mount = document.getElementById('persistent-player-mount');
     const wrapper = document.getElementById('persistent-player-wrapper');
-    if (!wrapper || !isFloatingPlayer) return;
+    const player = document.getElementById('anify-persistent-player');
+    if (!mount || !wrapper || !player || !isFloatingPlayer) return;
+
+    mount.appendChild(player);
+    wrapper.classList.remove('floating-player');
+    wrapper.classList.add('hidden');
+    isFloatingPlayer = false;
 
     // Scroll back to original position
     window.scrollTo({
         top: floatingPlayerScrollPosition,
         behavior: 'smooth'
     });
-
-    // The IntersectionObserver will handle disabling floating when player comes back into view
 }
 
 /**
@@ -6477,7 +6526,7 @@ function createPersistentPlayer() {
         </div>
         <div class="mini-mobile-actions mini-only" aria-label="Mini player controls">
             <button type="button" class="mini-mobile-play" onclick="event.stopPropagation(); togglePlay();" aria-label="Play or pause">
-                <span id="mini-mobile-play-symbol" aria-hidden="true">▶</span>
+                <i id="mini-mobile-play-symbol" data-lucide="play" aria-hidden="true"></i>
             </button>
             <button type="button" class="mini-mobile-close" onclick="event.stopPropagation(); hideMiniPlayer();" aria-label="Close mini player">×</button>
         </div>

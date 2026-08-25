@@ -250,6 +250,7 @@
         toggleFullscreen() {
             const player = document.getElementById('anify-persistent-player');
             if (!player) return false;
+
             if (document.fullscreenElement) {
                 document.exitFullscreen?.();
             } else {

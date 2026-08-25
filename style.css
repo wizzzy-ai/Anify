@@ -1688,7 +1688,7 @@ body.mobile-nav-locked {
     position: relative;
     height: 85vh;
     min-height: 500px;
-    overflow: hidden;
+    overflow: visible;
     z-index: 1;
 }
 
@@ -1696,6 +1696,7 @@ body.mobile-nav-locked {
     position: absolute;
     inset: 0;
     z-index: 1;
+    overflow: hidden;
 }
 
 .hero-media img,
@@ -1725,8 +1726,23 @@ body.mobile-nav-locked {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 200px;
-    background: linear-gradient(to top, var(--background), transparent);
+    height: clamp(150px, 18vw, 220px);
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--accent) 10%, transparent) 28%, color-mix(in srgb, var(--background) 76%, transparent) 62%, var(--background) 100%);
+}
+
+.hero-banner::after {
+    content: '';
+    position: absolute;
+    z-index: 2;
+    left: -10%;
+    right: -10%;
+    bottom: -115px;
+    height: 220px;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center top, color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%), linear-gradient(to bottom, color-mix(in srgb, var(--background) 8%, transparent), var(--background) 82%);
+    opacity: 0.9;
 }
 
 .light .hero-overlay {
@@ -1734,7 +1750,99 @@ body.mobile-nav-locked {
 }
 
 .light .hero-bottom-overlay {
-    background: linear-gradient(to top, var(--background), color-mix(in srgb, var(--background) 42%, transparent) 36%, transparent);
+    background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--accent) 8%, transparent) 28%, color-mix(in srgb, var(--background) 78%, transparent) 62%, var(--background) 100%);
+}
+
+.home-shell {
+    position: relative;
+    z-index: 20;
+}
+
+.home-section--trending {
+    position: relative;
+    margin-top: -2.5rem;
+    padding-top: 2.5rem;
+    isolation: isolate;
+}
+
+.home-section--trending::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: 0;
+    left: -5vw;
+    right: -5vw;
+    height: 8rem;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center top, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
+}
+
+.trending-reveal-card {
+    opacity: 0;
+    transform: translateY(25px);
+    animation: none;
+}
+
+.home-section--trending.is-visible .trending-reveal-card {
+    animation: trending-card-reveal 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: calc(var(--reveal-index) * 70ms);
+}
+
+@keyframes trending-card-reveal {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@supports (animation-timeline: view()) {
+    .trending-reveal-card {
+        animation: trending-card-scroll-reveal linear both;
+        animation-timeline: view(block 70% 10%);
+        animation-range: entry 0% cover 30%;
+        animation-delay: calc(var(--reveal-index) * 70ms);
+    }
+
+    .home-section--trending.is-visible .trending-reveal-card {
+        animation-name: trending-card-scroll-reveal;
+    }
+}
+
+@keyframes trending-card-scroll-reveal {
+    from {
+        opacity: 0;
+        transform: translateY(25px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 768px) {
+    .hero-bottom-overlay {
+        height: 150px;
+    }
+
+    .hero-banner::after {
+        bottom: -80px;
+        height: 160px;
+    }
+
+    .home-section--trending {
+        margin-top: -1.5rem;
+        padding-top: 1.5rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-banner::after,
+    .trending-reveal-card,
+    .home-section--trending.is-visible .trending-reveal-card {
+        animation: none !important;
+        opacity: 1;
+        transform: none;
+    }
 }
 
 /* ============ ANIME CARDS ============ */
@@ -2327,6 +2435,28 @@ body.mobile-nav-locked {
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
+}
+
+@media (max-width: 768px) {
+    #anify-persistent-player:fullscreen,
+    #anify-persistent-player:-webkit-full-screen {
+        width: 100vw !important;
+        height: 100vh !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        background: #000 !important;
+        border-radius: 0 !important;
+        overflow: hidden !important;
+    }
+
+    #anify-persistent-player:fullscreen #anify-video,
+    #anify-persistent-player:-webkit-full-screen #anify-video {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: contain !important;
+        background: #000 !important;
+    }
 }
 
 /* Seek Feedback Overlay */
@@ -5185,27 +5315,109 @@ body.mobile-nav-locked {
 
 /* ============ MOBILE FLOATING VIDEO PLAYER ============ */
 @media (max-width: 768px) {
+    #anify-persistent-player.mini-player {
+        position: fixed !important;
+        top: auto !important;
+        left: auto !important;
+        bottom: calc(var(--mobile-bottom-nav-height, 4.5rem) + env(safe-area-inset-bottom, 0px) + 0.75rem) !important;
+        right: 1rem !important;
+        width: min(80vw, 360px) !important;
+        max-width: calc(100vw - 2rem) !important;
+        height: auto !important;
+        aspect-ratio: 16 / 9 !important;
+        border-radius: 1rem !important;
+        background: #000 !important;
+        border: 1px solid color-mix(in srgb, var(--text-primary) 18%, transparent) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    #anify-persistent-player.mini-player .mini-mobile-actions {
+        display: block !important;
+        background: transparent !important;
+    }
+
+    #anify-persistent-player.mini-player .mini-mobile-play {
+        position: absolute;
+        top: 1rem;
+        left: 1.25rem;
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        color: #FFFFFF;
+        background: transparent;
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    }
+
+    #anify-persistent-player.mini-player .mini-mobile-play svg,
+    #persistent-player-wrapper.floating-player .mini-mobile-play svg {
+        width: 1.5rem;
+        height: 1.5rem;
+        stroke-width: 2.5;
+    }
+
+    #anify-persistent-player.mini-player .mini-mobile-close {
+        top: 0.45rem;
+        right: 0.85rem;
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: 0;
+        color: #FFFFFF;
+        background: transparent;
+        font-size: 2.5rem;
+        font-weight: 300;
+        line-height: 1;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    }
+
     #persistent-player-wrapper {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: opacity 0.32s ease, visibility 0.32s ease, transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     #persistent-player-wrapper.floating-player {
         position: fixed !important;
-        bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)) !important;
+        top: auto !important;
+        left: auto !important;
+        bottom: calc(var(--mobile-bottom-nav-height, 4.5rem) + env(safe-area-inset-bottom, 0px) + 0.75rem) !important;
         right: 1rem !important;
-        width: calc(100vw - 2rem) !important;
-        max-width: 320px !important;
+        width: min(80vw, 360px) !important;
+        max-width: calc(100vw - 2rem) !important;
         aspect-ratio: 16/9 !important;
         z-index: 1000 !important;
         border-radius: 1rem !important;
         overflow: hidden !important;
         background: #000 !important;
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6),
-                    0 0 0 1px color-mix(in srgb, var(--primary, #F59E0B) 30%, rgba(255, 255, 255, 0.1)),
-                    0 0 24px color-mix(in srgb, var(--primary, #F59E0B) 15%, transparent) !important;
-        transform: scale(1) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65),
+                0 2px 8px rgba(0, 0, 0, 0.35) !important;
+        transform: translateY(0) scale(1) !important;
         opacity: 1 !important;
         pointer-events: auto !important;
+        animation: floating-player-enter 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes floating-player-enter {
+        from {
+            opacity: 0;
+            transform: translateY(0.75rem) scale(0.78);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    #persistent-player-wrapper.floating-player::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border: 1px solid color-mix(in srgb, var(--text-primary) 18%, transparent);
+        border-radius: inherit;
+        pointer-events: none;
+        z-index: 25;
     }
 
     #persistent-player-wrapper.floating-player #anify-persistent-player {
@@ -5214,7 +5426,7 @@ body.mobile-nav-locked {
     }
 
     #persistent-player-wrapper.floating-player:hover {
-        transform: scale(1.02) !important;
+        transform: translateY(-2px) !important;
     }
 
     #persistent-player-wrapper.floating-player #anify-video {
@@ -5223,35 +5435,59 @@ body.mobile-nav-locked {
         object-fit: cover !important;
     }
 
+    #persistent-player-wrapper.floating-player .mini-mobile-actions {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: block !important;
+        pointer-events: none;
+        background: transparent;
+    }
+
+    #persistent-player-wrapper.floating-player .mini-mobile-play {
+        position: absolute;
+        top: 1rem;
+        left: 1.25rem;
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        color: #FFFFFF;
+        background: transparent;
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+        pointer-events: auto;
+    }
+
     /* Floating player close button */
     .floating-player-close {
         position: absolute !important;
         top: 0.5rem !important;
         right: 0.5rem !important;
-        width: 2rem !important;
-        height: 2rem !important;
-        background: rgba(0, 0, 0, 0.7) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        border-radius: 50% !important;
+        width: 2.25rem !important;
+        height: 2.25rem !important;
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 0 !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         cursor: pointer !important;
         z-index: 10 !important;
-        opacity: 0 !important;
-        transition: opacity 0.2s ease, background 0.2s ease !important;
-        pointer-events: none !important;
-    }
-
-    #persistent-player-wrapper.floating-player:hover .floating-player-close,
-    #persistent-player-wrapper.floating-player .floating-player-close:hover {
         opacity: 1 !important;
+        transition: transform 0.2s ease !important;
         pointer-events: auto !important;
+        font-size: 2.5rem !important;
+        font-weight: 300 !important;
+        line-height: 1 !important;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
     }
 
     .floating-player-close:hover {
-        background: rgba(245, 158, 11, 0.8) !important;
-        border-color: var(--primary, #F59E0B) !important;
+        transform: scale(1.08);
     }
 
     .floating-player-close i,
@@ -5264,8 +5500,8 @@ body.mobile-nav-locked {
     /* Hide standard player controls when floating */
     #persistent-player-wrapper.floating-player .player-controls,
     #persistent-player-wrapper.floating-player .video-loading-overlay {
-        opacity: 0 !important;
-        pointer-events: none !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
     }
 
     /* Hide all overlays when floating to keep it clean */
@@ -5287,6 +5523,11 @@ body.mobile-nav-locked {
     /* Hide close button tap area behind the main tap area */
     #persistent-player-wrapper.floating-player .floating-player-close {
         z-index: 15;
+    }
+
+    #persistent-player-wrapper.floating-player .floating-player-close:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
     }
 }
 
