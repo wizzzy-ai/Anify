@@ -1654,6 +1654,11 @@ function setupHeroLiveWallpapers() {
 let isSearchOpen = false;
 let searchPreviousBodyOverflow = null;
 
+// Mobile floating player state
+let floatingPlayerObserver = null;
+let floatingPlayerScrollPosition = 0;
+let isFloatingPlayer = false;
+
 // Support modal state
 let selectedAmount = null;
 let isProcessingDonation = false;
@@ -5649,7 +5654,110 @@ function handleMiniPlayerTransition(newPage) {
         player.querySelectorAll('.mini-only').forEach(el => el.classList.add('hidden'));
         player.querySelectorAll('.full-only').forEach(el => el.classList.remove('hidden'));
         window.miniPlayer?.setOpenFlag?.(false);
+
+        // Setup floating player observer on mobile when on player page
+        if (window.matchMedia('(max-width: 768px)').matches) {
+            setupFloatingPlayerObserver();
+        } else {
+            cleanupFloatingPlayerObserver();
+        }
     }
+}
+
+// Mobile Floating Player Functions
+function setupFloatingPlayerObserver() {
+    cleanupFloatingPlayerObserver();
+
+    const wrapper = document.getElementById('persistent-player-wrapper');
+    if (!wrapper) return;
+
+    floatingPlayerScrollPosition = window.scrollY;
+
+    floatingPlayerObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting && !isFloatingPlayer) {
+                // Player left viewport, enable floating
+                enableFloatingPlayer();
+            } else if (entry.isIntersecting && isFloatingPlayer) {
+                // Player back in viewport, disable floating
+                disableFloatingPlayer();
+            }
+        });
+    }, {
+        threshold: 0.1,
+        rootMargin: '-50px 0px -50px 0px'
+    });
+
+    floatingPlayerObserver.observe(wrapper);
+}
+
+function cleanupFloatingPlayerObserver() {
+    if (floatingPlayerObserver) {
+        floatingPlayerObserver.disconnect();
+        floatingPlayerObserver = null;
+    }
+}
+
+function enableFloatingPlayer() {
+    const wrapper = document.getElementById('persistent-player-wrapper');
+    if (!wrapper || isFloatingPlayer) return;
+
+    // Save current scroll position
+    floatingPlayerScrollPosition = window.scrollY;
+
+    // Add floating class
+    wrapper.classList.add('floating-player');
+    isFloatingPlayer = true;
+
+    // Initialize Lucide icons for the close button
+    if (window.lucide && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+    }
+}
+
+function disableFloatingPlayer() {
+    const wrapper = document.getElementById('persistent-player-wrapper');
+    if (!wrapper || !isFloatingPlayer) return;
+
+    // Remove floating class
+    wrapper.classList.remove('floating-player');
+    isFloatingPlayer = false;
+}
+
+function closeFloatingPlayer() {
+    const wrapper = document.getElementById('persistent-player-wrapper');
+    if (!wrapper) return;
+
+    // Remove floating state
+    wrapper.classList.remove('floating-player');
+    isFloatingPlayer = false;
+
+    // Don't stop video, just remove floating state
+    // The player continues playing in its normal position
+}
+
+// Add click handler for returning to main player when tapping floating player
+document.addEventListener('click', (e) => {
+    const wrapper = document.getElementById('persistent-player-wrapper');
+    if (!wrapper || !isFloatingPlayer) return;
+
+    // Check if click is on the wrapper but not on the close button
+    if (wrapper.contains(e.target) && !e.target.closest('.floating-player-close')) {
+        returnToMainPlayer();
+    }
+});
+
+function returnToMainPlayer() {
+    const wrapper = document.getElementById('persistent-player-wrapper');
+    if (!wrapper || !isFloatingPlayer) return;
+
+    // Scroll back to original position
+    window.scrollTo({
+        top: floatingPlayerScrollPosition,
+        behavior: 'smooth'
+    });
+
+    // The IntersectionObserver will handle disabling floating when player comes back into view
 }
 
 /**
@@ -6315,7 +6423,7 @@ function createPersistentPlayer() {
                 <img id="auto-next-poster" class="auto-next-poster" src="" alt="Next Episode">
                 <h3 id="auto-next-title" class="text-2xl font-black text-white mb-1">Anime Title</h3>
                 <p id="auto-next-ep-info" class="text-gray-400 font-bold mb-6">Episode 2 • Title</p>
-                
+
                 <div class="auto-next-countdown">
                     <svg class="auto-next-circle">
                         <circle class="bg" cx="30" cy="30" r="28"></circle>
@@ -6343,7 +6451,7 @@ function createPersistentPlayer() {
                 </div>
                 <h3 class="text-2xl font-black text-white mb-2">Still Watching?</h3>
                 <p class="text-gray-400 mb-8 max-w-sm mx-auto">We've been playing for a while. Take a break or continue watching.</p>
-                
+
                 <div class="flex flex-col gap-3 max-w-[240px] mx-auto">
                     <button class="btn-auto-play w-full" onclick="confirmStillWatching()">
                         <span>Yes, Keep Watching [K]</span>
@@ -6356,7 +6464,12 @@ function createPersistentPlayer() {
         </div>
 
         <div class="anime-player-vignette" aria-hidden="true"></div>
-        
+
+        <!-- Floating Player Close Button -->
+        <button class="floating-player-close" onclick="event.stopPropagation(); closeFloatingPlayer();" aria-label="Close floating player">
+            <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+
         <div class="absolute inset-0 flex items-center justify-center" id="play-overlay" onclick="handlePlayerVideoClick(event)">
             <div class="anime-play-core w-20 h-20 rounded-full flex items-center justify-center hover:scale-110 transition-transform cursor-pointer">
                 <i data-lucide="play" class="w-10 h-10 text-black fill-black ml-1"></i>

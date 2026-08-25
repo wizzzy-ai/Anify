@@ -5183,6 +5183,113 @@ body.mobile-nav-locked {
     box-shadow: 0 -16px 45px rgba(0, 0, 0, 0.28);
 }
 
+/* ============ MOBILE FLOATING VIDEO PLAYER ============ */
+@media (max-width: 768px) {
+    #persistent-player-wrapper {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #persistent-player-wrapper.floating-player {
+        position: fixed !important;
+        bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)) !important;
+        right: 1rem !important;
+        width: calc(100vw - 2rem) !important;
+        max-width: 320px !important;
+        aspect-ratio: 16/9 !important;
+        z-index: 1000 !important;
+        border-radius: 1rem !important;
+        overflow: hidden !important;
+        background: #000 !important;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6),
+                    0 0 0 1px color-mix(in srgb, var(--primary, #F59E0B) 30%, rgba(255, 255, 255, 0.1)),
+                    0 0 24px color-mix(in srgb, var(--primary, #F59E0B) 15%, transparent) !important;
+        transform: scale(1) !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+
+    #persistent-player-wrapper.floating-player #anify-persistent-player {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    #persistent-player-wrapper.floating-player:hover {
+        transform: scale(1.02) !important;
+    }
+
+    #persistent-player-wrapper.floating-player #anify-video {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+    }
+
+    /* Floating player close button */
+    .floating-player-close {
+        position: absolute !important;
+        top: 0.5rem !important;
+        right: 0.5rem !important;
+        width: 2rem !important;
+        height: 2rem !important;
+        background: rgba(0, 0, 0, 0.7) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 50% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        cursor: pointer !important;
+        z-index: 10 !important;
+        opacity: 0 !important;
+        transition: opacity 0.2s ease, background 0.2s ease !important;
+        pointer-events: none !important;
+    }
+
+    #persistent-player-wrapper.floating-player:hover .floating-player-close,
+    #persistent-player-wrapper.floating-player .floating-player-close:hover {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+
+    .floating-player-close:hover {
+        background: rgba(245, 158, 11, 0.8) !important;
+        border-color: var(--primary, #F59E0B) !important;
+    }
+
+    .floating-player-close i,
+    .floating-player-close svg {
+        width: 1rem !important;
+        height: 1rem !important;
+        color: white !important;
+    }
+
+    /* Hide standard player controls when floating */
+    #persistent-player-wrapper.floating-player .player-controls,
+    #persistent-player-wrapper.floating-player .video-loading-overlay {
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
+    /* Hide all overlays when floating to keep it clean */
+    #persistent-player-wrapper.floating-player .player-overlay,
+    #persistent-player-wrapper.floating-player .player-skip-overlay,
+    #persistent-player-wrapper.floating-player .player-buffering {
+        display: none !important;
+    }
+
+    /* Tap area for returning to main player */
+    #persistent-player-wrapper.floating-player::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        cursor: pointer;
+    }
+
+    /* Hide close button tap area behind the main tap area */
+    #persistent-player-wrapper.floating-player .floating-player-close {
+        z-index: 15;
+    }
+}
+
 .mobile-bottom-link {
     display: flex;
     flex-direction: column;
