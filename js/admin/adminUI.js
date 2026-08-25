@@ -7,6 +7,27 @@
         return url.replace(/^http:/, 'https:');
     }
 
+    // Admins may enter either raw seconds ("92") or a normal timestamp
+    // ("1:32" / "01:32" / "1:02:05"). Storage remains numeric seconds.
+    function parseTimestampInput(value) {
+        const raw = String(value ?? '').trim();
+        if (!raw) return 0;
+        if (/^\d+(?:\.\d+)?$/.test(raw)) return Number(raw);
+        const parts = raw.split(':');
+        if (parts.length < 2 || parts.length > 3 || parts.some(part => !/^\d+$/.test(part))) return null;
+        const numbers = parts.map(Number);
+        if (numbers.slice(1).some(part => part >= 60)) return null;
+        return numbers.reduce((total, part) => total * 60 + part, 0);
+    }
+
+    function formatTimestampInput(seconds) {
+        const safe = Math.max(0, Math.floor(Number(seconds) || 0));
+        const hours = Math.floor(safe / 3600);
+        const minutes = Math.floor((safe % 3600) / 60);
+        const secs = safe % 60;
+        return hours ? `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}` : `${minutes}:${String(secs).padStart(2, '0')}`;
+    }
+
     // Helper function to format time ago
     function formatTimeAgo(date) {
         const seconds = Math.floor((new Date() - new Date(date)) / 1000);
@@ -1141,19 +1162,19 @@
                         <input id="admin-movie-video-1080p-file" type="file" class="input-field" accept="video/*" />
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div><label class="text-xs text-gray-500 mb-1 block">Intro Start (s)</label><input id="admin-intro-start" type="number" class="input-field" placeholder="0"></div>
-                        <div><label class="text-xs text-gray-500 mb-1 block">Intro End (s)</label><input id="admin-intro-end" type="number" class="input-field" placeholder="0"></div>
-                        <div><label class="text-xs text-gray-500 mb-1 block">Outro Start (s)</label><input id="admin-outro-start" type="number" class="input-field" placeholder="0"></div>
-                        <div><label class="text-xs text-gray-500 mb-1 block">Outro End (s)</label><input id="admin-outro-end" type="number" class="input-field" placeholder="0"></div>
+                        <div><label class="text-xs text-gray-500 mb-1 block">Intro Start</label><input id="admin-intro-start" type="text" inputmode="numeric" class="input-field" placeholder="0:00 or 0"></div>
+                        <div><label class="text-xs text-gray-500 mb-1 block">Intro End</label><input id="admin-intro-end" type="text" inputmode="numeric" class="input-field" placeholder="1:30 or 90"></div>
+                        <div><label class="text-xs text-gray-500 mb-1 block">Outro Start</label><input id="admin-outro-start" type="text" inputmode="numeric" class="input-field" placeholder="23:41"></div>
+                        <div><label class="text-xs text-gray-500 mb-1 block">Outro End</label><input id="admin-outro-end" type="text" inputmode="numeric" class="input-field" placeholder="24:30"></div>
                     </div>
                 </div>
                 ` : `
                 <div class="hidden">
                     <input id="admin-movie-video-1080p-file" type="file">
-                    <input id="admin-intro-start" type="number" value="0">
-                    <input id="admin-intro-end" type="number" value="90">
-                    <input id="admin-outro-start" type="number" value="0">
-                    <input id="admin-outro-end" type="number" value="0">
+                    <input id="admin-intro-start" type="text" value="0:00">
+                    <input id="admin-intro-end" type="text" value="1:30">
+                    <input id="admin-outro-start" type="text" value="0:00">
+                    <input id="admin-outro-end" type="text" value="0:00">
                 </div>
                 `}
 
@@ -1235,13 +1256,13 @@
         
         if (isMovieMode) {
             const iStart = document.getElementById('admin-intro-start');
-            if (iStart) iStart.value = anime?.introStart || 0;
+            if (iStart) iStart.value = formatTimestampInput(anime?.introStart);
             const iEnd = document.getElementById('admin-intro-end');
-            if (iEnd) iEnd.value = anime?.introEnd || 0;
+            if (iEnd) iEnd.value = formatTimestampInput(anime?.introEnd);
             const oStart = document.getElementById('admin-outro-start');
-            if (oStart) oStart.value = anime?.outroStart || 0;
+            if (oStart) oStart.value = formatTimestampInput(anime?.outroStart);
             const oEnd = document.getElementById('admin-outro-end');
-            if (oEnd) oEnd.value = anime?.outroEnd || 0;
+            if (oEnd) oEnd.value = formatTimestampInput(anime?.outroEnd);
         }
 
         const bannerDisplay = anime?.bannerDisplay || (anime?.bannerVideo ? 'video' : 'image');
@@ -1442,31 +1463,31 @@
                 <!-- Timestamps -->
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 rounded-2xl bg-black/5 dark:bg-white/3 border border-black/5 dark:border-white/5">
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 block">Intro Start (s)</label>
+                        <label class="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 block">Intro Start <span class="normal-case tracking-normal">(mm:ss)</span></label>
                         <div class="relative">
                             <i data-lucide="play" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-600"></i>
-                            <input id="admin-intro-start" type="number" class="input-field pl-10 h-10" placeholder="0" value="${existingData?.introStart || 0}">
+                            <input id="admin-intro-start" type="text" inputmode="numeric" class="input-field pl-10 h-10" placeholder="0:00" value="${formatTimestampInput(existingData?.introStart)}">
                         </div>
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 block">Intro End (s)</label>
+                        <label class="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 block">Intro End <span class="normal-case tracking-normal">(mm:ss)</span></label>
                         <div class="relative">
                             <i data-lucide="fast-forward" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-600"></i>
-                            <input id="admin-intro-end" type="number" class="input-field pl-10 h-10" placeholder="90" value="${existingData?.introEnd || 90}">
+                            <input id="admin-intro-end" type="text" inputmode="numeric" class="input-field pl-10 h-10" placeholder="1:30" value="${formatTimestampInput(existingData?.introEnd ?? 90)}">
                         </div>
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 block">Outro Start (s)</label>
+                        <label class="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 block">Outro Start <span class="normal-case tracking-normal">(mm:ss)</span></label>
                         <div class="relative">
                             <i data-lucide="skip-forward" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-600"></i>
-                            <input id="admin-outro-start" type="number" class="input-field pl-10 h-10" placeholder="0" value="${existingData?.outroStart || 0}">
+                            <input id="admin-outro-start" type="text" inputmode="numeric" class="input-field pl-10 h-10" placeholder="23:41" value="${formatTimestampInput(existingData?.outroStart)}">
                         </div>
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 block">Outro End (s)</label>
+                        <label class="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 block">Outro End <span class="normal-case tracking-normal">(mm:ss)</span></label>
                         <div class="relative">
                             <i data-lucide="square" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-600"></i>
-                            <input id="admin-outro-end" type="number" class="input-field pl-10 h-10" placeholder="0" value="${existingData?.outroEnd || 0}">
+                            <input id="admin-outro-end" type="text" inputmode="numeric" class="input-field pl-10 h-10" placeholder="24:30" value="${formatTimestampInput(existingData?.outroEnd)}">
                         </div>
                     </div>
                 </div>
@@ -1866,6 +1887,10 @@
             bannerDisplay: document.querySelector('input[name="admin-banner-display"]:checked')?.value || 'image',
             trailer: document.getElementById('admin-anime-trailer')?.value.trim() || '',
             type: typeValue,
+            introStart: parseTimestampInput(document.getElementById('admin-intro-start')?.value),
+            introEnd: parseTimestampInput(document.getElementById('admin-intro-end')?.value),
+            outroStart: parseTimestampInput(document.getElementById('admin-outro-start')?.value),
+            outroEnd: parseTimestampInput(document.getElementById('admin-outro-end')?.value),
         };
         
         console.log('[Edit Anime] Form data collected:', payload);
@@ -1956,6 +1981,16 @@
         if (adminService.adminModalMode === 'episode' && (!file && !dubFile && !sub720File && !dub720File)) {
             return alert('Please choose at least one video file.');
         }
+
+        const timingValues = {
+            introStart: parseTimestampInput(document.getElementById('admin-intro-start')?.value),
+            introEnd: parseTimestampInput(document.getElementById('admin-intro-end')?.value),
+            outroStart: parseTimestampInput(document.getElementById('admin-outro-start')?.value),
+            outroEnd: parseTimestampInput(document.getElementById('admin-outro-end')?.value),
+        };
+        if (Object.values(timingValues).some(value => value === null)) {
+            return alertGold('Use seconds or a timestamp such as 1:32 or 1:02:05 for intro/outro times.');
+        }
     
         try {
             const fileCount = [file, dubFile, sub720File, dub720File].filter(Boolean).length;
@@ -2032,10 +2067,7 @@
                         },
                     },
                     status: 'Airing',
-                    introStart: Number(document.getElementById('admin-intro-start')?.value || 0),
-                    introEnd: Number(document.getElementById('admin-intro-end')?.value || 90),
-                    outroStart: Number(document.getElementById('admin-outro-start')?.value || 0),
-                    outroEnd: Number(document.getElementById('admin-outro-end')?.value || 0),
+                    ...timingValues,
                 };
     
 
@@ -2254,6 +2286,9 @@
         console.log('[Edit Movie] Form payload:', payload);
         
         if (!payload.title) return alertGold('Please enter a movie title.');
+        if ([payload.introStart, payload.introEnd, payload.outroStart, payload.outroEnd].some(value => value === null)) {
+            return alertGold('Use seconds or a timestamp such as 1:32 or 1:02:05 for intro/outro times.');
+        }
     
         const forcedType = document.getElementById('admin-anime-type-forced')?.value;
         if (!forcedType || (forcedType !== 'animated-movie' && forcedType !== 'live-movie')) {

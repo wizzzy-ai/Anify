@@ -1293,8 +1293,35 @@ function renderHeroMedia(anime) {
     return `<img src="${ensureHttps(anime.banner || anime.image || '')}" class="is-active" alt="${anime.title || ''}" fetchpriority="high" decoding="async" />`;
 }
 
+function getHeroTitleInfo(fullTitle) {
+    const length = fullTitle.length;
+    let displayTitle = fullTitle;
+    
+    // Truncate extremely long titles (81+ characters) to max 3 lines
+    if (length > 80) {
+        const words = fullTitle.split(/\s+/);
+        let shortened = '';
+        for (const word of words) {
+            const candidate = shortened ? `${shortened} ${word}` : word;
+            if (candidate.length > 68) break;
+            shortened = candidate;
+        }
+        displayTitle = `${shortened || fullTitle.slice(0, 68).trim()}…`;
+    }
+
+    return {
+        displayTitle,
+        className: length <= 25 ? 'hero-title--short'
+            : length <= 50 ? 'hero-title--medium'
+            : length <= 80 ? 'hero-title--long'
+            : 'hero-title--extra-long',
+    };
+}
+
 function renderHeroContent(anime) {
     if (!anime) return '';
+    
+    const heroTitleInfo = getHeroTitleInfo(anime.title || 'Unknown');
     
     return `
         <div class="anim-slide-up anim-delay-1 flex items-center gap-2 mb-4">
@@ -1304,7 +1331,10 @@ function renderHeroContent(anime) {
                 <i data-lucide="star" class="w-3 h-3 fill-gold-400 text-gold-400"></i> ${anime.averageRating || 'N/A'}
             </span>
         </div>
-        <h1 class="anim-slide-up anim-delay-2 text-4xl md:text-6xl lg:text-7xl font-black leading-tight mb-2">${anime.title || 'Unknown'}</h1>
+        <div class="hero-title-wrap">
+            <h1 class="anim-slide-up anim-delay-2 hero-title ${heroTitleInfo.className}" data-full-title="${escapeHtml(anime.title)}" tabindex="0" aria-label="${escapeHtml(anime.title)}">${escapeHtml(heroTitleInfo.displayTitle)}<span class="hero-title-info" aria-hidden="true">ⓘ</span></h1>
+            <span class="hero-title-tooltip" role="tooltip">${escapeHtml(anime.title)}</span>
+        </div>
          <p class="anim-slide-up anim-delay-2 text-gold-400/80 text-sm mb-4">${anime.titleJp || ''}</p>
         <p class="anim-slide-up anim-delay-3 text-gray-300 text-sm md:text-base line-clamp-3 mb-6 max-w-lg">${anime.desc || ''}</p>
         <div class="anim-slide-up anim-delay-3 flex flex-wrap gap-2 mb-6">
@@ -1693,7 +1723,10 @@ function handleRouteChange() {
     handleMiniPlayerTransition(page);
 
     switch (page) {
-        case 'home': content.innerHTML = renderHome(); break;
+        case 'home':
+            content.innerHTML = renderHome();
+            startCountdownUpdates();
+            break;
         case 'browse': content.innerHTML = renderBrowse(); break;
         case 'movies': content.innerHTML = renderBrowse('Movie'); break;
         case 'series': content.innerHTML = renderBrowse('Series'); break;
@@ -2195,6 +2228,10 @@ function renderComingSoon() {
                     <img src="${ensureHttps(a.banner || a.image)}" alt="${a.title}" loading="lazy">
                     <span class="coming-card-shade"></span>
                     <span class="coming-count">${(a.type === 'animated-movie' || a.type === 'live-movie') ? 'Movie' : 'Anime'}</span>
+                    ${a.releaseDate ? `<span class="coming-card-countdown" aria-label="Countdown to ${a.title}">
+                        <span class="coming-card-countdown-label"><i data-lucide="clock-3"></i> Releasing in</span>
+                        ${renderCountdown(a.releaseDate, a.releaseTime, a.id)}
+                    </span>` : ''}
                     <h3>${a.title}</h3>
                     <p>${a.studio || 'Studio TBA'}</p>
                 </button>
@@ -2367,6 +2404,30 @@ const listAnime = animeData.filter(a => isBookmarked(a.id));
 }
 
 // ============ RENDER: ANIME DETAIL ============
+function getSmartHeroTitle(title) {
+    const fullTitle = String(title || 'Untitled').trim();
+    const length = [...fullTitle].length;
+    let displayTitle = fullTitle;
+    if (length > 80) {
+        const words = fullTitle.split(/\s+/);
+        let shortened = '';
+        for (const word of words) {
+            const candidate = shortened ? `${shortened} ${word}` : word;
+            if (candidate.length > 68) break;
+            shortened = candidate;
+        }
+        displayTitle = `${shortened || fullTitle.slice(0, 68).trim()}…`;
+    }
+
+    return {
+        displayTitle,
+        className: length <= 25 ? 'hero-title--short'
+            : length <= 50 ? 'hero-title--medium'
+            : length <= 80 ? 'hero-title--long'
+            : 'hero-title--extra-long',
+    };
+}
+
 function renderAnimeDetail(id) {
     const a = animeData.find(a => a.id === id) || animeData[0];
     if (!a || typeof a !== 'object') {
@@ -2380,6 +2441,7 @@ function renderAnimeDetail(id) {
     }
     const inWatchlist = isBookmarked(a.id);
     const releaseReminderEnabled = hasReleaseReminder(a.id);
+    const heroTitleInfo = getSmartHeroTitle(a.title);
     
     // Check if anime is Coming Soon
     const isComingSoon = String(a.status || '').toLowerCase() === 'coming soon';
@@ -2552,7 +2614,10 @@ function renderAnimeDetail(id) {
                                 <span class="hero-studio-badge">${a.studio || 'Unknown'}</span>
                             </div>
 
-                            <h1 class="hero-title">${a.title}</h1>
+                            <div class="hero-title-wrap">
+                                <h1 class="hero-title ${heroTitleInfo.className}" data-full-title="${escapeHtml(a.title)}" tabindex="0" aria-label="${escapeHtml(a.title)}">${escapeHtml(heroTitleInfo.displayTitle)}<span class="hero-title-info" aria-hidden="true">ⓘ</span></h1>
+                                <span class="hero-title-tooltip" role="tooltip">${escapeHtml(a.title)}</span>
+                            </div>
                             <div class="hero-native-title">${a.titleJp || ''}</div>
                             <div class="hero-meta-strip">
                                 <span class="hero-rating-inline"><i data-lucide="star" class="w-4 h-4"></i> ${a.averageRating || 'N/A'}<span>/10</span><span class="text-xs text-gray-400 ml-1">(${a.ratingCount || 0} ratings)</span></span>
@@ -3982,9 +4047,9 @@ function ensureAdminOrRedirect() {
 function escapeHtml(str) {
     return String(str ?? '')
         .replace(/&/g, '&amp;')
-        .replace(/</g, '<')
-        .replace(/>/g, '>')
-        .replace(/"/g, '"')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 }
 
@@ -5258,6 +5323,8 @@ function updatePlayerUI() {
 
         if (!video) return;
 
+        updateTimelineMarkers(video, state.duration);
+
         const percent = state.duration > 0 ? (state.currentTime / state.duration) * 100 : 0;
         if (progress) progress.style.width = `${percent}%`;
 
@@ -5334,6 +5401,34 @@ function updatePlayerUI() {
             triggerAutoNext();
         }
     }
+}
+
+function updateTimelineMarkers(video, duration) {
+    const track = document.querySelector('#video-controls .progress-bar');
+    if (!track || !video || !Number.isFinite(duration) || duration <= 0) return;
+    const anime = playerService.getAnime?.();
+    const episodeNumber = Number(video.dataset.episodeNumber || 1);
+    const episode = anime ? (getEpisodeObject(anime, episodeNumber) || anime.episodesMedia?.[0]) : null;
+    const ranges = [
+        { key: 'intro', start: Number(episode?.introStart), end: Number(episode?.introEnd), label: 'Intro' },
+        { key: 'outro', start: Number(episode?.outroStart), end: Number(episode?.outroEnd), label: 'Outro' },
+    ];
+
+    ranges.forEach(({ key, start, end, label }) => {
+        const marker = track.querySelector(`[data-timeline-marker="${key}"]`);
+        if (!marker) return;
+        const valid = Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end > start && start < duration;
+        if (!valid) {
+            marker.hidden = true;
+            return;
+        }
+        const safeEnd = Math.min(duration, end);
+        marker.hidden = false;
+        marker.style.left = `${(Math.max(0, start) / duration) * 100}%`;
+        marker.style.width = `${((safeEnd - Math.max(0, start)) / duration) * 100}%`;
+        marker.dataset.tooltip = `${label} ${formatPlayerTime(start)} – ${formatPlayerTime(safeEnd)}`;
+        marker.setAttribute('aria-label', marker.dataset.tooltip);
+    });
 }
 
 function saveCurrentVideoProgress() {
@@ -6272,6 +6367,8 @@ function createPersistentPlayer() {
         <!-- Controls -->
         <div class="video-controls" id="video-controls" onclick="event.stopPropagation();">
             <div class="progress-bar" onclick="seekPlayer(event)">
+                <div class="timeline-marker timeline-marker--intro" data-timeline-marker="intro" tabindex="0" hidden></div>
+                <div class="timeline-marker timeline-marker--outro" data-timeline-marker="outro" tabindex="0" hidden></div>
                 <div class="progress-fill" style="width: 0%;" id="progress-bar"></div>
             </div>
             <div class="flex items-center justify-between">

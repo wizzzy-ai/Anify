@@ -2616,6 +2616,7 @@ body.mobile-nav-locked {
 }
 
 .progress-bar {
+    position: relative;
     width: 100%;
     height: 4px;
     background: var(--surface-muted);
@@ -2624,11 +2625,54 @@ body.mobile-nav-locked {
     margin-bottom: 0.75rem;
 }
 
+.timeline-marker {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    min-width: 2px;
+    border-radius: 999px;
+    opacity: .9;
+    pointer-events: auto;
+}
+
+.timeline-marker--intro {
+    background: var(--timeline-intro, var(--accent));
+    box-shadow: 0 0 8px color-mix(in srgb, var(--timeline-intro, var(--accent)) 70%, transparent);
+}
+
+.timeline-marker--outro {
+    background: var(--timeline-outro, var(--primary));
+    box-shadow: 0 0 8px color-mix(in srgb, var(--timeline-outro, var(--primary)) 70%, transparent);
+}
+
+.timeline-marker:hover::after,
+.timeline-marker:focus-visible::after {
+    position: absolute;
+    bottom: calc(100% + .5rem);
+    left: 50%;
+    width: max-content;
+    max-width: 14rem;
+    padding: .35rem .5rem;
+    border: 1px solid var(--border);
+    border-radius: .4rem;
+    background: var(--surface-strong);
+    color: var(--text-primary);
+    content: attr(data-tooltip);
+    font-size: .68rem;
+    font-weight: 700;
+    white-space: normal;
+    text-align: center;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
 .progress-fill {
     height: 100%;
     background: linear-gradient(to right, var(--primary-light), var(--primary-hover));
     border-radius: 2px;
     position: relative;
+    z-index: 2;
     transition: width 0.1s linear;
 }
 
@@ -5334,6 +5378,8 @@ body.mobile-nav-locked {
 .continue-grid,
 .coming-grid {
     display: grid;
+    width: 100%;
+    min-width: 0;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 1rem;
 }
@@ -5413,6 +5459,7 @@ body.mobile-nav-locked {
 
 .coming-card {
     position: relative;
+    min-width: 0;
     overflow: hidden;
     min-height: 9.5rem;
     padding: 1.15rem;
@@ -5448,6 +5495,69 @@ body.mobile-nav-locked {
     border-radius: 999px;
     background: rgba(251, 191, 36, 0.15);
     filter: blur(18px);
+}
+
+.coming-card-countdown {
+    position: absolute;
+    z-index: 2;
+    inset: 50% 1rem auto;
+    display: grid;
+    gap: .45rem;
+    padding: .72rem .78rem;
+    border: 1px solid color-mix(in srgb, var(--primary) 42%, transparent);
+    border-radius: .85rem;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--surface-strong) 92%, transparent), color-mix(in srgb, var(--primary) 24%, var(--surface) 76%));
+    box-shadow: 0 12px 32px color-mix(in srgb, var(--shadow-color) 75%, transparent), 0 0 24px color-mix(in srgb, var(--primary) 22%, transparent);
+    opacity: 0;
+    transform: translateY(10px) scale(.97);
+    transition: opacity .24s ease, transform .24s ease;
+    pointer-events: none;
+    max-width: calc(100% - 2rem);
+    min-width: 0;
+}
+
+.coming-card:hover .coming-card-countdown,
+.coming-card:focus-visible .coming-card-countdown {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+}
+
+.coming-card-countdown-label {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    color: var(--primary-light, var(--primary));
+    font-size: .62rem;
+    font-weight: 850;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.coming-card-countdown-label svg {
+    width: .82rem;
+    height: .82rem;
+    color: var(--accent, var(--primary));
+}
+
+.coming-card-countdown .coming-soon-countdown {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .35rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    min-width: 0;
+}
+
+.coming-card-countdown .countdown-value {
+    color: var(--text-primary);
+    font-size: 1.08rem;
+    text-shadow: 0 0 12px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+.coming-card-countdown .countdown-label {
+    color: color-mix(in srgb, var(--text-secondary) 78%, transparent);
+    font-size: .48rem;
 }
 
 .coming-count {
@@ -6017,9 +6127,9 @@ body.mobile-nav-locked {
     text-transform: uppercase;
     font-weight: 900;
     padding: 0.35rem 0.6rem;
-    border-radius: 9999px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    align-items: center;
+    margin-top: 0.95rem;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .hero-title {
@@ -6028,14 +6138,134 @@ body.mobile-nav-locked {
     font-size: 3.1rem;
     line-height: 1.02;
     text-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+    max-width: 750px;
+    text-wrap: balance;
 }
 
-.hero-subtitle {
-    display: flex;
-    gap: 0.6rem;
-    align-items: center;
-    margin-top: 0.95rem;
-    color: rgba(255, 255, 255, 0.8);
+/* Home page hero title sizing based on length */
+.hero-title--short {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+}
+
+.hero-title--medium {
+    font-size: clamp(2.2rem, 4.25vw, 3.5rem);
+}
+
+.hero-title--long {
+    font-size: clamp(1.9rem, 3.75vw, 3rem);
+}
+
+.hero-title--extra-long {
+    font-size: clamp(1.6rem, 3.25vw, 2.5rem);
+    max-height: 4.2em;
+    overflow: hidden;
+    display: -webkit-box;
+    line-clamp: 3;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.hero-title-wrap {
+    position: relative;
+    width: min(100%, 750px);
+}
+
+.hero-title-info {
+    display: inline-block;
+    margin-left: 0.45rem;
+    color: var(--primary-light, var(--primary));
+    font-size: 0.85rem;
+    opacity: 0.82;
+    cursor: help;
+    transition: opacity 0.18s ease;
+}
+
+.hero-title-info:hover {
+    opacity: 1;
+}
+
+.hero-title-tooltip {
+    position: absolute;
+    z-index: 8;
+    top: calc(100% + 0.6rem);
+    left: 0;
+    width: min(22rem, calc(100vw - 2rem));
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 500;
+    line-height: 1.4;
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.hero-title-wrap:hover .hero-title-tooltip,
+.hero-title-wrap:focus-within .hero-title-tooltip {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Tablet responsive hero titles */
+@media (max-width: 900px) {
+    .hero-title--short {
+        font-size: clamp(2.2rem, 6vw, 3.2rem);
+    }
+    
+    .hero-title--medium {
+        font-size: clamp(1.95rem, 5.5vw, 2.8rem);
+    }
+    
+    .hero-title--long {
+        font-size: clamp(1.7rem, 4.75vw, 2.4rem);
+    }
+    
+    .hero-title--extra-long {
+        font-size: clamp(1.5rem, 4.25vw, 2.1rem);
+    }
+}
+
+/* Mobile responsive hero titles */
+@media (max-width: 600px) {
+    .hero-title {
+        max-width: 100%;
+        margin-bottom: 0.65rem;
+    }
+    
+    .hero-title-wrap {
+        width: 100%;
+    }
+    
+    .hero-title--short {
+        font-size: clamp(1.9rem, 8vw, 2.6rem);
+    }
+    
+    .hero-title--medium {
+        font-size: clamp(1.7rem, 7vw, 2.3rem);
+    }
+    
+    .hero-title--long {
+        font-size: clamp(1.5rem, 6vw, 2rem);
+    }
+    
+    .hero-title--extra-long {
+        font-size: clamp(1.35rem, 5.5vw, 1.8rem);
+    }
+    
+    .hero-title-tooltip {
+        width: min(18rem, calc(100vw - 2rem));
+        font-size: 0.85rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-title-tooltip {
+        transition: none;
+    }
 }
 
 .hero-pill {
@@ -10900,8 +11130,8 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
 .coming-soon-countdown {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    padding: 16px;
+    gap: 10px;
+    padding: 18px;
     background: color-mix(in srgb, var(--accent) 8%, transparent);
     border-radius: 12px;
     border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
@@ -10911,11 +11141,11 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
 }
 
 .countdown-value {
-    font-size: 18px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--primary);
     font-family: 'IBM Plex Sans', monospace;
@@ -10923,11 +11153,42 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
 }
 
 .countdown-label {
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--text-tertiary);
+}
+
+/* Smaller desktop windows (minimized browser) */
+@media (max-width: 1200px) {
+    .coming-soon-countdown {
+        gap: 8px;
+        padding: 16px;
+    }
+    
+    .countdown-value {
+        font-size: 20px;
+    }
+    
+    .countdown-label {
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 900px) {
+    .coming-soon-countdown {
+        gap: 6px;
+        padding: 14px;
+    }
+    
+    .countdown-value {
+        font-size: 18px;
+    }
+    
+    .countdown-label {
+        font-size: 9px;
+    }
 }
 
 .coming-soon-notify-btn {
@@ -10955,6 +11216,268 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
 
 .coming-soon-notify-btn:active {
     transform: translateY(0);
+}
+
+@media (max-width: 700px) {
+    .coming-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .7rem;
+    }
+
+    .coming-card {
+        min-height: 12.5rem;
+        padding: .82rem;
+    }
+
+    .coming-card-countdown {
+        top: auto;
+        right: .65rem;
+        bottom: 3.55rem;
+        left: .65rem;
+        padding: .55rem .58rem;
+        opacity: .96;
+        transform: none;
+        transition: box-shadow .24s ease, border-color .24s ease;
+    }
+
+    .coming-card:hover .coming-card-countdown,
+    .coming-card:focus-visible .coming-card-countdown {
+        transform: none;
+        border-color: color-mix(in srgb, var(--primary) 62%, transparent);
+        box-shadow: 0 10px 26px color-mix(in srgb, var(--shadow-color) 82%, transparent), 0 0 26px color-mix(in srgb, var(--primary) 30%, transparent);
+    }
+
+    .coming-card h3 {
+        margin-top: 4.5rem;
+        font-size: .86rem;
+    }
+
+    .coming-card p {
+        font-size: .68rem;
+    }
+
+    /* Use a 2x2 timer across the full mobile range. This is more reliable
+       than targeting individual phone models because browser chrome and
+       safe-area insets change the usable card width. */
+    .coming-card-countdown .coming-soon-countdown {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        row-gap: .42rem;
+        column-gap: .7rem;
+    }
+
+    .coming-card-countdown .countdown-item {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: baseline;
+        column-gap: .28rem;
+        text-align: left;
+        min-width: 0;
+    }
+
+    .coming-card-countdown .countdown-value {
+        font-size: clamp(.88rem, 4vw, 1.05rem);
+    }
+
+    .coming-card-countdown .countdown-label {
+        overflow: hidden;
+        font-size: clamp(.4rem, 1.7vw, .5rem);
+        letter-spacing: .05em;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .coming-card-countdown,
+    .coming-card img {
+        transition: none;
+    }
+}
+
+/* iPhone SE and other very narrow phones need one card per row so the
+   release timer remains readable instead of squeezing four values into a
+   tiny two-column card. */
+@media (max-width: 380px) {
+    .coming-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: .8rem;
+    }
+
+    .coming-card {
+        min-height: 13.25rem;
+    }
+
+    .coming-card-countdown {
+        right: .8rem;
+        bottom: 3.7rem;
+        left: .8rem;
+    }
+
+    .coming-card-countdown .countdown-value {
+        font-size: 1.2rem;
+    }
+
+    .coming-card-countdown .countdown-label {
+        font-size: .52rem;
+        white-space: nowrap;
+    }
+
+    .coming-card h3 {
+        font-size: .95rem;
+    }
+}
+
+/* Narrow phone cards cannot comfortably fit four timer columns. A compact
+   2x2 timer keeps every value and label readable at 320–430px widths. */
+@media (max-width: 430px) {
+    .coming-card-countdown {
+        bottom: 3.35rem;
+    }
+
+    .coming-card-countdown .coming-soon-countdown {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        row-gap: .42rem;
+        column-gap: .7rem;
+    }
+
+    .coming-card-countdown .countdown-item {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: baseline;
+        column-gap: .28rem;
+        text-align: left;
+    }
+
+    .coming-card-countdown .countdown-value {
+        font-size: 1rem;
+    }
+
+    .coming-card-countdown .countdown-label {
+        font-size: .45rem;
+        letter-spacing: .06em;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 320px) {
+    .coming-card-countdown {
+        padding-inline: .45rem;
+    }
+
+    .coming-card-countdown .countdown-value {
+        font-size: 1.05rem;
+    }
+
+    .coming-card-countdown .countdown-label {
+        font-size: .44rem;
+        letter-spacing: .06em;
+    }
+}
+
+/* Smart cinematic hero titles: preserve large type for short names while
+   keeping long names inside a predictable three-line title block. */
+#anime-detail-root .hero-title {
+    position: relative;
+    width: 100%;
+    max-width: 750px;
+    margin-bottom: .9rem;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    text-wrap: balance;
+}
+
+.hero-title-wrap {
+    position: relative;
+    width: min(100%, 750px);
+}
+
+#anime-detail-root .hero-title--short {
+    font-size: clamp(3.2rem, 6vw, 4.85rem);
+}
+
+#anime-detail-root .hero-title--medium {
+    font-size: clamp(2.75rem, 5vw, 4.1rem);
+}
+
+#anime-detail-root .hero-title--long {
+    font-size: clamp(2.35rem, 4.25vw, 3.45rem);
+}
+
+#anime-detail-root .hero-title--extra-long {
+    font-size: clamp(2rem, 3.65vw, 2.95rem);
+}
+
+.hero-title-info {
+    display: inline-block;
+    margin-left: .45rem;
+    color: var(--primary-light, var(--primary));
+    font-size: .35em;
+    vertical-align: .35em;
+    opacity: .82;
+}
+
+.hero-title-tooltip {
+    position: absolute;
+    z-index: 8;
+    top: calc(100% + .6rem);
+    left: 0;
+    width: min(42rem, 92vw);
+    padding: .7rem .85rem;
+    border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+    border-radius: .75rem;
+    background: color-mix(in srgb, var(--surface-strong) 96%, transparent);
+    box-shadow: 0 16px 35px var(--shadow-color);
+    color: var(--text-primary);
+    font-size: .95rem;
+    font-weight: 650;
+    line-height: 1.35;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-.25rem);
+    transition: opacity .18s ease, transform .18s ease;
+}
+
+.hero-title-wrap:hover .hero-title-tooltip,
+.hero-title-wrap:focus-within .hero-title-tooltip {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+@media (max-width: 900px) {
+    #anime-detail-root .hero-title--short { font-size: clamp(2.7rem, 8vw, 3.6rem); }
+    #anime-detail-root .hero-title--medium { font-size: clamp(2.35rem, 7vw, 3.1rem); }
+    #anime-detail-root .hero-title--long { font-size: clamp(2rem, 6vw, 2.7rem); }
+    #anime-detail-root .hero-title--extra-long { font-size: clamp(1.8rem, 5.5vw, 2.35rem); }
+}
+
+@media (max-width: 560px) {
+    #anime-detail-root .hero-title {
+        max-width: 100%;
+        margin-bottom: .65rem;
+    }
+
+    .hero-title-wrap {
+        width: 100%;
+    }
+
+    #anime-detail-root .hero-title--short { font-size: clamp(2.25rem, 10vw, 2.9rem); }
+    #anime-detail-root .hero-title--medium { font-size: clamp(2rem, 8.5vw, 2.5rem); }
+    #anime-detail-root .hero-title--long { font-size: clamp(1.75rem, 7.5vw, 2.15rem); }
+    #anime-detail-root .hero-title--extra-long { font-size: clamp(1.55rem, 6.7vw, 1.95rem); }
+
+    .hero-title-tooltip {
+        width: min(19rem, calc(100vw - 2rem));
+        font-size: .8rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-title-tooltip {
+        transition: none;
+    }
 }
 
 .notification-reader__card > * {
