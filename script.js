@@ -4817,14 +4817,22 @@ function setupSearchEventListeners() {
     removeSearchEventListeners();
 
     window.searchClickOutsideHandler = (e) => {
-        const searchContainer = document.getElementById('search-container');
         const panel = document.getElementById('search-panel');
+        const backdrop = document.getElementById('search-backdrop');
 
-        if (!searchContainer || !panel || panel.classList.contains('hidden')) {
+        if (!panel || panel.classList.contains('hidden')) {
             return;
         }
 
-        if (!searchContainer.contains(e.target)) {
+        // Close if clicking on backdrop or outside the panel
+        if (backdrop && e.target === backdrop) {
+            closeSearchPanel();
+            return;
+        }
+
+        // Close if clicking outside the search container
+        const searchContainer = document.getElementById('search-container');
+        if (searchContainer && !searchContainer.contains(e.target)) {
             closeSearchPanel();
         }
     };
@@ -4843,24 +4851,18 @@ function openSearchPanel() {
     const panel = document.getElementById('search-panel');
     const backdrop = document.getElementById('search-backdrop');
     const searchInput = document.getElementById('search-input');
-    const isDesktop = window.matchMedia('(min-width: 768px)').matches;
-    
+
     if (!panel) return;
-    
+
     panel.classList.remove('hidden');
     if (backdrop) {
-        if (isDesktop) {
-            backdrop.classList.add('hidden');
-        } else {
-            backdrop.classList.remove('hidden');
-        }
+        backdrop.classList.remove('hidden');
     }
-    
+
     isSearchOpen = true;
-    if (!isDesktop) {
-        document.body.classList.add('mobile-nav-locked');
-    }
-    
+    document.body.classList.add('mobile-nav-locked');
+    document.body.style.overflow = 'hidden';
+
     if (searchInput) {
         setTimeout(() => {
             searchInput.focus();
@@ -4879,15 +4881,16 @@ function openSearchPanel() {
 function closeSearchPanel() {
     const panel = document.getElementById('search-panel');
     const backdrop = document.getElementById('search-backdrop');
-    
+
     if (panel) {
         panel.classList.add('hidden');
     }
     if (backdrop) {
         backdrop.classList.add('hidden');
     }
-    
+
     document.body.classList.remove('mobile-nav-locked');
+    document.body.style.overflow = '';
     isSearchOpen = false;
     removeSearchEventListeners();
 }

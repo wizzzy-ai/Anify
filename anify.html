@@ -323,16 +323,16 @@
 
                             <div id="search-panel" class="hidden fixed top-3 left-3 right-3 md:top-[4.25rem] md:right-auto md:left-[calc(100%-27rem)] md:w-[440px] search-glass rounded-2xl p-3.5 md:p-4 shadow-[0_16px_50px_rgba(0,0,0,0.85)] z-[9999] transition-all border border-gold-400/30" role="dialog" aria-modal="true" aria-label="Search anime">
                                 <div class="flex items-center gap-2">
-                                    <div class="relative flex-1">
-                                        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gold-400"></i>
-                                        <input type="text" id="search-input" placeholder="Search anime by title, genre..." 
+                                    <div class="relative flex-1 min-w-0">
+                                        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gold-400 pointer-events-none"></i>
+                                        <input type="text" id="search-input" placeholder="Search anime by title, genre..."
                                             class="w-full bg-white/5 border border-white/15 rounded-xl pl-10 pr-9 py-2.5 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-gold-400 focus:ring-2 focus:ring-gold-400/30 transition-all"
                                             oninput="handleSearch(this.value)" autocomplete="off">
-                                        <button id="search-clear-btn" type="button" onclick="clearSearchInput(); event.stopPropagation()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-gray-400 hover:text-white transition-colors" title="Clear">
+                                        <button id="search-clear-btn" type="button" onclick="clearSearchInput(); event.stopPropagation()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors" title="Clear search text">
                                             <i data-lucide="x" class="w-3.5 h-3.5"></i>
                                         </button>
                                     </div>
-                                    <button type="button" onclick="closeSearchPanel(); event.stopPropagation()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all flex-shrink-0" aria-label="Close search" title="Close">
+                                    <button type="button" onclick="closeSearchPanel(); event.stopPropagation()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all flex-shrink-0" aria-label="Close search" title="Close search panel">
                                         <i data-lucide="x" class="w-4 h-4"></i>
                                     </button>
                                 </div>
