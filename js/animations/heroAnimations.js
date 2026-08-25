@@ -16,6 +16,7 @@
 
         if (manager.reducedMotion) {
             gsap.set([mediaVisual, '.hero-overlay', '.hero-bottom-overlay', content, trending, trendingHeading, trendingCards], { opacity: 1, clearProps: 'all' });
+            if (mediaVisual) window.AnifyFluidImageReveal?.reveal(media);
             return;
         }
 
