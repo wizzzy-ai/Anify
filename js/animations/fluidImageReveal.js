@@ -92,9 +92,15 @@
         }
 
         destroy(container);
-        const run = { container, media, renderer: null, scene: null, camera: null, mesh: null, canvas: null, tween: null, resizeObserver: null };
+        const run = { container, media, renderer: null, scene: null, camera: null, mesh: null, canvas: null, tween: null, resizeObserver: null, fallbackTimer: null };
         active.add(run);
         media.style.opacity = '0';
+        run.fallbackTimer = setTimeout(() => {
+            if (!run.tween && active.has(run)) {
+                destroy(run);
+                fallback(media);
+            }
+        }, 3000);
         loadThree().then(THREE => {
             if (!active.has(run) || !media.isConnected) return;
             const width = Math.max(container.clientWidth, 1);
@@ -129,6 +135,8 @@
             const draw = () => renderer.render(scene, camera);
             const startReveal = texture => {
                 if (!active.has(run)) { texture.dispose(); return; }
+                clearTimeout(run.fallbackTimer);
+                run.fallbackTimer = null;
                 material.uniforms.uTexture.value = texture;
                 draw();
                 run.tween = gsap.to(material.uniforms.uProgress, {
@@ -182,6 +190,8 @@
     function destroy(target) {
         [...active].filter(run => run === target || run.container === target).forEach(run => {
             active.delete(run);
+            clearTimeout(run.fallbackTimer);
+            run.fallbackTimer = null;
             run.tween?.kill();
             run.resizeObserver?.disconnect();
             run.mesh?.material?.uniforms?.uTexture?.value?.dispose?.();
