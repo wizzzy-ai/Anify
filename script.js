@@ -1341,7 +1341,7 @@ function renderHeroContent(anime) {
             ${Array.isArray(anime.genres) ? anime.genres.map(g => `<span class="category-pill text-xs">${g}</span>`).join('') : ''}
         </div>
         <div class="anim-slide-up anim-delay-4 flex items-center gap-3">
-            <button onclick="navigate('player', ${anime.id})" class="btn-primary flex items-center gap-2 text-base px-6 py-3">
+            <button onclick="navigate('player', ${anime.id})" class="btn-primary hero-watch-now flex items-center gap-2 text-base px-6 py-3">
                 <i data-lucide="play" class="w-5 h-5 fill-current"></i> Watch Now
             </button>
             <button onclick="navigate('anime', ${anime.id})" class="btn-secondary flex items-center gap-2 px-6 py-3">
@@ -1652,6 +1652,7 @@ function setupHeroLiveWallpapers() {
 
 // Centralized search state
 let isSearchOpen = false;
+let searchPreviousBodyOverflow = null;
 
 // Support modal state
 let selectedAmount = null;
@@ -4830,6 +4831,12 @@ function setupSearchEventListeners() {
             return;
         }
 
+        // The panel is portaled to body while open, so do not treat its
+        // controls or results as outside clicks.
+        if (panel.contains(e.target)) {
+            return;
+        }
+
         // Close if clicking outside the search container
         const searchContainer = document.getElementById('search-container');
         if (searchContainer && !searchContainer.contains(e.target)) {
@@ -4854,12 +4861,22 @@ function openSearchPanel() {
 
     if (!panel) return;
 
+    // Escape the navbar's backdrop-filter/overflow stacking context so the
+    // overlay is positioned against the viewport on every device.
+    if (panel.parentElement !== document.body) {
+        document.body.appendChild(panel);
+    }
+    if (backdrop && backdrop.parentElement !== document.body) {
+        document.body.appendChild(backdrop);
+    }
+
     panel.classList.remove('hidden');
     if (backdrop) {
         backdrop.classList.remove('hidden');
     }
 
     isSearchOpen = true;
+    searchPreviousBodyOverflow = document.body.style.overflow;
     document.body.classList.add('mobile-nav-locked');
     document.body.style.overflow = 'hidden';
 
@@ -4890,7 +4907,8 @@ function closeSearchPanel() {
     }
 
     document.body.classList.remove('mobile-nav-locked');
-    document.body.style.overflow = '';
+    document.body.style.overflow = searchPreviousBodyOverflow || '';
+    searchPreviousBodyOverflow = null;
     isSearchOpen = false;
     removeSearchEventListeners();
 }
