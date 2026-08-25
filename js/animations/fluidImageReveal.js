@@ -72,6 +72,15 @@
         return Boolean(media && (media.tagName === 'IMG' || media.tagName === 'VIDEO') && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
     }
 
+    function getMediaSize(media, fallbackWidth, fallbackHeight) {
+        const width = media.videoWidth || media.naturalWidth || fallbackWidth;
+        const height = media.videoHeight || media.naturalHeight || fallbackHeight;
+        return {
+            width: Math.max(Number(width) || 1, 1),
+            height: Math.max(Number(height) || 1, 1),
+        };
+    }
+
     function fallback(media) {
         media.style.opacity = '0';
         media.style.clipPath = 'ellipse(18% 28% at 50% 50%)';
@@ -120,6 +129,7 @@
             const scene = new THREE.Scene();
             const camera = new THREE.Camera();
             const geometry = new THREE.PlaneGeometry(2, 2);
+            const mediaSize = getMediaSize(media, width, height);
             const material = new THREE.ShaderMaterial({
                 vertexShader,
                 fragmentShader,
@@ -127,7 +137,7 @@
                 uniforms: {
                     uProgress: { value: 0 },
                     uSize: { value: new THREE.Vector2(width, height) },
-                    uImageSize: { value: new THREE.Vector2(media.videoWidth || media.naturalWidth || width, media.videoHeight || media.naturalHeight || height) },
+                    uImageSize: { value: new THREE.Vector2(mediaSize.width, mediaSize.height) },
                     uTexture: { value: null },
                     uBlobCount: { value: window.innerWidth <= 768 ? 6 : 10 }
                 }
@@ -168,7 +178,8 @@
                 const beginVideo = () => {
                     try {
                         const texture = new THREE.VideoTexture(media);
-                        material.uniforms.uImageSize.value.set(media.videoWidth || width, media.videoHeight || height);
+                        const videoSize = getMediaSize(media, width, height);
+                        material.uniforms.uImageSize.value.set(videoSize.width, videoSize.height);
                         texture.colorSpace = THREE.SRGBColorSpace;
                         startReveal(texture);
                     } catch (error) {
