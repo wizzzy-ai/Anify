@@ -1285,7 +1285,7 @@ function renderHeroMedia(anime) {
 
     if (shouldShowBannerVideo(anime)) {
         return `
-            <video class="is-active" muted autoplay loop playsinline preload="metadata">
+            <video class="is-active" muted autoplay loop playsinline preload="metadata" crossorigin="anonymous">
                 <source src="${ensureHttps(anime.bannerVideo || '')}" type="video/mp4">
             </video>`;
     }

@@ -68,14 +68,14 @@
         return importPromise;
     }
 
-    function canReveal(image) {
-        return Boolean(image && image.tagName === 'IMG' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    function canReveal(media) {
+        return Boolean(media && (media.tagName === 'IMG' || media.tagName === 'VIDEO') && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
     }
 
-    function fallback(image) {
-        image.style.opacity = '0';
-        image.style.clipPath = 'ellipse(18% 28% at 50% 50%)';
-        gsap.to(image, {
+    function fallback(media) {
+        media.style.opacity = '0';
+        media.style.clipPath = 'ellipse(18% 28% at 50% 50%)';
+        gsap.to(media, {
             opacity: 1,
             clipPath: 'ellipse(100% 100% at 50% 50%)',
             duration: 1.55,
@@ -85,18 +85,18 @@
     }
 
     function reveal(container) {
-        const image = container?.querySelector('img');
-        if (!canReveal(image)) {
-            if (image && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) fallback(image);
+        const media = container?.querySelector('img, video');
+        if (!canReveal(media)) {
+            if (media && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) fallback(media);
             return;
         }
 
         destroy(container);
-        const run = { container, image, renderer: null, scene: null, camera: null, mesh: null, canvas: null, tween: null, resizeObserver: null };
+        const run = { container, media, renderer: null, scene: null, camera: null, mesh: null, canvas: null, tween: null, resizeObserver: null };
         active.add(run);
-        image.style.opacity = '0';
+        media.style.opacity = '0';
         loadThree().then(THREE => {
-            if (!active.has(run) || !image.isConnected) return;
+            if (!active.has(run) || !media.isConnected) return;
             const width = Math.max(container.clientWidth, 1);
             const height = Math.max(container.clientHeight, 1);
             const canvas = document.createElement('canvas');
@@ -117,7 +117,7 @@
                 uniforms: {
                     uProgress: { value: 0 },
                     uSize: { value: new THREE.Vector2(width, height) },
-                    uImageSize: { value: new THREE.Vector2(image.naturalWidth || width, image.naturalHeight || height) },
+                    uImageSize: { value: new THREE.Vector2(media.videoWidth || media.naturalWidth || width, media.videoHeight || media.naturalHeight || height) },
                     uTexture: { value: null },
                     uBlobCount: { value: window.innerWidth <= 768 ? 6 : 10 }
                 }
@@ -127,9 +127,7 @@
             Object.assign(run, { renderer, scene, camera, mesh });
 
             const draw = () => renderer.render(scene, camera);
-            const textureLoader = new THREE.TextureLoader();
-            textureLoader.setCrossOrigin('anonymous');
-            textureLoader.load(image.currentSrc || image.src, texture => {
+            const startReveal = texture => {
                 if (!active.has(run)) { texture.dispose(); return; }
                 material.uniforms.uTexture.value = texture;
                 draw();
@@ -142,10 +140,33 @@
                         run.tween = null;
                     }
                 });
-            }, undefined, () => {
+            };
+            const fail = () => {
                 destroy(run);
-                fallback(image);
-            });
+                fallback(media);
+            };
+
+            if (media.tagName === 'VIDEO') {
+                media.crossOrigin = 'anonymous';
+                const beginVideo = () => {
+                    try {
+                        const texture = new THREE.VideoTexture(media);
+                        texture.colorSpace = THREE.SRGBColorSpace;
+                        startReveal(texture);
+                    } catch (error) {
+                        fail(error);
+                    }
+                };
+                if (media.readyState >= 2) beginVideo();
+                else {
+                    media.addEventListener('loadeddata', beginVideo, { once: true });
+                    media.addEventListener('error', fail, { once: true });
+                }
+            } else {
+                const textureLoader = new THREE.TextureLoader();
+                textureLoader.setCrossOrigin('anonymous');
+                textureLoader.load(media.currentSrc || media.src, startReveal, undefined, fail);
+            }
 
             run.resizeObserver = new ResizeObserver(() => {
                 const nextWidth = Math.max(container.clientWidth, 1);
@@ -155,7 +176,7 @@
                 draw();
             });
             run.resizeObserver.observe(container);
-        }).catch(() => fallback(image));
+        }).catch(() => fallback(media));
     }
 
     function destroy(target) {
@@ -168,7 +189,7 @@
             run.mesh?.material?.dispose?.();
             run.renderer?.dispose?.();
             run.canvas?.remove();
-            if (run.image?.isConnected) run.image.style.opacity = '1';
+            if (run.media?.isConnected) run.media.style.opacity = '1';
         });
     }
 
