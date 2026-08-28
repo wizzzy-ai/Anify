@@ -1670,6 +1670,21 @@ app.get('/api/anime', async (req, res) => {
   res.json({ ok: true, anime: normalizedAnime });
 });
 
+app.get('/api/anime/:id', async (req, res) => {
+  if (!requireDbForGet({ ok: false, error: 'MongoDB is not connected.' }, res)) return;
+
+  const lookup = [{ clientId: String(req.params.id) }];
+  if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+    lookup.push({ _id: req.params.id });
+  }
+
+  const anime = await Anime.findOne({ $or: lookup }).lean();
+  if (!anime) return res.status(404).json({ ok: false, error: 'Anime not found.' });
+
+  res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+  res.json({ ok: true, anime: normalizeAnime(anime) });
+});
+
 app.get('/api/genres', requireDb, async (req, res) => {
   try {
     const genres = await getCachedOrFreshGenres();

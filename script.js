@@ -1160,6 +1160,21 @@ async function loadAnimeFromApi() {
     return false;
 }
 
+async function loadAnimeByIdFromApi(id) {
+    if (!id) return false;
+    try {
+        const res = await fetch(`/api/anime/${encodeURIComponent(id)}`);
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok && data.anime) {
+            updateLocalAnimeData(data.anime);
+            return true;
+        }
+    } catch (e) {
+        console.warn('[API LOAD] Single anime fetch failed:', e.message);
+    }
+    return false;
+}
+
 async function saveAnimeToApi(anime, isEdit = false) {
     if (window.animeManagement && typeof animeManagement.saveAnimeToApi === 'function') {
         try { return await animeManagement.saveAnimeToApi(anime, isEdit); } catch (e) { console.warn('animeManagement.saveAnimeToApi failed:', e); }
@@ -1523,6 +1538,8 @@ function setEpisodePage(pageNumber) {
 // ============ NAVIGATION ============
 async function initializeApp() {
     const app = document.getElementById('app');
+    const [, initialPage, initialId] = (window.location.hash || '').split('/');
+    const directAnimeId = ['anime', 'player'].includes(initialPage) ? Number(initialId) : 0;
 
     window.addEventListener('hashchange', handleRouteChange);
     window.addEventListener('popstate', handleRouteChange);
@@ -1540,14 +1557,15 @@ async function initializeApp() {
     }, 20000);
 
     try {
-        // Run both loading operations in parallel
+        // Load the requested title first so a direct link is usable without
+        // waiting for the complete catalog and all of its media metadata.
         await Promise.all([
             ensureGenresReady().catch(e => {
                 console.warn('[App] Genre loading failed:', e);
             }),
-            loadAnimeFromApi().catch(e => {
-                console.warn('[App] Anime API loading failed:', e);
-            })
+            directAnimeId
+                ? loadAnimeByIdFromApi(directAnimeId).catch(e => console.warn('[App] Direct anime load failed:', e))
+                : loadAnimeFromApi().catch(e => console.warn('[App] Anime API loading failed:', e))
         ]);
     } catch (e) {
         console.warn('[App] Initialization error:', e);
@@ -1555,8 +1573,14 @@ async function initializeApp() {
 
     clearTimeout(loadingTimeout);
 
-    // Refresh route view with fresh API data
+    // Refresh the requested route as soon as its data is available.
     handleRouteChange();
+
+    // Populate the rest of the catalog in the background for browse pages and
+    // recommendations without delaying the first direct-link render.
+    if (directAnimeId) {
+        loadAnimeFromApi().catch(e => console.warn('[App] Catalog refresh failed:', e));
+    }
 
     if (window.lucide && typeof lucide.createIcons === 'function') {
         lucide.createIcons();
