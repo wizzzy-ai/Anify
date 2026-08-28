@@ -1525,11 +1525,56 @@ function renderEpisodeList(anime, language = 'sub') {
 function setEpisodePage(pageNumber) {
     const list = document.getElementById('episode-list');
     const animeId = list?.dataset?.animeId;
-    const anime = Array.isArray(animeData) ? animeData.find(item => String(item?.id) === String(animeId)) : null;
+    const anime = Array.isArray(animeData)
+        ? animeData.find(item => String(item?.id) === String(animeId) || String(item?.clientId) === String(animeId))
+        : null;
     if (!list || !anime) return;
 
     list.dataset.episodePage = String(Math.max(1, Number(pageNumber) || 1));
     list.innerHTML = renderEpisodeList(anime, list.dataset.episodeLanguage || 'sub');
+}
+
+function initializeEpisodePaginationScroll() {
+    let dragState = null;
+
+    document.addEventListener('pointerdown', (event) => {
+        const pagination = event.target.closest('.episode-range-pagination');
+        if (!pagination || event.pointerType === 'touch') return;
+        dragState = { pagination, startX: event.clientX, startScrollLeft: pagination.scrollLeft, moved: false };
+        pagination.classList.add('is-dragging');
+    });
+
+    document.addEventListener('pointermove', (event) => {
+        if (!dragState) return;
+        const distance = event.clientX - dragState.startX;
+        if (Math.abs(distance) > 4) dragState.moved = true;
+        dragState.pagination.scrollLeft = dragState.startScrollLeft - distance;
+    });
+
+    document.addEventListener('pointerup', (event) => {
+        if (!dragState) return;
+        const { pagination, moved } = dragState;
+        pagination.classList.remove('is-dragging');
+        if (moved) pagination.dataset.suppressClick = 'true';
+        dragState = null;
+    });
+
+    document.addEventListener('wheel', (event) => {
+        const pagination = event.target.closest('.episode-range-pagination');
+        if (!pagination || pagination.scrollWidth <= pagination.clientWidth) return;
+        if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+            pagination.scrollLeft += event.deltaY;
+            event.preventDefault();
+        }
+    }, { passive: false });
+
+    document.addEventListener('click', (event) => {
+        const pagination = event.target.closest('.episode-range-pagination');
+        if (pagination?.dataset.suppressClick !== 'true') return;
+        delete pagination.dataset.suppressClick;
+        event.preventDefault();
+        event.stopPropagation();
+    }, true);
 }
 
 
@@ -1661,6 +1706,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeWatchlistState();
     initializeInteractionsState();
     ensureNotificationsInitialized();
+    initializeEpisodePaginationScroll();
 
     // Required: make navbar update immediately on login/logout without refresh
     window.addEventListener('authChanged', () => {
@@ -3049,7 +3095,7 @@ function renderPlayer(id) {
 
     // Shell for persistent player
     return `
-    <div id="player-view-mount" class="anime-watch-room pt-16 pb-20 min-h-screen">
+    <div id="player-view-mount" class="anime-watch-room pt-20 pb-20 min-h-screen">
         <div class="anime-watch-bg" aria-hidden="true"></div>
         <div class="max-w-7xl mx-auto px-3 md:px-5 relative z-10">
             <button onclick="navigate('anime', ${a.id})" class="anime-back flex items-center gap-2 py-3 px-4 text-sm text-gray-300 hover:text-white transition-colors anim-slide-up">
@@ -3083,7 +3129,7 @@ function renderPlayer(id) {
                 </div>
 
                 ${contentType === 'anime' ? `
-                <div class="w-full lg:w-80 flex-shrink-0">
+                <div class="episode-panel w-full lg:mr-0 lg:w-[25rem] flex-shrink-0">
                     <div class="glass-card rounded-2xl p-4 h-fit">
                         <div class="flex items-center justify-between mb-3">
                             <h3 class="font-bold flex items-center gap-2 text-white"><i data-lucide="list" class="w-4 h-4 text-gold-400"></i> Episodes</h3>
@@ -3092,7 +3138,7 @@ function renderPlayer(id) {
                             <button class="episode-language-tab active" data-episode-language="sub" onclick="switchEpisodeLanguage('sub')">Sub</button>
                             <button class="episode-language-tab" data-episode-language="dub" onclick="switchEpisodeLanguage('dub')">Dub</button>
                         </div>
-                        <div class="overflow-y-auto max-h-[60vh] lg:max-h-[calc(100vh-12rem)] pb-4 pr-1" id="episode-list" data-anime-id="${a.id}" data-episode-language="${episodeDefaultLanguage}">
+                        <div class="overflow-y-auto max-h-[45vh] lg:max-h-[calc(100vh-16rem)] pb-4 pr-1" id="episode-list" data-anime-id="${a.id}" data-episode-language="${episodeDefaultLanguage}">
                             ${renderEpisodeList(a, episodeDefaultLanguage)}
                         </div>
                     </div>

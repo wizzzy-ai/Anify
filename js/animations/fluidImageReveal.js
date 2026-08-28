@@ -124,7 +124,7 @@
             run.canvas = canvas;
 
             const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
             renderer.setSize(width, height, false);
             const scene = new THREE.Scene();
             const camera = new THREE.Camera();
