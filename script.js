@@ -61,9 +61,26 @@ function formatReleaseDate(releaseDate, releaseTime) {
 function getReleaseDateTime(releaseDate, releaseTime = '') {
     if (!releaseDate) return null;
     let raw = String(releaseDate);
-    // Date-only values are local calendar dates in the admin UI. Append the
-    // optional local time before parsing so the countdown matches the display.
-    if (releaseTime && /^\d{4}-\d{2}-\d{2}$/.test(raw)) raw += `T${releaseTime}`;
+    // Date-only values are local calendar dates in the admin UI. Normalize the
+    // optional admin-entered time before parsing so values like "9:00 PM"
+    // remain valid and continue counting down during the final hours.
+    const datePartMatch = raw.match(/^(\d{4}-\d{2}-\d{2})(?:T|$)/);
+    if (releaseTime && datePartMatch) {
+        const timeMatch = String(releaseTime).trim().match(/^(\d{1,2}):(\d{2})(?:\s*([AP]M))?$/i);
+        if (timeMatch) {
+            let hours = Number(timeMatch[1]);
+            const minutes = Number(timeMatch[2]);
+            const meridiem = timeMatch[3]?.toUpperCase();
+            if (meridiem) {
+                if (hours < 1 || hours > 12 || minutes > 59) return null;
+                if (meridiem === 'PM' && hours < 12) hours += 12;
+                if (meridiem === 'AM' && hours === 12) hours = 0;
+            } else if (hours > 23 || minutes > 59) {
+                return null;
+            }
+            raw = `${datePartMatch[1]}T${String(hours).padStart(2, '0')}:${timeMatch[2]}`;
+        }
+    }
     const date = new Date(raw);
     return Number.isNaN(date.getTime()) ? null : date;
 }
