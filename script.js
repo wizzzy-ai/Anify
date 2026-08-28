@@ -1439,17 +1439,38 @@ function renderEpisodeList(anime, language = 'sub') {
             .map(e => Number(e?.episodeNumber))
             .filter(n => Number.isFinite(n) && n >= 1))
         ].sort((a, b) => a - b)
-        : Array.from({ length: Math.min(anime?.episodes || 1, 24) }, (_, i) => i + 1);
-
-    // Keep UI bounded (still consistent with previous behavior)
-    const boundedEpisodeNumbers = episodeNumbers.slice(0, 24);
+        : Array.from({ length: Math.max(1, Number(anime?.episodes) || 1) }, (_, i) => i + 1);
 
     // Active episode is controlled by the current player state (episodeNumber dataset).
     // Fallback to 1 for initial render.
     const video = getPlayerVideo?.();
     const activeEpisodeNumber = video?.dataset?.episodeNumber ? Number(video.dataset.episodeNumber) : 1;
+    const pageSize = 24;
+    const pageCount = Math.max(1, Math.ceil(episodeNumbers.length / pageSize));
+    const list = document.getElementById('episode-list');
+    const storedPage = Number(list?.dataset?.episodePage);
+    const activePage = Math.floor((Math.max(1, activeEpisodeNumber) - 1) / pageSize) + 1;
+    const page = Math.min(pageCount, Math.max(1, Number.isInteger(storedPage) && storedPage > 0 ? storedPage : activePage));
+    const pageStart = (page - 1) * pageSize;
+    const visibleEpisodeNumbers = episodeNumbers.slice(pageStart, pageStart + pageSize);
 
-    return boundedEpisodeNumbers.map((epNum) => {
+    if (list) {
+        list.dataset.episodePage = String(page);
+        list.dataset.episodeLanguage = language;
+    }
+
+    const pageControls = pageCount > 1 ? `
+        <nav class="episode-range-pagination" aria-label="Episode ranges">
+            ${Array.from({ length: pageCount }, (_, index) => {
+                const startIndex = index * pageSize;
+                const start = episodeNumbers[startIndex];
+                const end = episodeNumbers[Math.min(startIndex + pageSize - 1, episodeNumbers.length - 1)];
+                const pageNumber = index + 1;
+                return `<button type="button" class="episode-range-button ${pageNumber === page ? 'is-active' : ''}" onclick="setEpisodePage(${pageNumber})" aria-label="Episodes ${start} to ${end}" aria-current="${pageNumber === page ? 'page' : 'false'}">${start}&ndash;${end}</button>`;
+            }).join('')}
+        </nav>` : '';
+
+    return `${pageControls}${visibleEpisodeNumbers.map((epNum) => {
         const isActive = Number(epNum) === Number(activeEpisodeNumber);
         const epObj = Array.isArray(episodesMedia) ? episodesMedia.find(e => Number(e?.episodeNumber) === Number(epNum)) : null;
         const epViews = Number(epObj?.views) || 0;
@@ -1466,7 +1487,17 @@ function renderEpisodeList(anime, language = 'sub') {
                 <span class="episode-selector-card__num">${epNum}</span>
             </button>
         `;
-    }).join('');
+    }).join('')}`;
+}
+
+function setEpisodePage(pageNumber) {
+    const list = document.getElementById('episode-list');
+    const animeId = list?.dataset?.animeId;
+    const anime = Array.isArray(animeData) ? animeData.find(item => String(item?.id) === String(animeId)) : null;
+    if (!list || !anime) return;
+
+    list.dataset.episodePage = String(Math.max(1, Number(pageNumber) || 1));
+    list.innerHTML = renderEpisodeList(anime, list.dataset.episodeLanguage || 'sub');
 }
 
 
@@ -2512,12 +2543,22 @@ function renderAnimeDetail(id) {
             .map(e => Number(e?.episodeNumber))
             .filter(n => Number.isFinite(n) && n >= 1))
         ].sort((x, y) => x - y)
-        : Array.from({ length: Math.min(Number(a?.episodes || 1), 24) }, (_, i) => i + 1);
+        : Array.from({ length: Math.max(1, Number(a?.episodes) || 1) }, (_, i) => i + 1);
 
-    const displayedEpisodes = episodeNumbers.slice(0, 24).length;
+    const displayedEpisodes = episodeNumbers.length;
     const totalEpisodesForLabel = episodesMedia
         ? Math.max(1, episodeNumbers.length)
         : Math.max(1, Number(a.episodes || 1));
+    const detailPageSize = 24;
+    const detailPageCount = Math.max(1, Math.ceil(episodeNumbers.length / detailPageSize));
+    const detailPage = Math.min(detailPageCount, Math.max(1, Number(window.detailEpisodePages?.[a.id]) || 1));
+    const detailPageEpisodes = episodeNumbers.slice((detailPage - 1) * detailPageSize, detailPage * detailPageSize);
+    const detailPageControls = detailPageCount > 1 ? `
+                        <div class="detail-episode-pagination" aria-label="Episode pages">
+                            ${detailPage > 1 ? `<button type="button" class="detail-rec-arrow detail-rec-arrow-left" onclick="setDetailEpisodePage(${a.id}, ${detailPage - 1})" aria-label="Previous episodes"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>` : ''}
+                            <span class="detail-episode-page-status">${detailPage * detailPageSize - detailPageSize + 1}-${Math.min(detailPage * detailPageSize, episodeNumbers.length)} of ${episodeNumbers.length}</span>
+                            ${detailPage < detailPageCount ? `<button type="button" class="detail-rec-arrow detail-rec-arrow-right" onclick="setDetailEpisodePage(${a.id}, ${detailPage + 1})" aria-label="Next episodes"><i data-lucide="chevron-right" class="w-6 h-6"></i></button>` : ''}
+                        </div>` : '';
 
     const movieSection = isComingSoon
         ? `
@@ -2545,10 +2586,11 @@ function renderAnimeDetail(id) {
             <section class="detail-section detail-episodes anim-fade-in">
                 <div class="detail-section-head detail-heading-accent">
                     <h2>Episodes</h2>
-                    <span>Showing first ${displayedEpisodes} of ${totalEpisodesForLabel}</span>
+                    <span>Showing ${detailPage * detailPageSize - detailPageSize + 1}-${Math.min(detailPage * detailPageSize, displayedEpisodes)} of ${totalEpisodesForLabel}</span>
                 </div>
+                ${detailPageControls}
                 <div class="detail-episode-grid">
-                    ${episodeNumbers.slice(0, 24).map((epNum, i) => {
+                    ${detailPageEpisodes.map((epNum, i) => {
                 const epObj = Array.isArray(episodesMedia) ? episodesMedia.find(e => Number(e?.episodeNumber) === Number(epNum)) : null;
                 const epViews = Number(epObj?.views) || 0;
                 const formattedViews = formatViewCount(epViews);
@@ -2927,6 +2969,19 @@ function renderAnimeDetail(id) {
     </div>`;
 }
 
+function setDetailEpisodePage(animeId, pageNumber) {
+    const anime = animeData.find(item => String(item?.id) === String(animeId));
+    if (!anime) return;
+
+    window.detailEpisodePages = window.detailEpisodePages || {};
+    window.detailEpisodePages[anime.id] = Math.max(1, Number(pageNumber) || 1);
+    const detailRoot = document.getElementById('anime-detail-root');
+    if (detailRoot) {
+        detailRoot.innerHTML = renderAnimeDetail(anime.id);
+        if (typeof lucide?.createIcons === 'function') lucide.createIcons();
+    }
+}
+
 
 // ============ RENDER: VIDEO PLAYER ============
 function renderPlayer(id) {
@@ -2996,7 +3051,7 @@ function renderPlayer(id) {
                             <button class="episode-language-tab active" data-episode-language="sub" onclick="switchEpisodeLanguage('sub')">Sub</button>
                             <button class="episode-language-tab" data-episode-language="dub" onclick="switchEpisodeLanguage('dub')">Dub</button>
                         </div>
-                        <div class="overflow-y-auto max-h-[60vh] lg:max-h-[calc(100vh-12rem)] pb-4 pr-1" id="episode-list" data-anime-id="${a.id}">
+                        <div class="overflow-y-auto max-h-[60vh] lg:max-h-[calc(100vh-12rem)] pb-4 pr-1" id="episode-list" data-anime-id="${a.id}" data-episode-language="${episodeDefaultLanguage}">
                             ${renderEpisodeList(a, episodeDefaultLanguage)}
                         </div>
                     </div>

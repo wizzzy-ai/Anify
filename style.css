@@ -2569,6 +2569,57 @@ body.mobile-nav-locked {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 18px;
+    overflow-x: hidden;
+}
+
+.episode-range-pagination {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
+    margin: -2px 0 2px;
+}
+
+.episode-range-button {
+    position: relative;
+    min-width: 52px;
+    padding: 5px 8px 8px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.episode-range-button::after {
+    position: absolute;
+    right: 10px;
+    bottom: 2px;
+    left: 10px;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--primary);
+    content: "";
+    opacity: 0;
+    transform: scaleX(0.35);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.episode-range-button:hover,
+.episode-range-button.is-active {
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--primary);
+}
+
+.episode-range-button.is-active::after {
+    opacity: 1;
+    transform: scaleX(1);
 }
 
 #episode-list::-webkit-scrollbar {
@@ -7745,6 +7796,31 @@ body.mobile-nav-locked {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: 0.65rem;
+}
+
+#anime-detail-root .detail-episode-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.7rem;
+    margin: -0.35rem 0 1rem;
+}
+
+#anime-detail-root .detail-episode-pagination .detail-rec-arrow {
+    position: static;
+    flex: 0 0 3.75rem;
+    transform: none;
+}
+
+#anime-detail-root .detail-episode-pagination .detail-rec-arrow:hover {
+    transform: scale(1.04);
+}
+
+#anime-detail-root .detail-episode-page-status {
+    color: rgba(255, 255, 255, 0.46);
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 #anime-detail-root .detail-episode-tile {

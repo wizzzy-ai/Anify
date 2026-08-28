@@ -129,7 +129,8 @@
   }
   function autoNumber() {
     const startInput = $('batch-upload-start-episode');
-    let nextEpisode = Math.max(1, Number(startInput?.value) || 1);
+    let nextEpisode = Number(startInput?.value) || 1;
+    if (nextEpisode < 1) nextEpisode = 1;
     const currentAnimeTasks = state.tasks.filter((task) => String(task.animeId) === String(global.currentHubAnime?.id));
     const latestBatch = Math.max(0, ...currentAnimeTasks.map((task) => Number(task.batchOrder) || 0));
     state.tasks
@@ -214,10 +215,34 @@
   function retry(task) { task.status = 'waiting'; task.error = ''; task.retries++; pump(); }
   function togglePause(task) { task.paused = !task.paused; if (task.paused && task.controller) task.controller.abort(); else if (!task.paused) { task.status = 'waiting'; pump(); } render(); }
   async function cancel(task) { task.cancelled = true; task.controller?.abort(); if (task.key && task.uploadId) await api('/api/admin/r2-multipart/abort', { key: task.key, uploadId: task.uploadId }).catch(() => {}); clearSession(task); task.status = 'cancelled'; render(); }
+  function applyStartNumber() {
+    const startInput = $('batch-upload-start-episode');
+    let startEpisode = Number(startInput?.value) || 1;
+    if (startEpisode < 1) startEpisode = 1;
+    console.log('[APPLY START] Start episode:', startEpisode);
+    const currentAnimeTasks = state.tasks.filter((task) => String(task.animeId) === String(global.currentHubAnime?.id));
+    console.log('[APPLY START] Current anime tasks:', currentAnimeTasks.length);
+    const latestBatch = Math.max(0, ...currentAnimeTasks.map((task) => Number(task.batchOrder) || 0));
+    console.log('[APPLY START] Latest batch:', latestBatch);
+    const tasksToUpdate = state.tasks
+      .filter((task) => String(task.animeId) === String(global.currentHubAnime?.id) && task.batchOrder === latestBatch);
+    console.log('[APPLY START] Tasks to update:', tasksToUpdate.length);
+    tasksToUpdate
+      .sort((a, b) => (a.batchOrder - b.batchOrder) || ((a.fileOrder || 0) - (b.fileOrder || 0)))
+      .forEach((task, index) => {
+        task.episode = startEpisode + index;
+        const duplicate = (task.existingEpisodes || []).some((episode) => Number(episode.episodeNumber) === task.episode);
+        task.status = duplicate ? 'conflict' : 'waiting';
+        console.log('[APPLY START] Updated task:', task.file.name, 'to episode:', task.episode);
+      });
+    sortByEpisode();
+    render();
+  }
   function init() {
     const input = $('batch-episode-files'); if (!input || input.dataset.bound) return; input.dataset.bound = 'true';
     input.onchange = () => select(input.files); $('batch-upload-start').onclick = start;
     $('batch-upload-auto-number').onclick = autoNumber;
+    $('batch-upload-apply-start').onclick = applyStartNumber;
     $('batch-upload-pause-all').onclick = () => {
       state.paused = !state.paused;
       if (state.paused) {
