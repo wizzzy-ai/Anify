@@ -6238,6 +6238,63 @@ body.mobile-nav-locked {
     gap: 1rem;
 }
 
+.coming-marquee {
+    display: grid;
+    gap: 1rem;
+    overflow: hidden;
+    padding: 0.15rem 0 0.4rem;
+    mask-image: linear-gradient(to right, transparent, black 7%, black 93%, transparent);
+}
+
+.coming-marquee-row {
+    overflow: hidden;
+}
+
+.coming-marquee-track {
+    display: flex;
+    width: max-content;
+    gap: 1rem;
+    will-change: transform;
+}
+
+.coming-marquee-row-forward .coming-marquee-track {
+    animation: coming-marquee-forward 28s linear infinite;
+}
+
+.coming-marquee-row-reverse .coming-marquee-track {
+    animation: coming-marquee-backward 34s linear infinite;
+}
+
+.coming-marquee:hover .coming-marquee-track {
+    animation-play-state: paused;
+}
+
+@media (hover: hover) {
+    .coming-marquee:focus-within .coming-marquee-track {
+        animation-play-state: paused;
+    }
+}
+
+.coming-marquee .coming-card {
+    flex: 0 0 clamp(16rem, 27vw, 22rem);
+}
+
+@keyframes coming-marquee-forward {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(calc(-50% - 0.5rem), 0, 0); }
+}
+
+@keyframes coming-marquee-backward {
+    from { transform: translate3d(calc(-50% - 0.5rem), 0, 0); }
+    to { transform: translate3d(0, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .coming-marquee-track {
+        animation: none;
+    }
+}
+
 .continue-card {
     min-width: 0;
 }
@@ -6972,6 +7029,13 @@ body.mobile-nav-locked {
     transition: transform 0.35s ease;
 }
 
+.hero-poster-trailer {
+    width: 230px;
+    max-width: 100%;
+    margin-top: 0.9rem;
+    justify-content: center;
+}
+
 .hero-poster-img:hover {
     transform: translateY(-6px) scale(1.02);
 }
@@ -7592,7 +7656,7 @@ body.mobile-nav-locked {
 
 #anime-detail-root .hero-stream {
     min-height: 420px;
-    padding: 5.4rem 0 2.7rem;
+    padding: 7rem 0 2.7rem;
 }
 
 #anime-detail-root .hero-stream-overlay {
@@ -7639,7 +7703,18 @@ body.mobile-nav-locked {
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
 }
 
+#anime-detail-root .hero-poster-trailer {
+    width: 220px;
+    justify-content: center;
+    margin-top: 1.375rem;
+    padding: 0.8rem 0.75rem;
+}
+
 #anime-detail-root .hero-badge-row {
+    display: flex;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow: hidden;
     gap: 0.65rem;
 }
 
@@ -7656,6 +7731,15 @@ body.mobile-nav-locked {
     font-weight: 900;
     letter-spacing: 0;
     text-transform: none;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+
+#anime-detail-root .hero-studio-badge {
+    min-width: 0;
+    max-width: min(14rem, 32vw);
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 #anime-detail-root .hero-movie-badge {
@@ -7730,6 +7814,12 @@ body.mobile-nav-locked {
 
 #anime-detail-root .hero-actions {
     margin-top: 1.75rem;
+}
+
+@media (max-width: 900px) {
+    #anime-detail-root .hero-poster-trailer {
+        margin-top: 0.75rem;
+    }
 }
 
 #anime-detail-root .btn-premium-large {
@@ -8162,6 +8252,10 @@ body.mobile-nav-locked {
         height: 330px;
     }
 
+    #anime-detail-root .hero-poster-trailer {
+        width: min(100%, 230px);
+    }
+
     #anime-detail-root .hero-info-card {
         margin-top: 0;
     }
@@ -8188,6 +8282,22 @@ body.mobile-nav-locked {
         padding-top: 5rem;
     }
 
+    #anime-detail-root .hero-badge-row {
+        gap: 0.35rem;
+    }
+
+    #anime-detail-root .hero-movie-badge,
+    #anime-detail-root .hero-status-badge,
+    #anime-detail-root .hero-studio-badge {
+        min-height: 1.6rem;
+        padding: 0.28rem 0.52rem;
+        font-size: 0.68rem;
+    }
+
+    #anime-detail-root .hero-studio-badge {
+        max-width: 30vw;
+    }
+
     #anime-detail-root .hero-title {
         max-width: 100%;
         font-size: 2.55rem;
@@ -8196,6 +8306,24 @@ body.mobile-nav-locked {
     #anime-detail-root .hero-actions>* {
         flex: 1 1 auto;
         justify-content: center;
+    }
+
+    #anime-detail-root .hero-poster-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    #anime-detail-root .hero-poster-trailer {
+        margin-top: 0.7rem;
+    }
+
+    #trailer-player-modal {
+        padding: 0.65rem;
+    }
+
+    #trailer-player-modal > div {
+        border-radius: 1rem;
     }
 
     #anime-detail-root .detail-episode-grid {
@@ -12117,6 +12245,19 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
 }
 
 @media (max-width: 700px) {
+    .coming-marquee {
+        gap: .7rem;
+        mask-image: linear-gradient(to right, transparent, black 3%, black 97%, transparent);
+    }
+
+    .coming-marquee-track {
+        gap: .7rem;
+    }
+
+    .coming-marquee .coming-card {
+        flex-basis: min(78vw, 19rem);
+    }
+
     .coming-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: .7rem;
@@ -12767,5 +12908,165 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
 }
 
 .home-shell .home-section--trending.anim-fade-in {
-    animation: none !important;
+    content-visibility: auto;
+}
+
+/* ============ CATALOGUE MANAGEMENT STYLES ============ */
+/* Drag and Drop Styles */
+[data-draggable-anime] {
+    cursor: grab;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-draggable-anime]:hover {
+    transform: translateY(-2px);
+}
+
+[data-draggable-anime].dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+    transform: scale(1.02);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+[data-draggable-anime].drag-over {
+    border: 2px dashed var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+/* Bulk Action Toolbar */
+[data-bulk-toolbar] {
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translate(-50%, 100%);
+        opacity: 0;
+    }
+    to {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+}
+
+/* View Mode Buttons */
+[data-view-mode] {
+    transition: all 0.2s ease;
+}
+
+[data-view-mode]:hover {
+    transform: scale(1.05);
+}
+
+/* Catalogue Grid */
+[data-catalogue-grid] {
+    display: grid;
+    gap: 1rem;
+}
+
+/* Poster Card Hover Effects */
+[data-anime-id] {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-anime-id]:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Table Row Hover */
+tr[data-admin-anime-row]:hover {
+    background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+/* Compact Row Hover */
+[data-compact-row]:hover {
+    background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+/* Checkbox Styling */
+input[type="checkbox"][data-catalogue-checkbox],
+input[type="checkbox"][data-select-all-checkbox] {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+input[type="checkbox"][data-catalogue-checkbox]:hover,
+input[type="checkbox"][data-select-all-checkbox]:hover {
+    transform: scale(1.1);
+}
+
+/* Import/Export Modal */
+#import-preview-modal {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Bulk Edit Modal */
+#bulk-edit-modal {
+    animation: fadeIn 0.3s ease;
+}
+
+/* Collection Badge */
+.collection-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--primary);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+/* Status Indicators */
+.status-indicator {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-indicator.airing {
+    background: #22c55e;
+}
+
+.status-indicator.ongoing {
+    background: #3b82f6;
+}
+
+.status-indicator.completed {
+    background: #a855f7;
+}
+
+.status-indicator.upcoming {
+    background: #eab308;
+}
+
+.status-indicator.coming-soon {
+    background: #f97316;
+}
+
+/* Responsive Grid Adjustments */
+@media (max-width: 768px) {
+    [data-catalogue-grid] {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    [data-catalogue-grid] {
+        grid-template-columns: 1fr;
+    }
 }

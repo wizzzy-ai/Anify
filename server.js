@@ -34,6 +34,7 @@ import EpisodeView from './models/EpisodeView.js'; // Import EpisodeView model f
 import PlatformSettings from './models/PlatformSettings.js';
 import Announcement from './models/Announcement.js';
 import Donation from './Donation.js';
+import Collection from './models/Collection.js';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
@@ -2414,6 +2415,258 @@ app.delete('/api/anime/:id', requireDb, requireAdmin, async (req, res) => {
   await syncGenreCounts();
   res.json({ ok: true });
 });
+
+// --------------- Collections ---------------
+// Get all collections
+app.get('/api/admin/collections', requireDb, requireAdmin, async (req, res) => {
+  try {
+    const collections = await Collection.find().sort({ displayOrder: 1, name: 1 }).lean();
+    res.json({ ok: true, collections });
+  } catch (error) {
+    console.error('[Collections GET Error]', error);
+    res.status(500).json({ ok: false, error: 'Failed to fetch collections' });
+  }
+});
+
+// Get a single collection with anime details
+app.get('/api/admin/collections/:id', requireDb, requireAdmin, async (req, res) => {
+  try {
+    const collection = await Collection.findById(req.params.id).lean();
+    if (!collection) {
+      return res.status(404).json({ ok: false, error: 'Collection not found' });
+    }
+
+    // Populate anime details
+    let animeList = [];
+    if (collection.type === 'manual' && Array.isArray(collection.animeIds)) {
+      animeList = await Anime.find({ _id: { $in: collection.animeIds } }).lean();
+      animeList = animeList.map(normalizeAnime);
+    } else if (collection.type === 'auto' && collection.autoCriteria) {
+      const query = {};
+      if (collection.autoCriteria.status) query.status = collection.autoCriteria.status;
+      if (collection.autoCriteria.type) query.type = collection.autoCriteria.type;
+      if (collection.autoCriteria.featured !== undefined) query.featured = collection.autoCriteria.featured;
+      if (collection.autoCriteria.premium !== undefined) query.premium = collection.autoCriteria.premium;
+      if (collection.autoCriteria.trending !== undefined) query.trending = collection.autoCriteria.trending;
+      if (collection.autoCriteria.minRating) query.averageRating = { $gte: collection.autoCriteria.minRating };
+      if (Array.isArray(collection.autoCriteria.genres) && collection.autoCriteria.genres.length > 0) {
+        query.genres = { $in: collection.autoCriteria.genres };
+      }
+
+      animeList = await Anime.find(query).sort({ displayOrder: 1, createdAt: -1 }).lean();
+      animeList = animeList.map(normalizeAnime);
+    }
+
+    res.json({ ok: true, collection, anime: animeList });
+  } catch (error) {
+    console.error('[Collection GET Error]', error);
+    res.status(500).json({ ok: false, error: 'Failed to fetch collection' });
+  }
+});
+
+// Create a new collection
+app.post('/api/admin/collections', requireDb, requireAdmin, async (req, res) => {
+  try {
+    const { name, description, type, autoCriteria } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ ok: false, error: 'Collection name is required' });
+    }
+
+    // Generate slug from name
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    const collection = await Collection.create({
+      name,
+      slug,
+      description: description || '',
+      type: type || 'manual',
+      autoCriteria: autoCriteria || {},
+      animeIds: [],
+      isActive: true,
+      isSystem: false
+    });
+
+    res.json({ ok: true, collection });
+  } catch (error) {
+    console.error('[Collection POST Error]', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ ok: false, error: 'Collection with this name already exists' });
+    }
+    res.status(500).json({ ok: false, error: 'Failed to create collection' });
+  }
+});
+
+// Update a collection
+app.put('/api/admin/collections/:id', requireDb, requireAdmin, async (req, res) => {
+  try {
+    const collection = await Collection.findById(req.params.id);
+    if (!collection) {
+      return res.status(404).json({ ok: false, error: 'Collection not found' });
+    }
+
+    // Prevent modifying system collections
+    if (collection.isSystem) {
+      return res.status(403).json({ ok: false, error: 'Cannot modify system collections' });
+    }
+
+    const { name, description, type, autoCriteria, animeIds, displayOrder, isActive } = req.body;
+
+    if (name) {
+      collection.name = name;
+      collection.slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    }
+    if (description !== undefined) collection.description = description;
+    if (type) collection.type = type;
+    if (autoCriteria !== undefined) collection.autoCriteria = autoCriteria;
+    if (Array.isArray(animeIds)) collection.animeIds = animeIds;
+    if (displayOrder !== undefined) collection.displayOrder = displayOrder;
+    if (isActive !== undefined) collection.isActive = isActive;
+
+    await collection.save();
+    res.json({ ok: true, collection });
+  } catch (error) {
+    console.error('[Collection PUT Error]', error);
+    res.status(500).json({ ok: false, error: 'Failed to update collection' });
+  }
+});
+
+// Add anime to collection
+app.post('/api/admin/collections/:id/anime', requireDb, requireAdmin, async (req, res) => {
+  try {
+    const collection = await Collection.findById(req.params.id);
+    if (!collection) {
+      return res.status(404).json({ ok: false, error: 'Collection not found' });
+    }
+
+    if (collection.type !== 'manual') {
+      return res.status(400).json({ ok: false, error: 'Can only add anime to manual collections' });
+    }
+
+    const { animeId } = req.body;
+    if (!animeId) {
+      return res.status(400).json({ ok: false, error: 'Anime ID is required' });
+    }
+
+    // Check if anime exists
+    const anime = await Anime.findById(animeId);
+    if (!anime) {
+      return res.status(404).json({ ok: false, error: 'Anime not found' });
+    }
+
+    // Add anime to collection if not already present
+    if (!collection.animeIds.includes(animeId)) {
+      collection.animeIds.push(animeId);
+      await collection.save();
+    }
+
+    res.json({ ok: true, collection });
+  } catch (error) {
+    console.error('[Collection Add Anime Error]', error);
+    res.status(500).json({ ok: false, error: 'Failed to add anime to collection' });
+  }
+});
+
+// Remove anime from collection
+app.delete('/api/admin/collections/:id/anime/:animeId', requireDb, requireAdmin, async (req, res) => {
+  try {
+    const collection = await Collection.findById(req.params.id);
+    if (!collection) {
+      return res.status(404).json({ ok: false, error: 'Collection not found' });
+    }
+
+    collection.animeIds = collection.animeIds.filter(id => id.toString() !== req.params.animeId);
+    await collection.save();
+
+    res.json({ ok: true, collection });
+  } catch (error) {
+    console.error('[Collection Remove Anime Error]', error);
+    res.status(500).json({ ok: false, error: 'Failed to remove anime from collection' });
+  }
+});
+
+// Reorder anime in collection
+app.put('/api/admin/collections/:id/reorder', requireDb, requireAdmin, async (req, res) => {
+  try {
+    const collection = await Collection.findById(req.params.id);
+    if (!collection) {
+      return res.status(404).json({ ok: false, error: 'Collection not found' });
+    }
+
+    if (collection.type !== 'manual') {
+      return res.status(400).json({ ok: false, error: 'Can only reorder manual collections' });
+    }
+
+    const { animeIds } = req.body;
+    if (!Array.isArray(animeIds)) {
+      return res.status(400).json({ ok: false, error: 'Anime IDs array is required' });
+    }
+
+    collection.animeIds = animeIds;
+    await collection.save();
+
+    res.json({ ok: true, collection });
+  } catch (error) {
+    console.error('[Collection Reorder Error]', error);
+    res.status(500).json({ ok: false, error: 'Failed to reorder collection' });
+  }
+});
+
+// Delete a collection
+app.delete('/api/admin/collections/:id', requireDb, requireAdmin, async (req, res) => {
+  try {
+    const collection = await Collection.findById(req.params.id);
+    if (!collection) {
+      return res.status(404).json({ ok: false, error: 'Collection not found' });
+    }
+
+    // Prevent deleting system collections
+    if (collection.isSystem) {
+      return res.status(403).json({ ok: false, error: 'Cannot delete system collections' });
+    }
+
+    await Collection.findByIdAndDelete(req.params.id);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('[Collection DELETE Error]', error);
+    res.status(500).json({ ok: false, error: 'Failed to delete collection' });
+  }
+});
+
+// Initialize default system collections
+async function initializeSystemCollections() {
+  if (!dbReady) return;
+
+  try {
+    const systemCollections = [
+      { name: 'Trending Now', slug: 'trending-now', type: 'auto', autoCriteria: { trending: true }, isSystem: true },
+      { name: 'Featured', slug: 'featured', type: 'auto', autoCriteria: { featured: true }, isSystem: true },
+      { name: 'Recently Added', slug: 'recently-added', type: 'auto', autoCriteria: {}, isSystem: true, displayOrder: 1 },
+      { name: 'Popular', slug: 'popular', type: 'auto', autoCriteria: {}, isSystem: true },
+      { name: 'Movies', slug: 'movies', type: 'auto', autoCriteria: { type: 'animated-movie' }, isSystem: true },
+      { name: 'Series', slug: 'series', type: 'auto', autoCriteria: { type: 'anime' }, isSystem: true },
+      { name: 'Completed', slug: 'completed', type: 'auto', autoCriteria: { status: 'Completed' }, isSystem: true },
+      { name: 'Coming Soon', slug: 'coming-soon', type: 'auto', autoCriteria: { status: 'Coming Soon' }, isSystem: true }
+    ];
+
+    for (const sysCol of systemCollections) {
+      const existing = await Collection.findOne({ slug: sysCol.slug });
+      if (!existing) {
+        await Collection.create(sysCol);
+        console.log(`[Collections] Initialized system collection: ${sysCol.name}`);
+      }
+    }
+  } catch (error) {
+    console.warn('[Collections] Failed to initialize system collections:', error.message);
+  }
+}
+
+// Initialize system collections after DB connection
+if (hasMongo) {
+  mongoose.connection.once('connected', () => {
+    initializeSystemCollections();
+  });
+}
 
 // --------------- Ratings ---------------
 // Get current user's rating for an anime

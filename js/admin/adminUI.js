@@ -181,7 +181,13 @@
         if (tab === 'anime') {
             loadAnimeFromApi().finally(() => {
                 if (!content) return;
-                content.innerHTML = renderAdminAnime();
+                // Use new catalogue management if available, otherwise fall back to old system
+                if (window.renderCatalogueManagement) {
+                    content.innerHTML = window.renderCatalogueManagement();
+                    bindCatalogueActions();
+                } else {
+                    content.innerHTML = renderAdminAnime();
+                }
                 if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
                 bindAdminAnimeActions();
             });
@@ -1044,11 +1050,30 @@
         const modal = document.getElementById('upload-modal');
         if (!modal) return;
 
-        const anime = animeData.find(a => a.id === animeId);
         const isMovieMode = mode === 'movie-create' || mode === 'movie-edit';
         const isEpisodeMode = mode === 'episode';
 
+        // Only reuse the episode hub anime for episode actions. Edit actions
+        // must resolve the requested ID to avoid editing stale hub data.
+        let anime = isEpisodeMode ? window.currentHubAnime : null;
+        
+        // If not found in currentHubAnime, search in animeData with flexible ID matching
+        if (!anime && animeId) {
+            anime = animeData.find(a => 
+                a?._id === animeId || 
+                a?.id === animeId || 
+                a?.clientId === animeId ||
+                String(a?._id) === String(animeId) ||
+                String(a?.clientId) === String(animeId)
+            );
+        }
+        
         if (isEpisodeMode) {
+            if (!anime) {
+                console.error('Anime not found for episode management. ID:', animeId);
+                alert('Anime not found. Please try refreshing the anime list.');
+                return;
+            }
             return renderEpisodeManagementHub(anime);
         }
 
@@ -1102,22 +1127,6 @@
                     <div>
                         <label class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Studio</label>
                         <input id="admin-anime-studio" type="text" class="input-field" placeholder="e.g. MAPPA">
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Content Type</label>
-                        ${isMovieMode ? `
-                            <select id="admin-anime-type" class="input-field" disabled>
-                                <option value="animated-movie" ${forcedMovieType === 'animated-movie' ? 'selected' : ''}>Animated Movie</option>
-                                <option value="live-movie" ${forcedMovieType === 'live-movie' ? 'selected' : ''}>Live Movie</option>
-                            </select>
-                            <input type="hidden" id="admin-anime-type-forced" value="${forcedMovieType || 'animated-movie'}" />
-                        ` : `
-                            <select id="admin-anime-type" class="input-field">
-                                <option value="anime">Anime Series</option>
-                                <option value="animated-movie">Animated Movie</option>
-                                <option value="live-movie">Live Movie</option>
-                            </select>
-                        `}
                     </div>
                 </div>
 
@@ -1228,7 +1237,7 @@
         const titleJpIn = document.getElementById('admin-anime-title-jp');
         if (titleJpIn) titleJpIn.value = anime?.titleJp || '';
         const descIn = document.getElementById('admin-anime-desc');
-        if (descIn) descIn.value = anime?.desc || '';
+        if (descIn) descIn.value = anime?.desc ?? anime?.description ?? '';
         const yearIn = document.getElementById('admin-anime-year');
         if (yearIn) yearIn.value = anime?.year || new Date().getFullYear();
         const studioIn = document.getElementById('admin-anime-studio');
@@ -1873,7 +1882,7 @@
         const payload = {
             title,
             titleJp: document.getElementById('admin-anime-title-jp')?.value.trim() || title,
-            desc: document.getElementById('admin-anime-desc')?.value.trim() || 'No description yet.',
+            desc: document.getElementById('admin-anime-desc')?.value.trim() ?? '',
             year: Number.isFinite(year) ? year : new Date().getFullYear(),
             studio: document.getElementById('admin-anime-studio')?.value.trim() || 'Unknown Studio',
             genres: selectedGenres.length ? selectedGenres : ['Action'],
@@ -1912,7 +1921,11 @@
         const bannerFile = bannerInput?.files?.[0] || null;
         const bannerVideoFile = bannerVideoInput?.files?.[0] || null;
         const uploadTargetId = adminService.editingAnimeId || adminService.uploadTargetAnimeId;
-        const uploadTarget = animeData.find(a => a.id === uploadTargetId);
+        const uploadTarget = animeData.find(a =>
+            String(a?.id) === String(uploadTargetId) ||
+            String(a?.clientId) === String(uploadTargetId) ||
+            String(a?._id) === String(uploadTargetId)
+        );
         const uploadMetadata = {
             animeId: uploadTarget?.id || uploadTargetId || null,
             animeTitle: uploadTarget?.title || document.getElementById('admin-anime-title')?.value.trim() || null
@@ -1994,7 +2007,12 @@
     
         try {
             const fileCount = [file, dubFile, sub720File, dub720File].filter(Boolean).length;
-            const uploadTarget = animeData.find(a => a.id === (adminService.editingAnimeId || adminService.uploadTargetAnimeId));
+            const uploadTargetId = adminService.editingAnimeId || adminService.uploadTargetAnimeId;
+            const uploadTarget = animeData.find(a =>
+                String(a?.id) === String(uploadTargetId) ||
+                String(a?.clientId) === String(uploadTargetId) ||
+                String(a?._id) === String(uploadTargetId)
+            );
             const uploadMetadata = {
                 animeId: uploadTarget?.id || adminService.editingAnimeId || adminService.uploadTargetAnimeId || null,
                 animeTitle: uploadTarget?.title || null,
@@ -2015,7 +2033,12 @@
                 dub720File ? uploadService.uploadVideo(dub720File, (p) => trackProgress('dub720', p), 'content', uploadMetadata, 600000) : Promise.resolve(null),
             ]);
     
-            const existing = animeData.find(a => a.id === adminService.editingAnimeId || a.id === adminService.uploadTargetAnimeId);
+            const existingId = adminService.editingAnimeId || adminService.uploadTargetAnimeId;
+            const existing = animeData.find(a =>
+                String(a?.id) === String(existingId) ||
+                String(a?.clientId) === String(existingId) ||
+                String(a?._id) === String(existingId)
+            );
     
             if (adminService.adminModalMode === 'episode') {
                 if (!existing) return alert('Anime not found.');
@@ -2188,14 +2211,10 @@
                 console.log('[EDIT FLOW] API RESPONSE - Trending:', savedAnime?.trending);
                 console.log('[EDIT FLOW] API RESPONSE - New Episode:', savedAnime?.newEpisode);
                 
-                if (savedAnime) {
-                    console.log('[EDIT FLOW] LOCAL UPDATE - Before Object.assign - existing status:', existing.status);
-                    Object.assign(existing, savedAnime);
-                    console.log('[EDIT FLOW] LOCAL UPDATE - After Object.assign - existing status:', existing.status);
-                    console.log('[EDIT FLOW] LOCAL UPDATE - Anime updated successfully with ID:', savedAnime.id);
-                } else {
-                    console.error('[EDIT FLOW] ERROR - Failed to save anime - no response from API');
-                }
+                console.log('[EDIT FLOW] LOCAL UPDATE - Before Object.assign - existing status:', existing.status);
+                Object.assign(existing, savedAnime);
+                console.log('[EDIT FLOW] LOCAL UPDATE - After Object.assign - existing status:', existing.status);
+                console.log('[EDIT FLOW] LOCAL UPDATE - Anime updated successfully with ID:', savedAnime.id);
             } else {
                 const id = Math.max(0, ...animeData.map(a => a.id)) + 1;
                 console.log('[CREATE TRACE] adminUI.js CREATE MODE - Building newAnime object');
@@ -4340,6 +4359,96 @@ function editAdminAnime(id) {
     global.toggleSupportEnabled = toggleSupportEnabled;
     global.refreshDashboard = refreshDashboard;
     global.exportDashboardData = exportDashboardData;
+
+    // Catalogue Management Actions
+    function bindCatalogueActions() {
+        // Search input
+        const searchInput = document.getElementById('catalogue-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                if (window.catalogueState) {
+                    window.catalogueState.filters.search = e.target.value;
+                    if (window.renderCatalogueManagement) {
+                        document.getElementById('admin-content').innerHTML = window.renderCatalogueManagement();
+                        if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+                        bindCatalogueActions();
+                    }
+                }
+            });
+        }
+
+        // Filter inputs
+        const filterInputs = ['catalogue-filter-status', 'catalogue-filter-type', 'catalogue-filter-visibility', 'catalogue-filter-rating', 'catalogue-sort'];
+        filterInputs.forEach(id => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.addEventListener('change', (e) => {
+                    if (window.catalogueState) {
+                        if (id === 'catalogue-sort') {
+                            window.catalogueState.sortBy = e.target.value;
+                        } else {
+                            const filterName = id.replace('catalogue-filter-', '');
+                            window.catalogueState.filters[filterName] = e.target.value;
+                        }
+                        if (window.renderCatalogueManagement) {
+                            document.getElementById('admin-content').innerHTML = window.renderCatalogueManagement();
+                            if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+                            bindCatalogueActions();
+                        }
+                    }
+                });
+            }
+        });
+
+        // Recent checkbox
+        const recentCheckbox = document.getElementById('catalogue-filter-recent');
+        if (recentCheckbox) {
+            recentCheckbox.addEventListener('change', (e) => {
+                if (window.catalogueState) {
+                    window.catalogueState.filters.recentlyUpdated = e.target.checked;
+                    if (window.renderCatalogueManagement) {
+                        document.getElementById('admin-content').innerHTML = window.renderCatalogueManagement();
+                        if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+                        bindCatalogueActions();
+                    }
+                }
+            });
+        }
+
+        // Clear filters button
+        const clearButton = document.getElementById('catalogue-filter-clear');
+        if (clearButton) {
+            clearButton.addEventListener('click', () => {
+                if (window.catalogueState) {
+                    window.catalogueState.filters = {
+                        search: '',
+                        status: '',
+                        type: '',
+                        genre: '',
+                        rating: '',
+                        year: '',
+                        visibility: '',
+                        minEpisodes: '',
+                        maxEpisodes: '',
+                        recentlyUpdated: false
+                    };
+                    window.catalogueState.sortBy = 'newest';
+                    if (window.renderCatalogueManagement) {
+                        document.getElementById('admin-content').innerHTML = window.renderCatalogueManagement();
+                        if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+                        bindCatalogueActions();
+                    }
+                }
+            });
+        }
+
+        // Update selection UI
+        if (window.updateSelectionUI) {
+            window.updateSelectionUI();
+        }
+    }
+
+    window.bindCatalogueActions = bindCatalogueActions;
 
     // Redesign Hub Exports
     global.renderEpisodeManagementHub = renderEpisodeManagementHub;

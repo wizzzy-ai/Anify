@@ -6,6 +6,58 @@ function ensureHttps(url) {
     return url.replace(/^http:/, 'https:');
 }
 
+function playTrailerInPage(url, title = 'Trailer') {
+    let trailerUrl;
+    try {
+        trailerUrl = new URL(ensureHttps(url));
+    } catch (error) {
+        return showToast('This trailer URL is not valid.');
+    }
+
+    if (!['http:', 'https:'].includes(trailerUrl.protocol)) {
+        return showToast('This trailer URL is not supported.');
+    }
+
+    const youtubeMatch = trailerUrl.hostname.replace('www.', '') === 'youtu.be'
+        ? trailerUrl.pathname.slice(1)
+        : trailerUrl.searchParams.get('v') || trailerUrl.pathname.match(/\/embed\/([^/]+)/)?.[1] || trailerUrl.pathname.match(/\/shorts\/([^/]+)/)?.[1];
+    const playerContent = youtubeMatch
+        ? `<iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeMatch)}?autoplay=1" title="${escapeHtml(title)} trailer" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen class="w-full aspect-video rounded-xl"></iframe>`
+        : `<video src="${trailerUrl.href}" controls autoplay playsinline class="w-full max-h-[70vh] rounded-xl bg-black"></video>`;
+
+    const existing = document.getElementById('trailer-player-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'trailer-player-modal';
+    modal.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md anim-fade-in';
+    modal.innerHTML = `
+        <div class="relative w-full max-w-5xl overflow-hidden rounded-2xl border border-white/15 bg-[#160b18] shadow-[0_24px_100px_rgba(0,0,0,0.65)]" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)} trailer">
+            <div class="flex items-center justify-between border-b border-white/10 px-4 py-3 md:px-5">
+                <div class="flex min-w-0 items-center gap-3">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pink-400/10 text-pink-300">
+                        <i data-lucide="film" class="h-4 w-4"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="truncate text-sm font-bold text-white">${escapeHtml(title)}</p>
+                        <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-pink-300/70">Trailer Preview</p>
+                    </div>
+                </div>
+                <button type="button" class="ml-4 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-300 transition-colors hover:border-pink-300/40 hover:bg-pink-300/10 hover:text-white" aria-label="Close trailer">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+            <div class="bg-black p-2 md:p-3">
+                ${playerContent}
+            </div>
+        </div>`;
+    modal.addEventListener('click', event => {
+        if (event.target === modal || event.target.closest('button')) modal.remove();
+    });
+    document.body.appendChild(modal);
+    if (window.lucide && typeof window.lucide.createIcons === 'function') window.lucide.createIcons();
+}
+
 // ============ VIEW COUNT FORMATTER (YouTube-style compact formatting) ============
 function formatViewCount(views, options = { withSuffix: true }) {
     const withSuffix = options?.withSuffix !== false;
@@ -2363,23 +2415,33 @@ function renderComingSoon() {
     const soon = animeData
         .filter(a => a && String(a.status || '').toLowerCase() === 'coming soon')
         .slice(0, 8);
+    const renderComingCard = (a) => `
+        <button onclick="navigate('anime', ${a.id})" class="coming-card glass-card glass-card-hover">
+            <img src="${ensureHttps(a.banner || a.image)}" alt="${a.title}" loading="lazy">
+            <span class="coming-card-shade"></span>
+            <span class="coming-count">${(a.type === 'animated-movie' || a.type === 'live-movie') ? 'Movie' : 'Anime'}</span>
+            ${a.releaseDate ? `<span class="coming-card-countdown" aria-label="Countdown to ${a.title}">
+                <span class="coming-card-countdown-label"><i data-lucide="clock-3"></i> Releasing in</span>
+                ${renderCountdown(a.releaseDate, a.releaseTime, a.id)}
+            </span>` : ''}
+            <h3>${a.title}</h3>
+            <p>${a.studio || 'Studio TBA'}</p>
+        </button>`;
+    const midpoint = Math.ceil(soon.length / 2);
+    const firstRow = soon.slice(0, midpoint);
+    const secondRow = soon.slice(midpoint);
     return `
     <section class="home-section anim-fade-in">
         ${renderSectionHeader('Coming Soon', 'Your next favorite anime and movies are...', 'calendar-clock')}
-        <div class="coming-grid">
-            ${soon.length ? soon.map(a => `
-                <button onclick="navigate('anime', ${a.id})" class="coming-card glass-card glass-card-hover">
-                    <img src="${ensureHttps(a.banner || a.image)}" alt="${a.title}" loading="lazy">
-                    <span class="coming-card-shade"></span>
-                    <span class="coming-count">${(a.type === 'animated-movie' || a.type === 'live-movie') ? 'Movie' : 'Anime'}</span>
-                    ${a.releaseDate ? `<span class="coming-card-countdown" aria-label="Countdown to ${a.title}">
-                        <span class="coming-card-countdown-label"><i data-lucide="clock-3"></i> Releasing in</span>
-                        ${renderCountdown(a.releaseDate, a.releaseTime, a.id)}
-                    </span>` : ''}
-                    <h3>${a.title}</h3>
-                    <p>${a.studio || 'Studio TBA'}</p>
-                </button>
-            `).join('') : `
+        ${soon.length ? `
+        <div class="coming-marquee" aria-label="Coming soon titles">
+            <div class="coming-marquee-row coming-marquee-row-forward">
+                <div class="coming-marquee-track">${firstRow.map(renderComingCard).join('')}${firstRow.map(renderComingCard).join('')}</div>
+            </div>
+            ${secondRow.length ? `<div class="coming-marquee-row coming-marquee-row-reverse">
+                <div class="coming-marquee-track">${secondRow.map(renderComingCard).join('')}${secondRow.map(renderComingCard).join('')}</div>
+            </div>` : ''}
+        </div>` : `
                 <div class="coming-empty glass-card">
                     <i data-lucide="calendar-plus" class="w-6 h-6 text-gold-400"></i>
                     <div>
@@ -2388,7 +2450,6 @@ function renderComingSoon() {
                     </div>
                 </div>
             `}
-        </div>
     </section>`;
 }
 
@@ -2759,6 +2820,11 @@ function renderAnimeDetail(id) {
                         <!-- Left: Poster -->
                         <aside class="hero-poster-col">
                             <img src="${ensureHttps(a.image)}" alt="${a.title} poster" loading="lazy" class="hero-poster-img" />
+                            ${a.trailer ? `
+                            <button onclick="playTrailerInPage(decodeURIComponent('${encodeURIComponent(a.trailer)}'), decodeURIComponent('${encodeURIComponent(a.title)}'))" class="btn-premium-large hero-poster-trailer">
+                                <i data-lucide="film" class="w-5 h-5"></i> Watch Trailer
+                            </button>
+                            ` : ''}
                         </aside>
 
                         <!-- Center: Information -->
@@ -2812,21 +2878,11 @@ function renderAnimeDetail(id) {
                             </div>
 
                             <div class="hero-actions">
-                                ${isComingSoon ? `
-                                    ${a.trailer ? `
-                                    <button onclick="window.open('${a.trailer}', '_blank')" class="btn-premium-large">
-                                        <i data-lucide="film" class="w-5 h-5"></i> Watch Trailer
-                                    </button>
-                                    ` : `
-                                    <button class="btn-premium-large btn-disabled" disabled>
-                                        <i data-lucide="clock" class="w-5 h-5"></i> Coming Soon
-                                    </button>
-                                    `}
-                                ` : `
+                                ${!isComingSoon ? `
                                     <button onclick="navigate('player', ${a.id})" class="btn-premium-large">
                                         <i data-lucide="play" class="w-5 h-5"></i> ${watchLabel}
                                     </button>
-                                `}
+                                ` : ''}
 
                                 <button onclick="toggleWatchlist(${a.id}, { isUserWatchlistAction: true })" class="btn-glass">
                                     <i data-lucide="${inWatchlist ? 'bookmark-check' : 'bookmark'}" class="w-5 h-5 ${inWatchlist ? 'text-gold-400' : ''}"></i>
@@ -2935,7 +2991,8 @@ function renderAnimeDetail(id) {
             </div>
         </section>
 
-        <!-- Trailer Section (premium card; uses existing trailer url if present) -->
+        ${a.trailer ? `
+        <!-- Trailer Section -->
         <section class="mt-10 anim-fade-in">
             <div class="max-w-7xl mx-auto px-4 md:px-8">
                 <div class="trailer-card">
@@ -2949,13 +3006,14 @@ function renderAnimeDetail(id) {
                     <div class="trailer-content">
                         <h3 class="trailer-title">Trailer</h3>
                         <div class="trailer-meta">${a.year || '—'} • 2:12 • Streaming</div>
-                        <button class="btn-trailer" onclick="${a.trailer ? `window.open('${a.trailer}', '_blank')` : 'showToast(\'Trailer not available yet.\')'}">
+                        <button class="btn-trailer" onclick="playTrailerInPage(decodeURIComponent('${encodeURIComponent(a.trailer)}'), decodeURIComponent('${encodeURIComponent(a.title)}'))">
                             <i data-lucide="film" class="w-4 h-4"></i> Watch Trailer
                         </button>
                     </div>
                 </div>
             </div>
         </section>
+        ` : ''}
 
         <section class="detail-section detail-overview anim-fade-in">
             <div class="detail-overview-main">

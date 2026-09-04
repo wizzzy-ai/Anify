@@ -15,7 +15,7 @@
 
     async function loadAnimeFromApi() {
         try {
-            const res = await fetch('/api/anime');
+            const res = await fetch('/api/anime', { cache: 'no-store' });
             const data = await res.json().catch(() => ({}));
             
             if (res.ok && data.ok && Array.isArray(data.anime)) {
@@ -77,8 +77,8 @@
             if (!res.ok || !data.ok) throw new Error(data.error || 'Database save failed.');
             return data.anime;
         } catch (e) {
-            console.warn('Saved locally only:', e.message);
-            return null;
+            console.error('[Anime Management] API save failed:', e);
+            throw e;
         }
     }
 
