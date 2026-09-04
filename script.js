@@ -2821,7 +2821,7 @@ function renderAnimeDetail(id) {
                         <aside class="hero-poster-col">
                             <img src="${ensureHttps(a.image)}" alt="${a.title} poster" loading="lazy" class="hero-poster-img" />
                             ${a.trailer ? `
-                            <button onclick="playTrailerInPage(decodeURIComponent('${encodeURIComponent(a.trailer)}'), decodeURIComponent('${encodeURIComponent(a.title)}'))" class="btn-premium-large hero-poster-trailer">
+                            <button onclick="playTrailerInPage(decodeURIComponent('${encodeURIComponent(a.trailer).replace(/'/g, '%27')}'), decodeURIComponent('${encodeURIComponent(a.title).replace(/'/g, '%27')}'))" class="btn-premium-large hero-poster-trailer">
                                 <i data-lucide="film" class="w-5 h-5"></i> Watch Trailer
                             </button>
                             ` : ''}
@@ -3006,7 +3006,7 @@ function renderAnimeDetail(id) {
                     <div class="trailer-content">
                         <h3 class="trailer-title">Trailer</h3>
                         <div class="trailer-meta">${a.year || '—'} • 2:12 • Streaming</div>
-                        <button class="btn-trailer" onclick="playTrailerInPage(decodeURIComponent('${encodeURIComponent(a.trailer)}'), decodeURIComponent('${encodeURIComponent(a.title)}'))">
+                        <button class="btn-trailer" onclick="playTrailerInPage(decodeURIComponent('${encodeURIComponent(a.trailer).replace(/'/g, '%27')}'), decodeURIComponent('${encodeURIComponent(a.title).replace(/'/g, '%27')}'))">
                             <i data-lucide="film" class="w-4 h-4"></i> Watch Trailer
                         </button>
                     </div>
