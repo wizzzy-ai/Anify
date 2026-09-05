@@ -11,7 +11,7 @@ import express from 'express';
 import multer from 'multer';
 import cloudinary from "./config/cloudinary.js";
 import { uploadToCloudinary, uploadVideo } from "./utils/cloudinaryUpload.js";
-import { uploadToR2 } from "./utils/uploadToR2.js";
+import { uploadToR2, deleteFromR2 } from "./utils/uploadToR2.js";
 import {
   abortDirectMultipartUpload,
   completeDirectMultipartUpload,
@@ -1921,10 +1921,20 @@ app.put('/api/anime/:id/episodes/:episodeNumber', requireDb, requireActiveUser, 
     introEnd: introEnd ?? undefined,
     outroStart: outroStart ?? undefined,
     outroEnd: outroEnd ?? undefined,
-    sub: { qualities: { ...(subQualities || {}) } },
-    dub: { qualities: { ...(dubQualities || {}) } },
-    // Store video metadata for each quality
-    videoMetadata: videoMetadata,
+    sub: {
+      qualities: { ...(subQualities || {}) },
+      keys: { ...(update?.sub?.keys || {}) },
+      storageProvider: update?.sub?.storageProvider || 'r2',
+      sizes: { ...(update?.sub?.sizes || {}) },
+      mimeTypes: { ...(update?.sub?.mimeTypes || {}) },
+    },
+    dub: {
+      qualities: { ...(dubQualities || {}) },
+      keys: { ...(update?.dub?.keys || {}) },
+      storageProvider: update?.dub?.storageProvider || 'r2',
+      sizes: { ...(update?.dub?.sizes || {}) },
+      mimeTypes: { ...(update?.dub?.mimeTypes || {}) },
+    },
   };
 
   // Some older movie upload forms used the episode endpoint with episode 1.
@@ -1968,6 +1978,65 @@ app.put('/api/anime/:id/episodes/:episodeNumber', requireDb, requireActiveUser, 
   res.json({ ok: true, anime: normalizeAnime(anime) });
 });
 
+function collectEpisodeR2Keys(episode) {
+  const keys = new Set();
+  const sources = ['sub', 'dub'];
+
+  for (const sourceName of sources) {
+    const source = episode?.[sourceName];
+    const qualities = source?.qualities instanceof Map
+      ? Object.fromEntries(source.qualities)
+      : (source?.qualities || {});
+    const storedKeys = source?.keys instanceof Map
+      ? Object.fromEntries(source.keys)
+      : (source?.keys || {});
+
+    for (const [quality, url] of Object.entries(qualities)) {
+      const directKey = storedKeys[quality];
+      if (typeof directKey === 'string' && directKey.trim()) {
+        keys.add(directKey.trim());
+        continue;
+      }
+
+      const legacyKey = getTrustedR2KeyFromUrl(url);
+      if (legacyKey) keys.add(legacyKey);
+    }
+  }
+
+  const metadata = episode?.videoMetadata instanceof Map
+    ? Object.fromEntries(episode.videoMetadata)
+    : (episode?.videoMetadata || {});
+  for (const entry of Object.values(metadata)) {
+    if (entry?.storageProvider === 'r2' && typeof entry.key === 'string' && entry.key.trim()) {
+      keys.add(entry.key.trim());
+    }
+  }
+
+  return [...keys];
+}
+
+function getTrustedR2KeyFromUrl(value) {
+  if (typeof value !== 'string' || !value.trim() || !process.env.R2_PUBLIC_URL) return null;
+
+  try {
+    const publicBase = new URL(process.env.R2_PUBLIC_URL);
+    const candidate = new URL(value);
+    if (candidate.origin !== publicBase.origin) return null;
+
+    const basePath = publicBase.pathname.replace(/\/+$/, '');
+    if (basePath && !candidate.pathname.startsWith(`${basePath}/`)) return null;
+
+    const keyPath = basePath
+      ? candidate.pathname.slice(basePath.length + 1)
+      : candidate.pathname.replace(/^\/+/, '');
+    const key = decodeURIComponent(keyPath);
+    if (!key || key.includes('..') || key.startsWith('/')) return null;
+    return key;
+  } catch {
+    return null;
+  }
+}
+
 // Delete one episode from a series (anime only)
 app.delete('/api/anime/:id/episodes/:episodeNumber', requireDb, requireAdmin, async (req, res) => {
   console.log('[Episode Deletion] Starting episode deletion...', { id: req.params.id, episodeNumber: req.params.episodeNumber });
@@ -1988,9 +2057,28 @@ app.delete('/api/anime/:id/episodes/:episodeNumber', requireDb, requireAdmin, as
     return res.status(404).json({ ok: false, error: 'Anime not found.' });
   }
 
-  console.log('[Episode Deletion] Current episodes before deletion:', anime.episodesMedia?.length || 0);
-
   anime.episodesMedia = Array.isArray(anime.episodesMedia) ? anime.episodesMedia : [];
+  const episode = anime.episodesMedia.find(e => Number(e?.episodeNumber) === episodeNumber);
+  if (!episode) {
+    return res.status(404).json({ ok: false, error: `Episode ${episodeNumber} not found.` });
+  }
+
+  const objectKeys = collectEpisodeR2Keys(episode);
+  console.log('[Episode Deletion] Current episodes before deletion:', anime.episodesMedia.length);
+  console.log('[Episode Deletion] R2 objects to delete:', objectKeys);
+
+  try {
+    for (const key of objectKeys) {
+      await deleteFromR2(key);
+    }
+  } catch (error) {
+    console.error('[Episode Deletion] R2 deletion failed; database record preserved:', error);
+    return res.status(502).json({
+      ok: false,
+      error: 'Cloud video could not be deleted. The episode was kept so you can retry.',
+    });
+  }
+
   anime.episodesMedia = anime.episodesMedia.filter(e => Number(e?.episodeNumber) !== episodeNumber);
 
   // Recompute numeric episodes hint (max episode number) but keep at least 1
@@ -2001,7 +2089,15 @@ app.delete('/api/anime/:id/episodes/:episodeNumber', requireDb, requireAdmin, as
   anime.newEpisode = false;
 
   console.log('[Episode Deletion] Saving to database...');
-  await anime.save();
+  try {
+    await anime.save();
+  } catch (error) {
+    console.error('[Episode Deletion] Database deletion failed after R2 deletion:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'Cloud video was deleted, but the episode record could not be removed. Please contact an administrator.',
+    });
+  }
   console.log('[Episode Deletion] Deleted successfully, remaining episodes:', anime.episodesMedia.length);
 
   res.json({ ok: true, anime: normalizeAnime(anime) });

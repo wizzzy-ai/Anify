@@ -1766,7 +1766,7 @@
             console.error('[Delete Episode] No current anime found');
             return;
         }
-        if (!confirm(`Delete Episode ${num} permanently?`)) {
+        if (!confirm(`Delete Episode ${num}?\n\nThis will permanently delete the video from cloud storage and remove it from Anify. This action cannot be undone.`)) {
             console.log('[Delete Episode] Delete cancelled by user');
             return;
         }
@@ -4241,7 +4241,7 @@ function editAdminAnime(id) {
             console.error('[Delete Episode] No current anime found');
             return;
         }
-        if (!confirm(`Delete Episode ${num} permanently?`)) {
+        if (!confirm(`Delete Episode ${num}?\n\nThis will permanently delete the video from cloud storage and remove it from Anify. This action cannot be undone.`)) {
             console.log('[Delete Episode] Delete cancelled by user');
             return;
         }

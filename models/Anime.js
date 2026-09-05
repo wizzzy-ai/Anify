@@ -26,6 +26,18 @@ const imageMetadataSchema = new mongoose.Schema({
 // Episode source schema (sub/dub qualities)
 const episodeSourceSchema = new mongoose.Schema({
   qualities: { type: Map, of: String, default: {} },
+  keys: { type: Map, of: String, default: {} },
+  storageProvider: { type: String, default: 'r2' },
+  sizes: { type: Map, of: Number, default: {} },
+  mimeTypes: { type: Map, of: String, default: {} },
+}, { _id: false });
+
+const episodeVideoMetadataSchema = new mongoose.Schema({
+  url: String,
+  key: String,
+  storageProvider: String,
+  size: Number,
+  mimeType: String,
 }, { _id: false });
 
 // Episode schema (per-episode data)
@@ -41,6 +53,7 @@ const episodeSchema = new mongoose.Schema({
   outroEnd: { type: Number, default: 0 },
   sub: { type: episodeSourceSchema, default: () => ({ qualities: {} }) },
   dub: { type: episodeSourceSchema, default: () => ({ qualities: {} }) },
+  videoMetadata: { type: Map, of: episodeVideoMetadataSchema, default: {} },
 }, { timestamps: true, _id: false });
 
 // Main Anime schema
