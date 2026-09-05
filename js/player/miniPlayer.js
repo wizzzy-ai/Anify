@@ -72,6 +72,7 @@
                 e.target.closest('.floating-player-close') ||
                 e.target.closest('.mini-mobile-close') ||
                 e.target.closest('.mini-mobile-play') ||
+                e.target.closest('.player-episode-popover') ||
                 e.target.closest('#mini-player-dock')) return;
 
             isDragging = true;
@@ -128,19 +129,23 @@
 
             let targetX = 0;
             let targetY = 0;
+            const isMobile = window.innerWidth < 768;
+            // On phones the player should settle nearly flush to either edge.
+            // It remains fully draggable; this only applies when the drag ends.
+            const edgeGap = isMobile ? 6 : 32;
 
             // X axis
             if (centerX < winW / 2) {
-                targetX = 32 - (player.offsetLeft); // Left
+                targetX = edgeGap - player.offsetLeft; // Left
             } else {
-                targetX = (winW - rect.width - 32) - player.offsetLeft; // Right
+                targetX = (winW - rect.width - edgeGap) - player.offsetLeft; // Right
             }
 
             // Y axis
             if (centerY < winH / 2) {
                 targetY = 32 - player.offsetTop; // Top
             } else {
-                const bottomOffset = window.innerWidth < 768 ? 80 : 32;
+                const bottomOffset = isMobile ? 80 : 32;
                 targetY = (winH - rect.height - bottomOffset) - player.offsetTop; // Bottom
             }
 

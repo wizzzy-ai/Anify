@@ -109,6 +109,17 @@
             const source = this.getPlayerSource(language, quality);
             if (!video || !source) return false;
 
+            // Moving an already-playing mini player back into the full layout
+            // must not reload its identical source. A reload resets playback
+            // and briefly displays the buffering overlay.
+            const absoluteSource = new URL(source, global.location.href).href;
+            if (video.dataset.preservePlayback === 'true' &&
+                (video.currentSrc === absoluteSource || video.src === absoluteSource)) {
+                video.dataset.language = language;
+                video.dataset.quality = quality;
+                return true;
+            }
+
             const wasPlaying = this.state.isPlaying;
             const currentTime = video.currentTime;
             video.src = source;

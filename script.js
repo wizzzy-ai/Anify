@@ -1643,6 +1643,8 @@ async function initializeApp() {
 
     // 1. Initial 0ms render from synchronous memory/cache
     handleRouteChange();
+    // If playback was minimized before refresh, restore it so the viewer can
+    // continue where they left off. Opening the watch page still expands it.
     restoreMiniPlayerFromRefresh();
 
     // 2. Safe timeout protection
@@ -1829,6 +1831,7 @@ let searchPreviousBodyOverflow = null;
 let floatingPlayerObserver = null;
 let floatingPlayerScrollPosition = 0;
 let isFloatingPlayer = false;
+let cleanupFloatingPlayerArmListeners = null;
 
 // Support modal state
 let selectedAmount = null;
@@ -1867,15 +1870,17 @@ function navigate(page, data, options = {}) {
         }
     }
 
+    const hashIsUnchanged = window.location.hash === hash;
     if (replace) {
         window.history.replaceState(null, '', hash);
-    } else {
-        window.location.hash = hash;
-    }
-
-    // If hash hasn't changed, hashchange event won't fire, so we manually trigger.
-    if (window.location.hash === hash && !replace) {
         handleRouteChange();
+    } else if (hashIsUnchanged) {
+        // Browsers do not emit hashchange when navigating to the current route.
+        handleRouteChange();
+    } else {
+        // Let the single hashchange event render the new route. Calling the
+        // route handler here as well used to run player setup twice.
+        window.location.hash = hash;
     }
 }
 
@@ -1943,7 +1948,7 @@ function handleRouteChange() {
         setupHeroLiveWallpapers();
     }
     if (window.AnifyAnimationManager) window.AnifyAnimationManager.refresh(page);
-    if (page === 'player') setupCustomPlayer();
+    if (page === 'player' && !window.__miniPlayerExpansionState) setupCustomPlayer();
 }
 
 function setupTrendingReveal() {
@@ -3136,8 +3141,9 @@ function renderPlayer(id) {
         return `<div class="pt-24 text-center text-red-400">Player service failed to load.</div>`;
     }
 
-    // Navigation to a new anime (or re-loading via details page) resets binge counter
-    if (playerService.state) {
+    // If expanding from mini player, skip the binge counter reset
+    const isMiniPlayerExpansion = Boolean(window.__miniPlayerExpansionState);
+    if (!isMiniPlayerExpansion && playerService.state) {
         playerService.state.bingeCount = 0;
     }
 
@@ -5589,6 +5595,12 @@ function updatePlayerUI() {
             time.textContent = `${formatPlayerTime(state.currentTime)} / ${formatPlayerTime(duration)}`;
         }
 
+        const mobileTime = document.getElementById('mobile-player-time');
+        if (mobileTime) {
+            const duration = isNaN(state.duration) ? 0 : state.duration;
+            mobileTime.textContent = `${formatPlayerTime(state.currentTime)} / ${formatPlayerTime(duration)}`;
+        }
+
         // Update Mini Player UI
         const miniProgress = document.getElementById('mini-progress-bar');
         const miniTime = document.getElementById('mini-time');
@@ -5599,6 +5611,14 @@ function updatePlayerUI() {
         }
 
         if (playIcon) playIcon.setAttribute('data-lucide', state.isPlaying ? 'pause' : 'play');
+        const mobilePlayIcon = document.getElementById('mobile-player-play-icon');
+        if (mobilePlayIcon) {
+            const iconName = state.isPlaying ? 'pause' : 'play';
+            if (mobilePlayIcon.getAttribute('data-lucide') !== iconName) {
+                mobilePlayIcon.setAttribute('data-lucide', iconName);
+                if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+            }
+        }
         if (overlay) overlay.classList.toggle('hidden', state.isPlaying);
         const miniPlaySymbol = document.getElementById('mini-mobile-play-symbol');
         if (miniPlaySymbol) {
@@ -5615,6 +5635,13 @@ function updatePlayerUI() {
         syncVolumeUI();
 
         const anime = playerService.getAnime();
+        const mobileTitle = document.getElementById('mobile-player-title');
+        const mobileEpisode = document.getElementById('mobile-player-episode');
+        if (anime) {
+            const epNum = Number(video.dataset.episodeNumber || 1);
+            if (mobileTitle) mobileTitle.textContent = anime.title || 'Now playing';
+            if (mobileEpisode) mobileEpisode.textContent = (anime.type || 'anime') === 'anime' ? `Episode ${epNum}` : 'Feature film';
+        }
         const viewEl = document.getElementById('current-episode-views');
         if (viewEl && anime) {
             const epNum = Number(video.dataset.episodeNumber || 1);
@@ -5842,68 +5869,163 @@ function togglePlayerFullscreen() {
     return playerService.toggleFullscreen();
 }
 
+let mobilePlayerControlsTimer;
+
+function showMobilePlayerControls(scheduleHide = false) {
+    const player = document.getElementById('anify-persistent-player');
+    const video = document.getElementById('anify-video');
+    if (!player || player.classList.contains('mini-player') || !window.matchMedia('(max-width: 768px)').matches) return;
+
+    player.classList.add('mobile-controls-visible');
+    clearTimeout(mobilePlayerControlsTimer);
+
+    // Leave controls available while paused. Once playback resumes, a short idle
+    // delay gives the same uncluttered viewing state as YouTube's mobile player.
+    if (scheduleHide || (video && !video.paused)) {
+        mobilePlayerControlsTimer = setTimeout(() => {
+            if (video && !video.paused && !player.classList.contains('mobile-settings-open')) {
+                player.classList.remove('mobile-controls-visible');
+            }
+        }, 2600);
+    }
+}
+
+function hideMobilePlayerControls() {
+    const player = document.getElementById('anify-persistent-player');
+    if (!player) return;
+    clearTimeout(mobilePlayerControlsTimer);
+    player.classList.remove('mobile-controls-visible', 'mobile-settings-open');
+}
+
+function closeMobilePlayer() {
+    const video = document.getElementById('anify-video');
+    const animeId = Number(video?.dataset?.animeId || 0);
+
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    if (currentPage === 'player' && animeId) navigate('anime', animeId);
+}
+
+function toggleMobilePlayerSettings() {
+    const player = document.getElementById('anify-persistent-player');
+    if (!player) return;
+    player.classList.toggle('mobile-settings-open');
+    showMobilePlayerControls();
+}
+
+function setMobilePlayerSpeed(speed) {
+    setPlayerSpeed(speed);
+    document.querySelectorAll('.mobile-speed-options button').forEach((button) => {
+        button.classList.toggle('is-active', Number(button.textContent.replace('×', '')) === Number(speed));
+    });
+}
+
+function openPlayerEpisodeList() {
+    const video = document.getElementById('anify-video');
+    const player = document.getElementById('anify-persistent-player');
+    const anime = playerService.getAnime?.();
+    if (!video || !player || !anime) return;
+
+    const existing = player.querySelector('.player-episode-popover');
+    if (existing) {
+        existing.remove();
+        return;
+    }
+
+    const language = video.dataset.language || 'sub';
+    const activeEpisode = Number(video.dataset.episodeNumber || 1);
+    const episodeNumbers = Array.isArray(anime.episodesMedia)
+        ? [...new Set(anime.episodesMedia.map(item => Number(item?.episodeNumber)).filter(Number.isFinite))].sort((a, b) => a - b)
+        : Array.from({ length: Math.max(1, Number(anime.episodes) || 1) }, (_, index) => index + 1);
+    const availableEpisodes = episodeNumbers.filter(number => isEpisodeAvailable(anime, language, number));
+    const popover = document.createElement('section');
+    popover.className = 'player-episode-popover';
+    popover.setAttribute('aria-label', 'Choose an episode');
+    popover.innerHTML = `
+        <div class="player-episode-popover__head">
+            <div>
+                <span>ANIFY QUEUE</span>
+                <strong>${escapeHtml(anime.title || 'Episodes')}</strong>
+            </div>
+            <button type="button" onclick="closePlayerEpisodeList()" aria-label="Close episode list"><i data-lucide="x"></i></button>
+        </div>
+        <p class="player-episode-popover__label">${language.toUpperCase()} · Episode ${activeEpisode}</p>
+        <div class="player-episode-popover__grid">
+            ${availableEpisodes.map(number => `<button type="button" class="${number === activeEpisode ? 'is-active' : ''}" onclick="choosePlayerEpisode('${language}', ${number})">${number}</button>`).join('') || '<p class="player-episode-popover__empty">No episodes available.</p>'}
+        </div>`;
+    player.appendChild(popover);
+    if (window.lucide?.createIcons) lucide.createIcons();
+}
+
+function closePlayerEpisodeList() {
+    document.querySelector('.player-episode-popover')?.remove();
+}
+
+function choosePlayerEpisode(language, episodeNumber) {
+    closePlayerEpisodeList();
+    selectEpisodeLanguage(language, episodeNumber);
+}
+
 function handleMiniPlayerTransition(newPage) {
     const player = document.getElementById('anify-persistent-player');
     const video = document.getElementById('anify-video');
     const wrapper = document.getElementById('persistent-player-wrapper');
 
-    if (!player || !video) return;
-
-    const isLoaded = video.src || video.currentSrc;
-    const savedState = window.miniPlayer?.getSavedState?.();
-    const isCurrentlyFull = player.parentElement && player.parentElement.id === 'persistent-player-mount';
+    if (!player || !video || !wrapper) return;
 
     if (newPage !== 'player') {
-        if (isLoaded && (isCurrentlyFull || (savedState && savedState.open))) {
-            // Minimize to Mini Player
-            wrapper.appendChild(player);
-            player.classList.add('mini-player');
-
-            // Clear full-size inline styles so the .mini-player class 
-            // and saved state (transform) can take over.
-            player.style.width = '';
-            player.style.height = '';
-
-            // Show mini-only controls
-            player.querySelectorAll('.mini-only').forEach(el => el.classList.remove('hidden'));
-            player.querySelectorAll('.full-only').forEach(el => el.classList.add('hidden'));
-
-            // Apply the saved size/position before revealing the wrapper so
-            // re-entering an already-open mini player doesn't visibly resize.
-            if (window.initMiniPlayer) {
-                window.initMiniPlayer();
-            }
-            wrapper.classList.remove('hidden');
-            if (window.miniPlayer?.playEnterAnimation && isCurrentlyFull) {
-                window.miniPlayer.playEnterAnimation();
-            }
-            window.miniPlayer?.setOpenFlag?.(true);
-
-            // Show dock
-            const dock = document.getElementById('mini-player-dock');
-            if (dock) dock.classList.remove('hidden');
-
-            if (window.lucide && typeof lucide.createIcons === 'function') {
-                lucide.createIcons();
-            }
-        } else {
-            // Not playing or explicitly closed, hide it
+        // Keep watching while browsing the app, but only for this live session.
+        // The saved open flag is cleared during startup, so refresh never
+        // recreates this floating player.
+        cleanupFloatingPlayerObserver();
+        if (!(video.src || video.currentSrc)) {
             wrapper.classList.add('hidden');
+            return;
         }
-    } else {
-        // Entering player page - setupCustomPlayer will handle moving it back
-        player.classList.remove('mini-player', 'mini-player-medium', 'mini-player-large', 'mini-settings-open');
-        player.querySelectorAll('.mini-only').forEach(el => el.classList.add('hidden'));
-        player.querySelectorAll('.full-only').forEach(el => el.classList.remove('hidden'));
-        window.miniPlayer?.setOpenFlag?.(false);
 
-        // Setup floating player observer on mobile when on player page
-        if (window.matchMedia('(max-width: 768px)').matches) {
-            setupFloatingPlayerObserver();
-        } else {
-            cleanupFloatingPlayerObserver();
-        }
+        wrapper.appendChild(player);
+        player.classList.add('mini-player');
+        player.style.width = '';
+        player.style.height = '';
+        player.querySelectorAll('.mini-only').forEach(el => el.classList.remove('hidden'));
+        player.querySelectorAll('.full-only').forEach(el => el.classList.add('hidden'));
+        window.initMiniPlayer?.();
+        window.miniPlayer?.updateNowPlaying?.();
+        wrapper.classList.remove('hidden');
+        window.miniPlayer?.setOpenFlag?.(true);
+        if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+        return;
     }
+
+    // Entering the player page restores the normal inline player only.
+    // If we're expanding from mini player, restore playback position immediately
+    const expansionState = window.__miniPlayerExpansionState;
+    const isExpanding = Boolean(expansionState);
+    
+    if (isExpanding && video) {
+        const savedTime = expansionState.time;
+        const wasPlaying = expansionState.wasPlaying;
+        
+        // Mark video to prevent reload in setupCustomPlayer
+        video.dataset.skipSetup = 'true';
+        
+        // Restore position after DOM move completes
+        requestAnimationFrame(() => {
+            if (Number.isFinite(savedTime) && savedTime > 0) {
+                video.currentTime = savedTime;
+            }
+            if (wasPlaying) {
+                video.play().catch(() => {});
+            }
+            // Clean up after restoration
+            delete video.dataset.skipSetup;
+            window.__miniPlayerExpansionState = null;
+        });
+    }
+    player.classList.remove('mini-player', 'mini-player-medium', 'mini-player-large', 'mini-settings-open');
+    player.querySelectorAll('.mini-only').forEach(el => el.classList.add('hidden'));
+    player.querySelectorAll('.full-only').forEach(el => el.classList.remove('hidden'));
+    window.miniPlayer?.setOpenFlag?.(false);
+    cleanupFloatingPlayerObserver();
 }
 
 // Mobile Floating Player Functions
@@ -5922,10 +6044,24 @@ function setupFloatingPlayerObserver() {
     }
 
     floatingPlayerScrollPosition = window.scrollY;
+    // Do not turn an inline player into a floating player just because the
+    // browser restores a scroll position after refresh. Floating mode becomes
+    // available only once the person intentionally scrolls this session.
+    let floatingModeArmed = false;
+    const armFloatingMode = () => {
+        floatingModeArmed = true;
+        cleanupFloatingPlayerArmListeners?.();
+        cleanupFloatingPlayerArmListeners = null;
+    };
+    const armEvents = ['wheel', 'touchmove', 'keydown'];
+    armEvents.forEach(type => window.addEventListener(type, armFloatingMode, { once: true, passive: true }));
+    cleanupFloatingPlayerArmListeners = () => {
+        armEvents.forEach(type => window.removeEventListener(type, armFloatingMode));
+    };
 
     floatingPlayerObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
-            if (!entry.isIntersecting && !isFloatingPlayer) {
+            if (!entry.isIntersecting && !isFloatingPlayer && floatingModeArmed) {
                 // Player left viewport, enable floating
                 enableFloatingPlayer();
             } else if (entry.isIntersecting && isFloatingPlayer) {
@@ -5946,6 +6082,8 @@ function cleanupFloatingPlayerObserver() {
         floatingPlayerObserver.disconnect();
         floatingPlayerObserver = null;
     }
+    cleanupFloatingPlayerArmListeners?.();
+    cleanupFloatingPlayerArmListeners = null;
 }
 
 function enableFloatingPlayer() {
@@ -6082,10 +6220,32 @@ function handlePlayerVideoClick(event) {
     const player = document.getElementById('anify-persistent-player');
     if (player && player.classList.contains('mini-player')) {
         const video = playerService.getVideoElement();
+        // Preserve the live playback state across the mini-to-full DOM move.
+        // This is more precise than the periodically saved Continue Watching
+        // checkpoint, which can otherwise make the episode appear to restart.
+        window.__miniPlayerExpansionState = {
+            animeId: Number(video?.dataset?.animeId || 0),
+            episodeNumber: video?.dataset?.episodeNumber || '1',
+            language: video?.dataset?.language || 'sub',
+            quality: video?.dataset?.quality || '1080p',
+            time: Number(video?.currentTime || 0),
+            wasPlaying: Boolean(video && !video.paused),
+            src: video?.src || video?.currentSrc,
+        };
+        if (video) video.dataset.preservePlayback = 'true';
         navigate('player', video?.dataset?.animeId);
         return;
     }
+
+    // On a phone, the first tap brings the player UI back. A second tap while
+    // it is already visible toggles playback, matching familiar mobile players.
+    if (player && window.matchMedia('(max-width: 768px)').matches) {
+        const controlsWereVisible = player.classList.contains('mobile-controls-visible');
+        showMobilePlayerControls();
+        if (!controlsWereVisible) return;
+    }
     togglePlay();
+    if (player && window.matchMedia('(max-width: 768px)').matches) showMobilePlayerControls(true);
 }
 
 /**
@@ -6104,6 +6264,17 @@ function handlePlayerVideoDoubleClick(event) {
     const player = document.getElementById('anify-persistent-player');
     if (player && player.classList.contains('mini-player')) {
         // In mini mode, double-click restores full player
+        // Preserve the live playback state across the mini-to-full DOM move
+        window.__miniPlayerExpansionState = {
+            animeId: Number(video?.dataset?.animeId || 0),
+            episodeNumber: video?.dataset?.episodeNumber || '1',
+            language: video?.dataset?.language || 'sub',
+            quality: video?.dataset?.quality || '1080p',
+            time: Number(video?.currentTime || 0),
+            wasPlaying: Boolean(video && !video.paused),
+            src: video?.src || video?.currentSrc,
+        };
+        if (video) video.dataset.preservePlayback = 'true';
         navigate('player', video?.dataset?.animeId);
         return;
     }
@@ -6156,6 +6327,17 @@ function handlePlayerVideoTouchEnd(event) {
     if (player && player.classList.contains('mini-player')) {
         // In mini mode, double-tap restores full player
         if (tapInterval < 300 && Math.abs(tapX - lastTapX) < 50) {
+            // The mobile double-tap path bypasses the normal click handler, so
+            // capture the live position here as well before opening full view.
+            window.__miniPlayerExpansionState = {
+                animeId: Number(video?.dataset?.animeId || 0),
+                episodeNumber: video?.dataset?.episodeNumber || '1',
+                language: video?.dataset?.language || 'sub',
+                quality: video?.dataset?.quality || '1080p',
+                time: Number(video?.currentTime || 0),
+                wasPlaying: Boolean(video && !video.paused),
+            };
+            video.dataset.preservePlayback = 'true';
             navigate('player', video?.dataset?.animeId);
             event.preventDefault();
             preventClick = true;
@@ -6616,18 +6798,54 @@ function setupCustomPlayer() {
     // getAnime()/getPlayerSource() lookups (used by resume, skip-intro, mini player, etc.).
     const video = playerService.getVideoElement();
     const hashAnimeId = Number((window.location.hash || '').split('/')[2]);
+    const expansionState = window.__miniPlayerExpansionState;
     const previousAnimeId = video ? Number(video.dataset.animeId || 0) : 0;
     const hasLoadedSource = Boolean(video && (video.src || video.currentSrc));
+    const isPreservingPlayback = Boolean(video?.dataset?.preservePlayback === 'true');
     // If this exact title is already loaded (e.g. the user is maximizing the
     // mini player back to full size), don't let setup() reload the source -
     // that would restart playback instead of continuing where it was.
-    const alreadyPlayingThisTitle = hasLoadedSource && hashAnimeId && previousAnimeId === hashAnimeId;
+    const isMiniPlayerExpansion = Boolean(expansionState && hashAnimeId && expansionState.animeId === hashAnimeId);
+    const alreadyPlayingThisTitle = (hasLoadedSource && hashAnimeId && previousAnimeId === hashAnimeId) || isMiniPlayerExpansion || isPreservingPlayback;
 
     if (video && hashAnimeId) {
         video.dataset.animeId = String(hashAnimeId);
     }
 
-    if (playerService.setup({ skipRestore: alreadyPlayingThisTitle })) {
+    // Expanding an active mini player is only a layout change. Do not call the
+    // normal setup path here: it may restore a saved source/checkpoint and show
+    // the loader, even though the exact same <video> is already playing.
+    const playerReady = (isMiniPlayerExpansion || isPreservingPlayback)
+        ? (playerService.attachEvents(), playerService.syncState(), true)
+        : playerService.setup({ skipRestore: alreadyPlayingThisTitle });
+
+    if (playerReady) {
+        if (video && isMiniPlayerExpansion) {
+            // Restore the video source if it was saved
+            if (expansionState.src && video.src !== expansionState.src) {
+                video.src = expansionState.src;
+            }
+            const restoreLivePosition = () => {
+                if (Number.isFinite(expansionState.time) && expansionState.time > 0) {
+                    video.currentTime = Math.min(expansionState.time, video.duration || expansionState.time);
+                }
+                if (expansionState.wasPlaying) {
+                    video.play().catch(() => {
+                        // Autoplay might be blocked, that's fine
+                    });
+                }
+            };
+            if (video.readyState >= 1) {
+                restoreLivePosition();
+            } else {
+                video.addEventListener('loadedmetadata', restoreLivePosition, { once: true });
+            }
+            playerService.hideLoader?.();
+            requestAnimationFrame(() => {
+                delete video.dataset.preservePlayback;
+            });
+            window.__miniPlayerExpansionState = null;
+        }
         if (video) {
             // Use addEventListener to avoid clobbering playerService internal state listeners.
             // Browser deduplicates these as long as we pass the same function reference.
@@ -6685,9 +6903,15 @@ function setupCustomPlayer() {
 function createPersistentPlayer() {
     const div = document.createElement('div');
     div.id = 'anify-persistent-player';
-    div.className = 'w-full h-full relative group';
+    div.className = 'w-full h-full relative group mobile-controls-visible';
+    // Listen on the player root rather than only the <video>. Several visual
+    // overlays sit over the video, and this ensures hovering anywhere reveals
+    // the mobile controls.
+    div.addEventListener('pointermove', () => showMobilePlayerControls());
+    div.addEventListener('mouseenter', () => showMobilePlayerControls());
+    div.addEventListener('touchstart', () => showMobilePlayerControls(), { passive: true });
     div.innerHTML = `
-        <video id="anify-video" class="w-full h-full object-cover" poster="" preload="metadata" onclick="handlePlayerVideoClick(event)" ondblclick="handlePlayerVideoDoubleClick(event)" ontouchend="handlePlayerVideoTouchEnd(event)"></video>
+        <video id="anify-video" class="w-full h-full object-cover" poster="" preload="metadata" onclick="handlePlayerVideoClick(event)" ondblclick="handlePlayerVideoDoubleClick(event)" ontouchend="handlePlayerVideoTouchEnd(event)" onpointermove="showMobilePlayerControls()" onmouseenter="showMobilePlayerControls()" onplay="showMobilePlayerControls(true)" onpause="showMobilePlayerControls()"></video>
 
         <!-- Video Loading Overlay -->
         <div id="video-loading-overlay" class="video-loading-overlay hidden">
@@ -6786,6 +7010,55 @@ function createPersistentPlayer() {
                 <i data-lucide="play" class="w-10 h-10 text-black fill-black ml-1"></i>
             </div>
         </div>
+
+        <!-- Mobile anime player HUD. It is intentionally separate from the desktop
+             toolbar so mobile gets generous touch targets without changing desktop. -->
+        <div class="mobile-anime-player-hud" aria-label="Mobile video controls" onpointermove="showMobilePlayerControls()" ontouchstart="showMobilePlayerControls()" onclick="event.stopPropagation();">
+            <div class="mobile-player-topbar">
+                <button type="button" class="mobile-hud-icon" onclick="closeMobilePlayer()" aria-label="Back to anime details" title="Back to anime details">
+                    <i data-lucide="chevron-down"></i>
+                </button>
+                <div class="mobile-player-identity">
+                    <span class="mobile-player-kicker">ANIFY STREAM</span>
+                    <span id="mobile-player-episode" class="mobile-player-episode">Episode 1</span>
+                </div>
+                <button type="button" class="mobile-hud-icon mobile-settings-trigger" onclick="toggleMobilePlayerSettings()" aria-label="Player settings" title="Player settings">
+                    <i data-lucide="settings-2"></i>
+                </button>
+            </div>
+
+            <div class="mobile-player-center-controls">
+                <button type="button" class="mobile-transport-btn" onclick="skipBackwardWithFeedback()" aria-label="Rewind 5 seconds" title="Rewind 5 seconds">
+                    <i data-lucide="rotate-ccw"></i><span>5</span>
+                </button>
+                <button type="button" class="mobile-transport-btn mobile-transport-btn--play" onclick="togglePlay(); showMobilePlayerControls(true);" aria-label="Play or pause" title="Play or pause">
+                    <i id="mobile-player-play-icon" data-lucide="play"></i>
+                </button>
+                <button type="button" class="mobile-transport-btn" onclick="skipForwardWithFeedback()" aria-label="Forward 5 seconds" title="Forward 5 seconds">
+                    <i data-lucide="rotate-cw"></i><span>5</span>
+                </button>
+            </div>
+
+            <div class="mobile-player-bottomline">
+                <p id="mobile-player-title" class="mobile-player-title">Now playing</p>
+                <div class="mobile-player-bottom-actions">
+                    <span id="mobile-player-time" class="mobile-player-time">0:00 / 0:00</span>
+                    <button type="button" class="mobile-bottom-fullscreen" onclick="togglePlayerFullscreen(); showMobilePlayerControls(true);" aria-label="Toggle fullscreen" title="Toggle fullscreen">
+                        <i data-lucide="maximize"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mobile-player-settings" aria-label="Playback settings">
+                <p>Playback speed</p>
+                <div class="mobile-speed-options">
+                    <button type="button" onclick="setMobilePlayerSpeed(0.5)">0.5×</button>
+                    <button type="button" class="is-active" onclick="setMobilePlayerSpeed(1)">1×</button>
+                    <button type="button" onclick="setMobilePlayerSpeed(1.5)">1.5×</button>
+                    <button type="button" onclick="setMobilePlayerSpeed(2)">2×</button>
+                </div>
+            </div>
+        </div>
         <div class="mini-mobile-actions mini-only" aria-label="Mini player controls">
             <button type="button" class="mini-mobile-play" onclick="event.stopPropagation(); togglePlay();" aria-label="Play or pause">
                 <i id="mini-mobile-play-symbol" data-lucide="play" aria-hidden="true"></i>
@@ -6832,7 +7105,7 @@ function createPersistentPlayer() {
                     <button class="player-control-btn hidden mini-only" onclick="toggleMiniPlayerSize()" title="Resize"><i data-lucide="scaling" class="w-4 h-4"></i></button>
                     <button class="player-control-btn hidden mini-only" onclick="playerService.skipIntro()" title="Skip Intro"><i data-lucide="fast-forward" class="w-4 h-4"></i></button>
                     <button class="player-control-btn hidden mini-only" onclick="toggleMiniSettings()" title="Settings"><i data-lucide="settings" class="w-4 h-4"></i></button>
-                    <button type="button" class="player-control-btn hidden mini-only" onclick="closeFloatingOrMiniPlayer(event)" title="Close"><i data-lucide="x" class="w-4 h-4"></i></button>
+                    <button type="button" class="player-control-btn hidden mini-only" onclick="openPlayerEpisodeList()" title="Episode list" aria-label="Episode list"><i data-lucide="list-video" class="w-4 h-4"></i></button>
 
                     <select id="player-speed-select" class="player-select full-only" onchange="setPlayerSpeed(this.value)">
                         <option value="1">1x</option>
@@ -6848,6 +7121,17 @@ function createPersistentPlayer() {
             </div>
         </div>
     `;
+
+    // Keep hover behaviour dependable even when a poster, vignette, or another
+    // layer sits above the video element.
+    div.addEventListener('mouseenter', () => {
+        div.querySelector('#video-controls')?.classList.add('is-visible');
+        showMobilePlayerControls();
+    });
+    div.addEventListener('mouseleave', () => {
+        div.querySelector('#video-controls')?.classList.remove('is-visible');
+        hideMobilePlayerControls();
+    });
     return div;
 }
 

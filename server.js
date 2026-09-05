@@ -2015,6 +2015,49 @@ function collectEpisodeR2Keys(episode) {
   return [...keys];
 }
 
+function collectAnimeCloudinaryAssets(anime) {
+  const assets = [];
+  const fields = [
+    ['imageMetadata', 'image'],
+    ['bannerMetadata', 'image'],
+    ['bannerVideoMetadata', 'video'],
+  ];
+
+  for (const [field, resourceType] of fields) {
+    const metadata = anime?.[field];
+    const storageProvider = String(metadata?.storageProvider || '').toLowerCase();
+    const publicId = metadata?.publicId || metadata?.public_id;
+    if (storageProvider !== 'cloudinary' || typeof publicId !== 'string' || !publicId.trim()) continue;
+
+    assets.push({
+      field,
+      publicId: publicId.trim(),
+      resourceType,
+    });
+  }
+
+  const seen = new Set();
+  return assets.filter(asset => {
+    const identity = `${asset.resourceType}:${asset.publicId}`;
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
+  });
+}
+
+function deleteFromCloudinary(publicId, resourceType) {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.destroy(publicId, { resource_type: resourceType }, (error, result) => {
+      if (error) return reject(error);
+      const outcome = String(result?.result || '').toLowerCase();
+      if (outcome && outcome !== 'ok' && outcome !== 'not found') {
+        return reject(new Error(`Cloudinary deletion returned: ${result.result}`));
+      }
+      resolve(result);
+    });
+  });
+}
+
 function getTrustedR2KeyFromUrl(value) {
   if (typeof value !== 'string' || !value.trim() || !process.env.R2_PUBLIC_URL) return null;
 
@@ -2064,15 +2107,17 @@ app.delete('/api/anime/:id/episodes/:episodeNumber', requireDb, requireAdmin, as
   }
 
   const objectKeys = collectEpisodeR2Keys(episode);
-  console.log('[Episode Deletion] Current episodes before deletion:', anime.episodesMedia.length);
-  console.log('[Episode Deletion] R2 objects to delete:', objectKeys);
+  console.log(`[Episode Deletion] Deleting anime "${anime.title}" (ID: ${anime.clientId || anime._id}), Episode ${episodeNumber}`);
+  console.log(`[Episode Deletion] Found ${objectKeys.length} R2 object(s) for "${anime.title}" Episode ${episodeNumber}`);
 
   try {
-    for (const key of objectKeys) {
+    for (const [index, key] of objectKeys.entries()) {
+      console.log(`[Episode Deletion] [${index + 1}/${objectKeys.length}] Deleting R2 object for "${anime.title}" Episode ${episodeNumber}: ${key}`);
       await deleteFromR2(key);
+      console.log(`[Episode Deletion] [${index + 1}/${objectKeys.length}] R2 object deleted successfully`);
     }
   } catch (error) {
-    console.error('[Episode Deletion] R2 deletion failed; database record preserved:', error);
+    console.error(`[Episode Deletion] R2 deletion failed for "${anime.title}" Episode ${episodeNumber}; database record preserved:`, error);
     return res.status(502).json({
       ok: false,
       error: 'Cloud video could not be deleted. The episode was kept so you can retry.',
@@ -2088,17 +2133,17 @@ app.delete('/api/anime/:id/episodes/:episodeNumber', requireDb, requireAdmin, as
   // Keep status/newEpisode stable for UI; don't force newEpisode on delete.
   anime.newEpisode = false;
 
-  console.log('[Episode Deletion] Saving to database...');
+  console.log(`[Episode Deletion] Cloud deletion complete for "${anime.title}" Episode ${episodeNumber}. Saving database record...`);
   try {
     await anime.save();
   } catch (error) {
-    console.error('[Episode Deletion] Database deletion failed after R2 deletion:', error);
+    console.error(`[Episode Deletion] Database deletion failed after R2 deletion for "${anime.title}" Episode ${episodeNumber}:`, error);
     return res.status(500).json({
       ok: false,
       error: 'Cloud video was deleted, but the episode record could not be removed. Please contact an administrator.',
     });
   }
-  console.log('[Episode Deletion] Deleted successfully, remaining episodes:', anime.episodesMedia.length);
+  console.log(`[Episode Deletion] "${anime.title}" Episode ${episodeNumber} deleted successfully. Remaining episodes: ${anime.episodesMedia.length}`);
 
   res.json({ ok: true, anime: normalizeAnime(anime) });
 });
@@ -2503,12 +2548,50 @@ app.delete('/api/anime/:id', requireDb, requireAdmin, async (req, res) => {
     ? { clientId: Number(req.params.id) }
     : { _id: req.params.id };
 
-  const deleted = await Anime.findOneAndDelete(query);
-  if (!deleted) {
+  const anime = await Anime.findOne(query);
+  if (!anime) {
     return res.status(404).json({ ok: false, error: 'Anime not found.' });
   }
 
+  const assets = collectAnimeCloudinaryAssets(anime);
+  console.log(`[Anime Deletion] Deleting "${anime.title}" (ID: ${anime.clientId || anime._id})`);
+  console.log(`[Anime Deletion] Found ${assets.length} Cloudinary asset(s) to delete`);
+
+  try {
+    for (const [index, asset] of assets.entries()) {
+      console.log(`[Anime Deletion] [${index + 1}/${assets.length}] Deleting ${asset.field}: ${asset.publicId}`);
+      await deleteFromCloudinary(asset.publicId, asset.resourceType);
+      console.log(`[Anime Deletion] [${index + 1}/${assets.length}] Cloudinary asset deleted or already absent`);
+    }
+  } catch (error) {
+    console.error(`[Anime Deletion] Cloudinary deletion failed for "${anime.title}"; database record preserved:`, error);
+    return res.status(502).json({
+      ok: false,
+      error: 'Cloudinary media could not be deleted. The anime was kept so you can retry.',
+    });
+  }
+
+  let deleted;
+  try {
+    deleted = await Anime.findOneAndDelete(query);
+  } catch (error) {
+    console.error(`[Anime Deletion] Database deletion failed after Cloudinary deletion for "${anime.title}":`, error);
+    return res.status(500).json({
+      ok: false,
+      error: 'Cloudinary media was deleted, but the anime record could not be removed. Please retry or contact an administrator.',
+    });
+  }
+
+  if (!deleted) {
+    console.error(`[Anime Deletion] Anime disappeared before database deletion: "${anime.title}"`);
+    return res.status(500).json({
+      ok: false,
+      error: 'Cloudinary media was deleted, but the anime record could not be confirmed as removed.',
+    });
+  }
+
   await syncGenreCounts();
+  console.log(`[Anime Deletion] "${anime.title}" deleted successfully`);
   res.json({ ok: true });
 });
 

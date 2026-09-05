@@ -1910,6 +1910,19 @@
         return payload;
     }
 
+    function getCloudinaryAssetMetadata(uploaded, resourceType, fallback = null) {
+        if (!uploaded?.public_id || uploaded.storage !== 'cloudinary') return fallback;
+        return {
+            storageProvider: 'cloudinary',
+            publicId: uploaded.public_id,
+            resourceType,
+            width: uploaded.width,
+            height: uploaded.height,
+            format: uploaded.format,
+            bytes: uploaded.bytes || uploaded.size,
+        };
+    }
+
     async function uploadAdminMedia() {
         console.log('[Edit Anime] Starting media upload...');
         
@@ -2193,8 +2206,11 @@
                     outroEnd: updatePayload.outroEnd,
                     type: updatePayload.type,
                     image: updatePayload.image,
+                    imageMetadata: getCloudinaryAssetMetadata(uploadedPoster, 'image', existing.imageMetadata),
                     banner: updatePayload.banner,
+                    bannerMetadata: getCloudinaryAssetMetadata(uploadedBanner, 'image', existing.bannerMetadata),
                     bannerVideo: updatePayload.bannerVideo,
+                    bannerVideoMetadata: getCloudinaryAssetMetadata(uploadedBannerVideo, 'video', existing.bannerVideoMetadata),
                     episodes: updatePayload.episodes,
                     episodesMedia: updatePayload.episodesMedia,
                     movieMedia: updatePayload.movieMedia,
@@ -2240,8 +2256,11 @@
                     id,
                     rating: payload.rating,
                     image: uploadedPoster?.url || `http://static.photos/technology/640x360/${id}`,
+                    imageMetadata: getCloudinaryAssetMetadata(uploadedPoster, 'image'),
                     banner: uploadedBanner?.url || `http://static.photos/technology/1200x630/${id}`,
+                    bannerMetadata: getCloudinaryAssetMetadata(uploadedBanner, 'image'),
                     bannerVideo: uploadedBannerVideo?.url || '',
+                    bannerVideoMetadata: getCloudinaryAssetMetadata(uploadedBannerVideo, 'video'),
                     trending: payload.trending,
                     newEpisode: payload.newEpisode,
                     episodes: 1,
@@ -2412,8 +2431,11 @@
                     outroEnd: updatePayload.outroEnd,
                     type: updatePayload.type,
                     image: updatePayload.image,
+                    imageMetadata: getCloudinaryAssetMetadata(uploadedPoster, 'image', existing.imageMetadata),
                     banner: updatePayload.banner,
+                    bannerMetadata: getCloudinaryAssetMetadata(uploadedBanner, 'image', existing.bannerMetadata),
                     bannerVideo: updatePayload.bannerVideo,
+                    bannerVideoMetadata: getCloudinaryAssetMetadata(uploadedBannerVideo, 'video', existing.bannerVideoMetadata),
                     episodes: updatePayload.episodes,
                     episodesMedia: updatePayload.episodesMedia,
                     movieMedia: updatePayload.movieMedia,
@@ -2481,8 +2503,11 @@
                     trailer: payload.trailer,
                     type: forcedType,
                     image: uploadedPoster?.url || existing?.image,
+                    imageMetadata: getCloudinaryAssetMetadata(uploadedPoster, 'image'),
                     banner: uploadedBanner?.url || existing?.banner,
+                    bannerMetadata: getCloudinaryAssetMetadata(uploadedBanner, 'image'),
                     bannerVideo: bannerDisplay === 'video' ? (uploadedBannerVideo?.url || existing?.bannerVideo || '') : '',
+                    bannerVideoMetadata: getCloudinaryAssetMetadata(uploadedBannerVideo, 'video'),
                     movieMedia: { qualities },
                 };
         
