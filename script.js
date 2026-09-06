@@ -6915,10 +6915,10 @@ function createPersistentPlayer() {
 
         <!-- Video Loading Overlay -->
         <div id="video-loading-overlay" class="video-loading-overlay hidden">
-            <div class="video-loading-spinner">
-                <div class="video-spinner-ring"></div>
-                <div class="video-spinner-ring"></div>
-                <div class="video-spinner-ring"></div>
+            <div class="video-loading-cubes" role="status" aria-label="Loading video">
+                <div class="video-loading-cube"><div class="video-loading-cube-inner"></div></div>
+                <div class="video-loading-cube"><div class="video-loading-cube-inner"></div></div>
+                <div class="video-loading-cube"><div class="video-loading-cube-inner"></div></div>
             </div>
         </div>
 
