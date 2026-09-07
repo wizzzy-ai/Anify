@@ -89,7 +89,8 @@ function getActiveProfileTokens() {
 }
 
 const GLITTER_WRAP_DEFAULTS = {
-    particleCount: 500,
+    // The intro is decorative, so it must not monopolize a phone's GPU.
+    particleCount: 160,
     color1: "#ffffff",
     color2: "#FBBF24",
     color3: "#8B5CF6",
@@ -459,8 +460,9 @@ class GlitterWrap {
 class AnifyIntroAnimation {
     constructor(options = {}) {
         this.container = options.container || document.body;
-        // Exactly 9 seconds cinematic loading screen duration
-        this.duration = options.duration !== undefined ? options.duration : 9000;
+        // Keep the brand moment brief; a fixed nine-second gate made a ready
+        // application feel broken, especially on mobile connections.
+        this.duration = options.duration !== undefined ? options.duration : 1100;
         this.enabled = options.enabled !== false;
         this.skipable = options.skipable !== false;
         this.onComplete = options.onComplete || (() => { });
@@ -861,8 +863,9 @@ class AnifyIntroAnimation {
             if (this.canSkip) this.skip();
         };
 
-        // Start GlitterWrap starfield animation
-        if (this.glitterWrap) {
+        // Respect the user's motion setting and avoid starting an unnecessary
+        // requestAnimationFrame loop on constrained devices.
+        if (this.glitterWrap && !this.prefersReducedMotion) {
             this.glitterWrap.start();
         }
 
@@ -883,9 +886,9 @@ class AnifyIntroAnimation {
                 this.skipButton.style.transform = 'translateY(0)';
                 this.canSkip = true;
             }
-        }, 1000);
+        }, 250);
 
-        // Animate progress bar fill smoothly from 0% to 100% across the 9 seconds
+        // Animate progress bar fill smoothly across the short intro.
         if (this.progressFill) {
             this.progressFill.style.width = '0%';
             this.progressFill.style.transition = `width ${this.duration / 1000}s cubic-bezier(0.16, 1, 0.3, 1)`;
@@ -898,7 +901,7 @@ class AnifyIntroAnimation {
             });
         }
 
-        // Auto-complete after loading duration (exactly 9 seconds)
+        // Auto-complete after the configured loading duration.
         if (this.duration > 0) {
             this.autoCompleteTimer = setTimeout(() => {
                 this.complete();
@@ -906,8 +909,8 @@ class AnifyIntroAnimation {
         }
     }
 
-    dismissEarly(minDisplayTime = 9000) {
-        // Kept for API compatibility; runs for full 9s duration
+    dismissEarly() {
+        // Kept for API compatibility. The intro no longer delays the app.
     }
 
     skip() {

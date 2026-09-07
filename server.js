@@ -70,7 +70,10 @@ app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, 'pictures', 'logo2.png'));
 });
 
-app.use(express.static(__dirname));
+// Do not let Express serve index.html for `/` before the homepage route below.
+// That redirect page has only fallback metadata, which caused search engines and
+// social crawlers to index the wrong document.
+app.use(express.static(__dirname, { index: false }));
 
 // During maintenance, regular visitors cannot use API data or perform actions.
 // Admins are intentionally exempt so they can enter the dashboard and turn the

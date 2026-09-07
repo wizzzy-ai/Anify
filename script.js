@@ -1826,6 +1826,7 @@ function setupHeroLiveWallpapers() {
 // Centralized search state
 let isSearchOpen = false;
 let searchPreviousBodyOverflow = null;
+let searchInputTimer = null;
 
 // Mobile floating player state
 let floatingPlayerObserver = null;
@@ -5475,6 +5476,17 @@ function alertGold(message) {
     card.appendChild(actions);
     overlay.appendChild(card);
     document.body.appendChild(overlay);
+}
+
+function queueSearch(query) {
+    // Filtering and rebuilding result markup for every keystroke is noticeable
+    // on larger libraries. Keep typing responsive while retaining a short,
+    // natural-feeling search delay.
+    if (searchInputTimer) clearTimeout(searchInputTimer);
+    searchInputTimer = setTimeout(() => {
+        searchInputTimer = null;
+        handleSearch(query);
+    }, 120);
 }
 
 function handleSearch(query) {
