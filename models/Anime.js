@@ -126,6 +126,8 @@ animeSchema.index({ featured: 1, createdAt: -1 });
 animeSchema.index({ trending: 1, createdAt: -1 });
 animeSchema.index({ status: 1 });
 animeSchema.index({ type: 1, createdAt: -1 });
+animeSchema.index({ premium: 1, createdAt: -1 });
+animeSchema.index({ newEpisode: 1, createdAt: -1 });
 
 // Method to recalculate average rating and count from individual user ratings
 animeSchema.methods.recalculateRatings = async function() {

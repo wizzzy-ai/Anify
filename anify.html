@@ -24,21 +24,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
-    <link rel="preconnect" href="https://cdn.jsdelivr.net">
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link rel="dns-prefetch" href="https://res.cloudinary.com">
 
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
     <link rel="icon" id="app-favicon" href="/pictures/logo2.png" type="image/png">
     <link rel="shortcut icon" href="/pictures/logo2.png" type="image/png">
     <link rel="apple-touch-icon" href="/pictures/logo2.png">
 
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
         rel="stylesheet" media="print" onload="this.media='all'">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
     <script>
         // Set the persisted appearance before the stylesheet paints to avoid a mode flash.
         (function applyStoredAppearance() {
@@ -58,6 +56,7 @@
     <script>
         // Tailwind CDN is OK for development, but not ideal for production.
         // Keep this for now to avoid breaking the current build setup.
+        window.tailwind = window.tailwind || {};
         tailwind.config = {
 
             darkMode: 'class',
@@ -301,7 +300,8 @@
             }
         }
     </style>
-    <link rel="stylesheet" href="style.css">
+    <link rel="preload" href="style.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="style.css"></noscript>
 </head>
 
 <body class="bg-dark-900 text-white font-outfit transition-colors duration-500">
@@ -1073,43 +1073,137 @@
 
     </div>
 
-    <script src="js/storage/storageService.js"></script>
-    <script src="js/auth/authService.js"></script>
-    <script src="js/genres/genreService.js"></script>
-    <script src="js/watch/continueWatchingService.js"></script>
-    <script src="js/watch/watchlistService.js"></script>
-    <script src="js/interactions/interactionService.js"></script>
-    <script src="js/interactions/surpriseService.js"></script>
-    <script src="js/notifications/notificationService.js"></script>
-    <script src="js/platformAnnouncements.js?v=3"></script>
-    <script src="js/player/playerService.js"></script>
-    <script src="js/player/miniPlayer.js"></script>
-    <script src="js/guest/guestPreviewService.js"></script>
-    <script src="js/platformMaintenance.js"></script>
-    <script src="js/profile/profileConfig.js"></script>
-    <script src="js/clickEffects.js"></script>
-    <script src="js/introAnimation.js"></script>
-    <script src="js/animations/heroAnimations.js"></script>
-    <script src="js/animations/fluidImageReveal.js"></script>
-    <script src="js/animations/scrollAnimations.js"></script>
-    <script src="js/animations/cardAnimations.js"></script>
-    <script src="js/animations/pageTransitions.js"></script>
-    <script src="js/animations/animationManager.js"></script>
-    <script src="script.js"></script>
-    <script src="js/admin/adminService.js"></script>
-    <script src="js/admin/adminUtils.js"></script>
-    <script src="js/admin/uploadService.js"></script>
-    <script src="js/admin/batchEpisodeUploadManager.js"></script>
-    <script src="js/admin/categoryManagement.js"></script>
-    <script src="js/admin/animeManagement.js"></script>
-    <script src="js/admin/dashboardService.js"></script>
-    <script src="js/admin/episodeManagement.js"></script>
-    <script src="js/admin/adminUI.js"></script>
-    <script src="js/admin/catalogueManagement.js"></script>
-    <script src="js/admin/catalogueUI.js"></script>
-    <script src="js/admin/bulkEditModal.js"></script>
-    <script src="js/admin/dragDropManager.js"></script>
-    <script src="public_bootstrap.js"></script>
+    <!-- Critical scripts for initial render -->
+    <script src="js/storage/storageService.js" defer></script>
+    <script src="js/auth/authService.js" defer></script>
+    <script src="script.js" defer></script>
+    
+    <!-- Deferred scripts for enhanced functionality -->
+    <script src="js/genres/genreService.js" defer></script>
+    <script src="js/watch/continueWatchingService.js" defer></script>
+    <script src="js/watch/watchlistService.js" defer></script>
+    <script src="js/interactions/interactionService.js" defer></script>
+    <script src="js/interactions/surpriseService.js" defer></script>
+    <script src="js/notifications/notificationService.js" defer></script>
+    <script src="js/platformAnnouncements.js?v=3" defer></script>
+    <script src="js/guest/guestPreviewService.js" defer></script>
+    <script src="js/platformMaintenance.js" defer></script>
+    <script src="js/profile/profileConfig.js" defer></script>
+    
+    <script>
+        // Load visual enhancements after the first route has had a chance to render.
+        let enhancementScriptsPromise;
+        window.loadEnhancementScripts = function loadEnhancementScripts() {
+            if (enhancementScriptsPromise) return enhancementScriptsPromise;
+
+            const enhancementScripts = [
+                'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js',
+                'js/clickEffects.js',
+                'js/introAnimation.js',
+                'js/animations/heroAnimations.js',
+                'js/animations/fluidImageReveal.js',
+                'js/animations/scrollAnimations.js',
+                'js/animations/cardAnimations.js',
+                'js/animations/pageTransitions.js',
+                'js/animations/animationManager.js'
+            ];
+
+            enhancementScriptsPromise = enhancementScripts.reduce((promise, src) => promise.then(() => new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = () => reject(new Error(`Failed to load ${src}`));
+                document.head.appendChild(script);
+            })), Promise.resolve()).then(() => {
+                if (window.initAnifyIntro && !sessionStorage.getItem('anify-intro-seen')) {
+                    window.initAnifyIntro();
+                }
+                if (window.AnifyAnimationManager) {
+                    window.AnifyAnimationManager.refresh(typeof currentPage === 'string' ? currentPage : 'home');
+                }
+            }).catch(error => console.warn('[App] Enhancement loading failed:', error));
+
+            return enhancementScriptsPromise;
+        };
+
+        const scheduleEnhancements = () => {
+            const load = () => window.loadEnhancementScripts();
+            if ('requestIdleCallback' in window) {
+                window.requestIdleCallback(load, { timeout: 1800 });
+            } else {
+                window.setTimeout(load, 800);
+            }
+        };
+        window.addEventListener('load', scheduleEnhancements, { once: true });
+
+        // Admin scripts are loaded on-demand only when accessing admin page
+        window.adminScriptsLoaded = false;
+        let playerScriptsPromise;
+
+        window.loadPlayerScripts = function loadPlayerScripts() {
+            if (playerScriptsPromise) return playerScriptsPromise;
+
+            const playerScripts = [
+                'js/player/playerService.js',
+                'js/player/miniPlayer.js'
+            ];
+            playerScriptsPromise = Promise.all(playerScripts.map(src => new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = () => reject(new Error(`Failed to load ${src}`));
+                document.head.appendChild(script);
+            })));
+            return playerScriptsPromise;
+        };
+        
+        async function loadAdminScripts() {
+            if (window.adminScriptsLoaded) return;
+
+            if (!document.querySelector('link[data-admin-styles]')) {
+                const adminStyles = document.createElement('link');
+                adminStyles.rel = 'stylesheet';
+                adminStyles.href = 'admin.css';
+                adminStyles.dataset.adminStyles = 'true';
+                document.head.appendChild(adminStyles);
+            }
+            
+            const adminScripts = [
+                'js/admin/adminService.js',
+                'js/admin/adminUtils.js', 
+                'js/admin/uploadService.js',
+                'js/admin/batchEpisodeUploadManager.js',
+                'js/admin/categoryManagement.js',
+                'js/admin/animeManagement.js',
+                'js/admin/dashboardService.js',
+                'js/admin/episodeManagement.js',
+                'js/admin/adminUI.js',
+                'js/admin/catalogueManagement.js',
+                'js/admin/catalogueUI.js',
+                'js/admin/bulkEditModal.js',
+                'js/admin/dragDropManager.js'
+            ];
+            
+            const loadPromises = adminScripts.map(src => {
+                return new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            });
+            
+            try {
+                await Promise.all(loadPromises);
+                window.adminScriptsLoaded = true;
+                console.log('[Admin] All admin scripts loaded');
+            } catch (error) {
+                console.error('[Admin] Failed to load admin scripts:', error);
+            }
+        }
+    </script>
 </body>
 
 </html>

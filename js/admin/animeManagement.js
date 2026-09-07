@@ -15,6 +15,7 @@
 
     async function loadAnimeFromApi() {
         try {
+            // Admin needs full data, so don't use fields=minimal
             const res = await fetch('/api/anime', { cache: 'no-store' });
             const data = await res.json().catch(() => ({}));
             

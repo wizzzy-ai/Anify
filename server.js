@@ -1668,8 +1668,57 @@ app.delete('/api/anime/:animeId/rating', async (req, res) => {
 
 app.get('/api/anime', async (req, res) => {
   if (!requireDbForGet({ ok: false, error: 'MongoDB is not connected.' }, res)) return;
-  const anime = await Anime.find().sort({ createdAt: -1 }).lean();
-  const normalizedAnime = anime.map(normalizeAnime);
+  
+  const { fields, limit, skip } = req.query;
+  const isMinimal = fields === 'minimal';
+  const limitNum = limit ? Math.min(parseInt(limit, 10), 500) : 0; // Cap at 500
+  const skipNum = skip ? parseInt(skip, 10) : 0;
+  
+  let query = Anime.find().sort({ createdAt: -1 });
+  
+  if (limitNum) {
+    query = query.skip(skipNum).limit(limitNum);
+  }
+  
+  // Use MongoDB projection to reduce data transfer for minimal requests
+  if (isMinimal) {
+    query = query.select('-episodesMedia -videoSources -movieMedia -videoUrl -imageMetadata -bannerMetadata -bannerVideoMetadata -trailerMetadata -introStart -introEnd -outroStart -outroEnd -__v');
+  }
+  
+  const anime = await query.lean();
+  
+  let normalizedAnime;
+  if (isMinimal) {
+    // Lightweight version for cards/homepage - only essential fields
+    normalizedAnime = anime.map(a => ({
+      id: a.clientId || a.id || a._id?.toString(),
+      title: a.title,
+      titleJp: a.titleJp,
+      image: a.image,
+      poster: a.poster,
+      banner: a.banner,
+      genres: a.genres,
+      episodes: a.episodes,
+      premium: a.premium,
+      newEpisode: a.newEpisode,
+      featured: a.featured,
+      trending: a.trending,
+      rating: a.rating,
+      averageRating: a.averageRating,
+      type: a.type,
+      year: a.year,
+      status: a.status,
+      studio: a.studio,
+      desc: a.desc, // Short description for hero
+      bannerDisplay: a.bannerDisplay,
+      bannerVideo: a.bannerVideo,
+      trailer: a.trailer,
+    }));
+  } else {
+    // Full version for admin/catalog
+    normalizedAnime = anime.map(normalizeAnime);
+  }
+  
   res.set('Cache-Control', 'public, max-age=15, stale-while-revalidate=60');
   res.json({ ok: true, anime: normalizedAnime });
 });

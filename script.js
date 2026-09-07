@@ -366,10 +366,24 @@ try {
 window.animeData = animeData;
 window.categories = categories;
 
-function createLucideIconsSafe() {
-    if (window.lucide && typeof lucide.createIcons === 'function') {
-        lucide.createIcons();
-    }
+function createLucideIconsSafe(root = document) {
+    if (!window.lucide || typeof lucide.createElement !== 'function' || !lucide.icons) return;
+
+    const iconElements = root.querySelectorAll('[data-lucide]');
+    iconElements.forEach((element) => {
+        const iconName = element.dataset.lucide
+            .split('-')
+            .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+            .join('');
+        const iconNode = lucide.icons[iconName];
+        if (!iconNode) return;
+
+        const svg = lucide.createElement(iconNode);
+        Array.from(element.attributes).forEach(attribute => {
+            if (attribute.name !== 'data-lucide') svg.setAttribute(attribute.name, attribute.value);
+        });
+        element.replaceWith(svg);
+    });
 }
 
 function getProfileConfig() {
@@ -1229,7 +1243,9 @@ async function loadAnimeFromApi() {
         try { return await animeManagement.loadAnimeFromApi(); } catch (e) { console.warn('animeManagement.loadAnimeFromApi failed:', e); }
     }
     try {
-        const res = await fetch('/api/anime');
+        // Use minimal fields and limit for public site to reduce payload size
+        // Load first 100 items for initial page load, can load more as needed
+        const res = await fetch('/api/anime?fields=minimal&limit=100');
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.ok && Array.isArray(data.anime)) {
             animeData.splice(0, animeData.length, ...data.anime);
@@ -1247,7 +1263,24 @@ async function loadAnimeFromApi() {
     } else {
         restoreAdminAnimeData();
     }
-    return false;
+}
+
+// Load additional anime for pagination (admin only needs full catalog)
+async function loadMoreAnime(offset = 100, limit = 100) {
+    try {
+        const res = await fetch(`/api/anime?fields=minimal&skip=${offset}&limit=${limit}`);
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok && Array.isArray(data.anime)) {
+            // Append new anime without duplicates
+            const existingIds = new Set(animeData.map(a => a.id));
+            const newAnime = data.anime.filter(a => !existingIds.has(a.id));
+            animeData.push(...newAnime);
+            return newAnime.length;
+        }
+    } catch (e) {
+        console.warn('Failed to load more anime:', e.message);
+    }
+    return 0;
 }
 
 async function loadAnimeByIdFromApi(id) {
@@ -1375,8 +1408,6 @@ function clearContinueWatching() {
     }
 }
 
-restoreContinueWatching();
-
 function shouldShowBannerVideo(anime) {
     return Boolean(anime?.bannerVideo && (anime.bannerDisplay ? anime.bannerDisplay === 'video' : true));
 }
@@ -1469,7 +1500,7 @@ function renderHeroContent(anime) {
             <button onclick="navigate('anime', ${anime.id})" class="btn-secondary flex items-center gap-2 px-6 py-3">
                 <i data-lucide="info" class="w-5 h-5"></i> Details
             </button>
-<button onclick="toggleBookmark(${anime.id})" class="hero-bookmark p-3 rounded-xl bg-white/5 border border-white/10 hover:border-gold-400/30 transition-all" title="Add to Watchlist">
+<button onclick="toggleBookmark(${anime.id})" class="hero-bookmark p-3 rounded-xl bg-white/5 border border-white/10 hover:border-gold-400/30 transition-all" aria-label="Add to watchlist" title="Add to Watchlist">
                 <i data-lucide="${isBookmarked(anime.id) ? 'bookmark-check' : 'bookmark'}" class="w-5 h-5 ${isBookmarked(anime.id) ? 'text-gold-400' : ''}"></i>
             </button>
         </div>`;
@@ -1676,11 +1707,11 @@ async function initializeApp() {
     const [, initialPage, initialId] = (window.location.hash || '').split('/');
     const directAnimeId = ['anime', 'player'].includes(initialPage) ? Number(initialId) : 0;
 
-    window.addEventListener('hashchange', handleRouteChange);
-    window.addEventListener('popstate', handleRouteChange);
+    window.addEventListener('hashchange', () => { handleRouteChange().catch(e => console.error('Route change error:', e)); });
+    window.addEventListener('popstate', () => { handleRouteChange().catch(e => console.error('Route change error:', e)); });
 
     // 1. Initial 0ms render from synchronous memory/cache
-    handleRouteChange();
+    handleRouteChange().catch(e => console.error('Initial route error:', e));
     // If playback was minimized before refresh, restore it so the viewer can
     // continue where they left off. Opening the watch page still expands it.
     restoreMiniPlayerFromRefresh();
@@ -1711,7 +1742,7 @@ async function initializeApp() {
     clearTimeout(loadingTimeout);
 
     // Refresh the requested route as soon as its data is available.
-    handleRouteChange();
+    handleRouteChange().catch(e => console.error('Data-loaded route error:', e));
 
     // Populate the rest of the catalog in the background for browse pages and
     // recommendations without delaying the first direct-link render.
@@ -1779,14 +1810,6 @@ async function uploadVideoFile(file, onProgress = null) {
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[App] DOMContentLoaded fired');
-
-    // Play cinematic intro animation
-    if (window.initAnifyIntro) {
-        console.log('[App] Initializing intro animation...');
-        initAnifyIntro();
-    } else {
-        console.warn('[App] initAnifyIntro not available');
-    }
 
     applyTheme(getCurrentTheme());
     authService.restoreSession();
@@ -1923,7 +1946,7 @@ function navigate(page, data, options = {}) {
     }
 }
 
-function handleRouteChange() {
+async function handleRouteChange() {
     const hash = window.location.hash || '#/home';
     const [_, page, data] = hash.split('/');
 
@@ -1958,7 +1981,16 @@ function handleRouteChange() {
             loadUserRating(Number(data));
             startCountdownUpdates();
             break;
-        case 'player': content.innerHTML = renderPlayer(Number(data)); break;
+        case 'player':
+            if (typeof loadPlayerScripts === 'function') {
+                try {
+                    await loadPlayerScripts();
+                } catch (error) {
+                    console.error('[Player] Failed to load player scripts:', error);
+                }
+            }
+            content.innerHTML = renderPlayer(Number(data));
+            break;
         case 'login': content.innerHTML = renderLogin(); break;
         case 'register': content.innerHTML = renderRegister(); break;
         case 'profile':
@@ -1967,6 +1999,10 @@ function handleRouteChange() {
             break;
         case 'admin':
             if (!ensureAdminOrRedirect()) return;
+            // Load admin scripts on-demand before rendering admin UI
+            if (typeof loadAdminScripts === 'function' && !window.adminScriptsLoaded) {
+                await loadAdminScripts();
+            }
             content.innerHTML = renderAdmin();
             break;
         default:
@@ -1981,8 +2017,7 @@ function handleRouteChange() {
         surpriseFab.classList.toggle('hidden', page === 'player');
     }
 
-    lucide.createIcons();
-    setTimeout(() => lucide.createIcons(), 100);
+    createLucideIconsSafe(content);
     if (page === 'home') {
         setupHeroLiveWallpapers();
     }
@@ -2205,10 +2240,10 @@ function renderCarousel(title, items, description = 'Hand-picked titles ready fo
         <div class="flex items-center justify-between mb-5">
             ${renderSectionHeader(displayTitle, displayDescription, displayIcon)}
             <div class="flex gap-2">
-                <button onclick="scrollCarousel(this, -1)" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all">
+                <button onclick="scrollCarousel(this, -1)" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all" aria-label="Previous anime">
                     <i data-lucide="chevron-left" class="w-4 h-4"></i>
                 </button>
-                <button onclick="scrollCarousel(this, 1)" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all">
+                <button onclick="scrollCarousel(this, 1)" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all" aria-label="Next anime">
                     <i data-lucide="chevron-right" class="w-4 h-4"></i>
                 </button>
             </div>
@@ -2242,7 +2277,7 @@ function renderAnimeCard(a, revealIndex = null) {
                 ${a.newEpisode ? '<span class="badge-new">NEW EP</span>' : ''}
             </div>
             <div class="absolute top-2 right-2">
-<button onclick="event.stopPropagation(); toggleBookmark(${a.id})" class="card-bookmark p-1.5 rounded-lg bg-black/50 hover:bg-black/70 transition-all">
+<button onclick="event.stopPropagation(); toggleBookmark(${a.id})" class="card-bookmark p-1.5 rounded-lg bg-black/50 hover:bg-black/70 transition-all" aria-label="Add ${escapeHtml(a.title)} to watchlist">
                     <i data-lucide="bookmark" class="w-3.5 h-3.5 ${isBookmarked(a.id) ? 'fill-gold-400 text-gold-400' : ''}"></i>
                 </button>
             </div>
@@ -2581,7 +2616,7 @@ function renderBrowse(type, selectedGenre = null) {
                                 ${a.premium ? '<span class="badge-premium">Premium</span>' : ''}
                             </div>
                             <div class="absolute top-2 right-2">
-                                <button onclick="event.stopPropagation(); toggleWatchlist(${a.id})" class="p-1.5 rounded-lg bg-black/50 hover:bg-black/70 transition-all">
+                                <button onclick="event.stopPropagation(); toggleWatchlist(${a.id})" class="p-1.5 rounded-lg bg-black/50 hover:bg-black/70 transition-all" aria-label="Add ${escapeHtml(a.title)} to watchlist">
                                     <i data-lucide="bookmark" class="w-3.5 h-3.5 ${isBookmarked(a.id) ? 'fill-gold-400 text-gold-400' : ''}"></i>
                                 </button>
                             </div>
@@ -7396,7 +7431,7 @@ function renderDiscoveryModalContent() {
 
     return `
     <div class="discovery-modal relative max-h-[95vh] overflow-y-auto custom-scrollbar" id="discovery-content" onclick="event.stopPropagation()">
-        <button onclick="hideDiscoveryHub()" class="absolute top-6 right-6 p-2 rounded-xl hover:bg-white/10 text-gray-500 hover:text-white transition-all z-20">
+        <button onclick="hideDiscoveryHub()" class="absolute top-6 right-6 p-2 rounded-xl hover:bg-white/10 text-gray-500 hover:text-white transition-all z-20" aria-label="Close discovery hub">
             <i data-lucide="x" class="w-6 h-6"></i>
         </button>
 
@@ -7567,14 +7602,14 @@ function doDiscoveryReveal(anime) {
                         <i data-lucide="refresh-cw" class="w-5 h-5 group-hover:rotate-180 transition-transform duration-500"></i> Try Another
                     </button>
                     <button onclick="event.stopPropagation(); toggleWatchlist(${anime.id}); this.querySelector('i').classList.toggle('fill-gold-400'); this.querySelector('i').classList.toggle('text-gold-400')" 
-                        class="w-14 h-14 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-gray-400 dark:text-white/30 hover:text-gold-400 transition-all flex items-center justify-center">
+                        class="w-14 h-14 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-gray-400 dark:text-white/30 hover:text-gold-400 transition-all flex items-center justify-center" aria-label="Add ${escapeHtml(anime.title)} to watchlist">
                         <i data-lucide="bookmark" class="w-6 h-6 ${isBookmarked(anime.id) ? 'fill-gold-400 text-gold-400' : ''}"></i>
                     </button>
                 </div>
             </div>
         </div>
         
-        <button onclick="hideDiscoveryHub()" class="absolute top-6 right-6 z-20 p-2.5 rounded-2xl bg-black/40 backdrop-blur-2xl border border-white/10 text-white/40 hover:text-white transition-all shadow-xl">
+        <button onclick="hideDiscoveryHub()" class="absolute top-6 right-6 z-20 p-2.5 rounded-2xl bg-black/40 backdrop-blur-2xl border border-white/10 text-white/40 hover:text-white transition-all shadow-xl" aria-label="Close discovery hub">
             <i data-lucide="x" class="w-6 h-6"></i>
         </button>
     </div>`;
