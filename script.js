@@ -6,6 +6,44 @@ function ensureHttps(url) {
     return url.replace(/^http:/, 'https:');
 }
 
+// ============ IMAGE OPTIMIZATION - Cloudinary URL Transformation ============
+function getOptimizedImageUrl(url, width = 400, height = 600, quality = 80) {
+    if (!url || typeof url !== 'string') return url;
+    
+    // Check if it's a Cloudinary URL
+    if (!url.includes('res.cloudinary.com')) {
+        return ensureHttps(url);
+    }
+    
+    try {
+        const urlObj = new URL(ensureHttps(url));
+        const pathParts = urlObj.pathname.split('/');
+        
+        // Find the upload segment and insert transformations
+        const uploadIndex = pathParts.findIndex(part => part === 'upload');
+        if (uploadIndex === -1) return ensureHttps(url);
+        
+        // Build transformation string
+        const transformations = [
+            `f_webp`, // Use WebP format
+            `q_${quality}`, // Quality
+            `w_${width}`, // Width
+            `h_${height}`, // Height
+            `c_fill`, // Crop to fill
+            `g_auto` // Auto gravity
+        ].join(',');
+        
+        // Insert transformations after 'upload'
+        pathParts.splice(uploadIndex + 1, 0, transformations);
+        urlObj.pathname = pathParts.join('/');
+        
+        return urlObj.toString();
+    } catch (error) {
+        console.warn('Image optimization failed:', error);
+        return ensureHttps(url);
+    }
+}
+
 function playTrailerInPage(url, title = 'Trailer') {
     let trailerUrl;
     try {
@@ -1374,7 +1412,7 @@ function renderHeroMedia(anime) {
             </video>`;
     }
 
-    return `<img src="${ensureHttps(anime.banner || anime.image || '')}" class="is-active" alt="${anime.title || ''}" fetchpriority="high" decoding="async" />`;
+    return `<img src="${getOptimizedImageUrl(anime.banner || anime.image || '', 1920, 1080, 85)}" class="is-active" alt="${anime.title || ''}" fetchpriority="high" decoding="async" />`;
 }
 
 function getHeroTitleInfo(fullTitle) {
@@ -2197,7 +2235,7 @@ function renderAnimeCard(a, revealIndex = null) {
     return `
     <div onclick="navigate('anime', ${a.id})"${revealStyle} class="anime-card flex-shrink-0 w-44 md:w-52${revealIndex === null ? '' : ' trending-reveal-card'}">
         <div class="relative aspect-[3/4] rounded-2xl overflow-hidden bg-dark-700">
-            <img src="${ensureHttps(a.image)}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy" decoding="async">
+            <img src="${getOptimizedImageUrl(a.image, 300, 400, 75)}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy" decoding="async">
             <div class="card-overlay"></div>
             <div class="absolute top-2 left-2 flex flex-col gap-1">
                 ${a.premium ? '<span class="badge-premium">Premium</span>' : ''}
@@ -2790,7 +2828,7 @@ function renderAnimeDetail(id) {
                     ${similar.map(s => `
                         <div onclick="navigate('anime', ${s.id})" class="recommend-card">
                             <div class="recommend-poster">
-                                <img src="${ensureHttps(s.image)}" alt="${s.title}" loading="lazy" class="recommend-poster-img" />
+                                <img src="${getOptimizedImageUrl(s.image, 150, 225, 75)}" alt="${s.title}" loading="lazy" class="recommend-poster-img" />
                                 <div class="recommend-poster-gradient"></div>
                                 <div class="recommend-badges">
                                     <span class="badge-premium"><i data-lucide="${(s.type === 'animated-movie' || s.type === 'live-movie') ? 'film' : 'calendar'}" class="w-3 h-3"></i> ${(s.type === 'animated-movie' || s.type === 'live-movie') ? 'Movie' : 'Anime'}</span>
@@ -2825,7 +2863,7 @@ function renderAnimeDetail(id) {
                     <div class="hero-stream-grid">
                         <!-- Left: Poster -->
                         <aside class="hero-poster-col">
-                            <img src="${ensureHttps(a.image)}" alt="${a.title} poster" loading="lazy" class="hero-poster-img" />
+                            <img src="${getOptimizedImageUrl(a.image, 300, 450, 80)}" alt="${a.title} poster" loading="lazy" class="hero-poster-img" />
                             ${a.trailer ? `
                             <button onclick="playTrailerInPage(decodeURIComponent('${encodeURIComponent(a.trailer).replace(/'/g, '%27')}'), decodeURIComponent('${encodeURIComponent(a.title).replace(/'/g, '%27')}'))" class="btn-premium-large hero-poster-trailer">
                                 <i data-lucide="film" class="w-5 h-5"></i> Watch Trailer
@@ -3644,7 +3682,7 @@ function renderProfile() {
                     <div class="space-y-3 max-h-64 overflow-y-auto">
                         ${watchHistoryItems.length ? watchHistoryItems.map(({ anime, timeLabel }) => `
                             <button onclick="navigate('anime', ${anime.id})" class="flex items-center gap-3 w-full text-left p-2 rounded-xl hover:bg-white/5 transition-all">
-                                <img src="${ensureHttps(anime.image)}" class="w-10 h-14 rounded-lg object-cover" alt="${anime.title}">
+                                <img src="${getOptimizedImageUrl(anime.image, 80, 112, 70)}" class="w-10 h-14 rounded-lg object-cover" alt="${anime.title}">
                                 <div class="min-w-0 flex-1">
                                     <p class="font-medium text-sm truncate">${anime.title}</p>
                                     <p class="text-xs text-gray-500">${timeLabel ? `Last watched ${timeLabel}` : 'Last watched'}</p>
@@ -3696,7 +3734,7 @@ function renderProfile() {
 
             <div class="glass-card rounded-2xl p-5 mt-6">
                 <div class="flex items-center justify-between gap-4 mb-4"><h3 class="font-bold flex items-center gap-2"><i data-lucide="pin" class="w-5 h-5" style="color:${accent}"></i> Pinned Favorites</h3><span class="text-xs text-gray-500">Pin up to 6 from your favorites</span></div>
-                ${favoriteAnime.length ? `<div class="flex flex-wrap gap-3">${favoriteAnime.map(anime => `<button onclick="togglePinnedAnime(${anime.id})" class="relative w-20 text-left"><img src="${ensureHttps(anime.image)}" alt="${escapeHtml(anime.title)}" class="h-28 w-20 object-cover rounded-lg ${pinnedIds.includes(String(anime.id)) ? 'ring-2 ring-gold-400' : ''}"><span class="block mt-1 truncate text-xs">${escapeHtml(anime.title)}</span></button>`).join('')}</div>` : '<p class="text-sm text-gray-500">Add anime to your favorites first, then pin them here.</p>'}
+                ${favoriteAnime.length ? `<div class="flex flex-wrap gap-3">${favoriteAnime.map(anime => `<button onclick="togglePinnedAnime(${anime.id})" class="relative w-20 text-left"><img src="${getOptimizedImageUrl(anime.image, 120, 168, 75)}" alt="${escapeHtml(anime.title)}" class="h-28 w-20 object-cover rounded-lg ${pinnedIds.includes(String(anime.id)) ? 'ring-2 ring-gold-400' : ''}"><span class="block mt-1 truncate text-xs">${escapeHtml(anime.title)}</span></button>`).join('')}</div>` : '<p class="text-sm text-gray-500">Add anime to your favorites first, then pin them here.</p>'}
                 ${pinnedAnime.length ? `<p class="mt-4 text-xs text-gray-500">Pinned: ${pinnedAnime.map(anime => escapeHtml(anime.title)).join(', ')}</p>` : ''}
             </div>
 
@@ -5276,7 +5314,7 @@ function renderNotifications() {
             <div tabindex="0" role="button" onclick="openNotificationReader('${notification.id}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openNotificationReader('${notification.id}'); }" class="notif-item ${readClass} ${notification.read ? 'notif-item--read' : 'notif-item--unread'}"${mediaStyle} aria-label="Open notification: ${notification.title}">
                 <div class="flex items-start gap-3">
                     <div class="notif-item__media">
-                        ${poster ? `<img src="${ensureHttps(poster)}" alt="${notification.metadata?.animeTitle || 'Anime'} poster" loading="lazy" onerror="this.hidden=true">` : `<span class="notif-item__icon"><i data-lucide="${notification.icon || 'bell'}"></i></span>`}
+                        ${poster ? `<img src="${getOptimizedImageUrl(poster, 100, 150, 70)}" alt="${notification.metadata?.animeTitle || 'Anime'} poster" loading="lazy" onerror="this.hidden=true">` : `<span class="notif-item__icon"><i data-lucide="${notification.icon || 'bell'}"></i></span>`}
                     </div>
                     <div class="notif-item__content">
                         <div class="notif-item__topline">
@@ -7453,7 +7491,7 @@ function triggerDiscovery(mode) {
     modal.innerHTML = `
         <div class="text-center flex flex-col items-center justify-center min-h-[500px] anim-fade-in" id="shuffle-view">
             <div class="shuffle-container mb-10">
-                <img src="${ensureHttps(anime.image)}" class="shuffle-poster animate-shuffle" id="shuffle-poster">
+                <img src="${getOptimizedImageUrl(anime.image, 400, 600, 80)}" class="shuffle-poster animate-shuffle" id="shuffle-poster">
             </div>
             <div class="space-y-4">
                 <p class="text-gold-400 font-black uppercase tracking-[0.6em] text-xs">Finding something amazing...</p>
@@ -7498,7 +7536,7 @@ function doDiscoveryReveal(anime) {
         
         <div class="relative z-10 p-8 md:p-16 flex flex-col md:flex-row gap-12 items-center">
             <div class="relative group anim-slide-up">
-                <img src="${ensureHttps(anime.image)}" class="w-64 h-96 rounded-2xl object-cover shadow-2xl border border-white/10 group-hover:scale-105 transition-transform duration-500" alt="">
+                <img src="${getOptimizedImageUrl(anime.image, 400, 600, 85)}" class="w-64 h-96 rounded-2xl object-cover shadow-2xl border border-white/10 group-hover:scale-105 transition-transform duration-500" alt="">
                 <div class="absolute -inset-4 bg-gold-400/20 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity -z-10"></div>
             </div>
             
