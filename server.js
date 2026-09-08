@@ -1709,6 +1709,8 @@ app.get('/api/anime', async (req, res) => {
       year: a.year,
       status: a.status,
       studio: a.studio,
+      releaseDate: a.releaseDate,
+      releaseTime: a.releaseTime,
       desc: a.desc, // Short description for hero
       bannerDisplay: a.bannerDisplay,
       bannerVideo: a.bannerVideo,

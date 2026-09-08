@@ -6547,10 +6547,12 @@ body.mobile-nav-locked {
     min-width: 0;
 }
 
-.coming-card:hover .coming-card-countdown,
-.coming-card:focus-visible .coming-card-countdown {
-    opacity: 1;
-    transform: translateY(-50%) scale(1);
+@media (hover: hover) and (pointer: fine) {
+    .coming-card:hover .coming-card-countdown,
+    .coming-card:focus-visible .coming-card-countdown {
+        opacity: 1;
+        transform: translateY(-50%) scale(1);
+    }
 }
 
 .coming-card-countdown-label {
@@ -12391,8 +12393,8 @@ html[data-theme] #maintenance-screen .text-\[\#1b1100\] {
         bottom: 3.55rem;
         left: .65rem;
         padding: .55rem .58rem;
-        opacity: .96;
-        transform: none;
+        opacity: .96 !important;
+        transform: none !important;
         transition: box-shadow .24s ease, border-color .24s ease;
     }
 
