@@ -122,6 +122,90 @@
             overflow-x: hidden;
         }
 
+        #app {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        body.app-ready #app {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #anify-page-skeleton {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            padding: 34px 12px 0;
+            background: #05050f;
+            transition: opacity 0.35s ease, visibility 0.35s ease;
+        }
+
+        body.app-ready #anify-page-skeleton {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .anify-skeleton-bar,
+        .anify-skeleton-card {
+            background: linear-gradient(100deg, rgba(255, 255, 255, 0.06) 25%, rgba(255, 255, 255, 0.13) 50%, rgba(255, 255, 255, 0.06) 75%);
+            background-size: 220% 100%;
+            animation: anifySkeletonShimmer 1.5s ease-in-out infinite;
+        }
+
+        .anify-skeleton-nav {
+            height: 84px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 18px;
+            background: rgba(17, 17, 32, 0.86);
+        }
+
+        .anify-skeleton-hero {
+            height: min(48vh, 480px);
+            margin-top: 18px;
+            border-radius: 18px;
+        }
+
+        .anify-skeleton-row {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 18px;
+        }
+
+        .anify-skeleton-card {
+            aspect-ratio: 3 / 4;
+            border-radius: 12px;
+        }
+
+        @keyframes anifySkeletonShimmer {
+            0% { background-position: 220% 0; }
+            100% { background-position: -220% 0; }
+        }
+
+        @media (max-width: 700px) {
+            #anify-page-skeleton {
+                padding-top: 18px;
+            }
+
+            .anify-skeleton-nav {
+                height: 64px;
+            }
+
+            .anify-skeleton-hero {
+                height: 42vh;
+            }
+
+            .anify-skeleton-row {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .anify-skeleton-card:nth-child(n + 3) {
+                display: none;
+            }
+        }
+
         #anify-intro-overlay {
             position: fixed;
             inset: 0;
@@ -300,8 +384,7 @@
             }
         }
     </style>
-    <link rel="preload" href="style.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="style.css"></noscript>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body class="bg-dark-900 text-white font-outfit transition-colors duration-500">
@@ -318,6 +401,35 @@
         </div>
         <button type="button" class="anify-intro-skip" aria-label="Skip intro">Skip</button>
     </div>
+
+    <div id="anify-page-skeleton" aria-hidden="true">
+        <div class="anify-skeleton-nav"></div>
+        <div class="anify-skeleton-bar anify-skeleton-hero"></div>
+        <div class="anify-skeleton-row">
+            <div class="anify-skeleton-card"></div>
+            <div class="anify-skeleton-card"></div>
+            <div class="anify-skeleton-card"></div>
+            <div class="anify-skeleton-card"></div>
+            <div class="anify-skeleton-card"></div>
+        </div>
+    </div>
+
+    <script>
+        // The static overlay is visible before deferred scripts load. Hide it
+        // immediately when this browser session has already seen the intro.
+        (function hideSeenIntro() {
+            try {
+                if (sessionStorage.getItem('anify-intro-seen') !== 'true') return;
+                const overlay = document.getElementById('anify-intro-overlay');
+                if (overlay) {
+                    overlay.classList.add('is-hidden');
+                    overlay.setAttribute('aria-busy', 'false');
+                }
+            } catch (error) {
+                // Storage can be unavailable in private or restricted contexts.
+            }
+        })();
+    </script>
 
     <!-- App Container -->
     <div id="app" class="min-h-screen opacity-0 transition-opacity duration-700">
@@ -1122,7 +1234,16 @@
                 if (window.AnifyAnimationManager) {
                     window.AnifyAnimationManager.refresh(typeof currentPage === 'string' ? currentPage : 'home');
                 }
-            }).catch(error => console.warn('[App] Enhancement loading failed:', error));
+            }).catch(error => {
+                console.warn('[App] Enhancement loading failed:', error);
+                document.body.classList.add('app-ready');
+                const overlay = document.getElementById('anify-intro-overlay');
+                const app = document.getElementById('app');
+                overlay?.classList.add('is-hidden');
+                overlay?.setAttribute('aria-busy', 'false');
+                app?.classList.remove('opacity-0');
+                app?.classList.add('opacity-100');
+            });
 
             return enhancementScriptsPromise;
         };

@@ -1718,6 +1718,7 @@ async function initializeApp() {
 
     // 2. Safe timeout protection
     const loadingTimeout = setTimeout(() => {
+        document.body.classList.add('app-ready');
         if (app) {
             app.classList.remove('opacity-0');
             app.classList.add('opacity-100');
@@ -1740,6 +1741,7 @@ async function initializeApp() {
     }
 
     clearTimeout(loadingTimeout);
+    document.body.classList.add('app-ready');
 
     // Refresh the requested route as soon as its data is available.
     handleRouteChange().catch(e => console.error('Data-loaded route error:', e));
