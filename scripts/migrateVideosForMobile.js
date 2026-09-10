@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import dns from 'node:dns';
+import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -15,7 +16,27 @@ import { uploadToR2 } from '../utils/uploadToR2.js';
 
 dns.setServers(['1.1.1.1', '1.0.0.1']);
 
-const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
+function findWindowsFfmpegTool(name) {
+  if (process.platform !== 'win32') return name;
+  const wingetRoot = path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WinGet', 'Packages');
+  try {
+    const packageDir = fsSync.readdirSync(wingetRoot)
+      .find(entry => entry.toLowerCase().startsWith('gyan.ffmpeg.'));
+    if (packageDir) {
+      const binPath = path.join(wingetRoot, packageDir);
+      const versionDir = fsSync.readdirSync(binPath, { withFileTypes: true })
+        .find(entry => entry.isDirectory() && entry.name.includes('ffmpeg'));
+      const executable = versionDir
+        ? path.join(binPath, versionDir.name, 'bin', `${name}.exe`)
+        : '';
+      if (executable && fsSync.existsSync(executable)) return executable;
+    }
+  } catch {}
+  return name;
+}
+
+const FFMPEG = process.env.FFMPEG_PATH || findWindowsFfmpegTool('ffmpeg');
+const FFPROBE = process.env.FFPROBE_PATH || findWindowsFfmpegTool('ffprobe');
 const LIMIT = Number(process.env.MOBILE_MIGRATION_LIMIT || 0);
 const EXECUTE = process.argv.includes('--execute');
 const limitIndex = process.argv.indexOf('--limit');
@@ -91,10 +112,56 @@ function runFfmpeg(inputPath, outputPath) {
   });
 }
 
+function probeVideo(inputPath) {
+  return new Promise((resolve, reject) => {
+    const process = spawn(FFPROBE, [
+      '-v', 'error', '-show_streams', '-show_format', '-of', 'json', inputPath,
+    ], { windowsHide: true });
+
+    let stdout = '';
+    let stderr = '';
+    process.stdout.on('data', chunk => { stdout += chunk.toString(); });
+    process.stderr.on('data', chunk => { stderr += chunk.toString(); });
+    process.on('error', reject);
+    process.on('close', code => {
+      if (code !== 0) {
+        reject(new Error(`FFprobe exited with code ${code}: ${stderr.slice(-800)}`));
+        return;
+      }
+      try {
+        resolve(JSON.parse(stdout));
+      } catch (error) {
+        reject(new Error(`Could not parse FFprobe output: ${error.message}`));
+      }
+    });
+  });
+}
+
+function isMobileCompatible(probe) {
+  const video = probe.streams?.find(stream => stream.codec_type === 'video');
+  const audio = probe.streams?.find(stream => stream.codec_type === 'audio');
+  const format = String(probe.format?.format_name || '').split(',');
+  return video?.codec_name === 'h264' &&
+    (!audio || audio.codec_name === 'aac') &&
+    (format.includes('mov') || format.includes('mp4'));
+}
+
 async function download(url, destination) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Download failed (${response.status})`);
   await fs.writeFile(destination, Buffer.from(await response.arrayBuffer()));
+}
+
+async function inspectSource(item) {
+  const workDir = path.join(tempRoot, randomUUID());
+  const inputPath = path.join(workDir, 'source');
+  await fs.mkdir(workDir, { recursive: true });
+  try {
+    await download(item.url, inputPath);
+    return await probeVideo(inputPath);
+  } finally {
+    await fs.rm(workDir, { recursive: true, force: true });
+  }
 }
 
 async function migrateSource(anime, item, index) {
@@ -145,9 +212,16 @@ async function main() {
     for (const anime of animeList) {
       for (const item of collectSources(anime)) {
         if (processed >= maxItems) break;
+        const probe = await inspectSource(item);
+        if (isMobileCompatible(probe)) {
+          log(`skip: ${anime.title} ${item.location.kind} ${item.quality} is already mobile-compatible`);
+          continue;
+        }
         processed += 1;
+        const video = probe.streams?.find(stream => stream.codec_type === 'video')?.codec_name || 'unknown';
+        const audio = probe.streams?.find(stream => stream.codec_type === 'audio')?.codec_name || 'none';
         if (!EXECUTE) {
-          log(`${processed}: ${anime.title} -> ${item.location.kind} ${item.quality} (${item.mimeType || 'unknown MIME'})`);
+          log(`${processed}: NEEDS CONVERSION ${anime.title} -> ${item.location.kind} ${item.quality} (video: ${video}, audio: ${audio})`);
           continue;
         }
         await migrateSource(anime, item, processed);
