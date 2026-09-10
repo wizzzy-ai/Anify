@@ -1248,9 +1248,18 @@ async function loadAnimeFromApi() {
         const res = await fetch('/api/anime?fields=minimal&limit=100');
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.ok && Array.isArray(data.anime)) {
-            animeData.splice(0, animeData.length, ...data.anime);
+            // Keep full records loaded for the current detail/player view when
+            // the background catalog refresh returns minimal records.
+            const existingById = new Map(animeData.map(anime => [String(anime.id), anime]));
+            const mergedAnime = data.anime.map(anime => {
+                const existing = existingById.get(String(anime.id));
+                return existing?.episodesMedia || existing?.movieMedia
+                    ? { ...anime, ...existing }
+                    : anime;
+            });
+            animeData.splice(0, animeData.length, ...mergedAnime);
             try {
-                localStorage.setItem('anify-cached-anime', JSON.stringify(data.anime));
+                localStorage.setItem('anify-cached-anime', JSON.stringify(mergedAnime));
             } catch (e) { }
             return true;
         }
@@ -1984,6 +1993,9 @@ async function handleRouteChange() {
             startCountdownUpdates();
             break;
         case 'player':
+            // Catalog cards use minimal records; load the selected title's
+            // episode/movie media before creating the player.
+            await loadAnimeByIdFromApi(Number(data));
             if (typeof loadPlayerScripts === 'function') {
                 try {
                     await loadPlayerScripts();
