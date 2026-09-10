@@ -172,6 +172,12 @@ async function inspectSource(item) {
   try {
     await download(item.url, inputPath);
     return await probeVideo(inputPath);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      log(`skip: source file is unavailable locally (${item.url})`);
+      return null;
+    }
+    throw error;
   } finally {
     await fs.rm(workDir, { recursive: true, force: true });
   }
@@ -217,6 +223,7 @@ async function processAnimeGroup(anime, sharedState) {
     if (sharedState.processed >= maxItems) return;
 
     const probe = await inspectSource(item);
+    if (!probe) continue;
     if (isMobileCompatible(probe)) {
       log(`skip: ${anime.title} ${item.location.kind} ${item.quality} is already mobile-compatible`);
       continue;
