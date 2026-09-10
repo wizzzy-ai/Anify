@@ -2738,7 +2738,6 @@ body.mobile-nav-locked {
 }
 
 .video-player-container video {
-    display: block;
     outline: none;
     touch-action: manipulation;
     -webkit-touch-callout: none;
@@ -2747,13 +2746,6 @@ body.mobile-nav-locked {
 }
 
 @media (max-width: 768px) {
-    #anify-persistent-player:not(.mini-player) #anify-video {
-        display: block !important;
-        width: 100% !important;
-        height: 100% !important;
-        background: #000;
-        object-fit: contain !important;
-    }
 
     #anify-persistent-player:fullscreen,
     #anify-persistent-player:-webkit-full-screen {

@@ -122,6 +122,9 @@
             return { valid: false, error: `File must be smaller than ${maxSizeMb}MB.` };
         }
         const mimeType = String(file.type || '').toLowerCase();
+        if (types.includes('video/') && mimeType !== 'video/mp4') {
+            return { valid: false, error: 'Content videos must be MP4 files for mobile playback.' };
+        }
         if (!types.some(t => mimeType.startsWith(t))) {
             return { valid: false, error: 'Unsupported file type.' };
         }

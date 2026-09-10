@@ -53,7 +53,7 @@ export async function uploadToR2(file, folder = "videos", options = {}) {
   }
 
   // Validate video mime type
-  const allowedMimeTypes = ['video/mp4', 'video/webm', 'video/mkv', 'video/quicktime'];
+  const allowedMimeTypes = ['video/mp4'];
   if (!file.mimetype || !allowedMimeTypes.includes(file.mimetype)) {
     throw new UploadError(`Invalid file type. Allowed: ${allowedMimeTypes.join(', ')}`, "INVALID_FILE_TYPE");
   }
