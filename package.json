@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
+    "migrate-mobile-videos": "node scripts/migrateVideosForMobile.js",
     "migrate-videos": "node migrate-videos-to-cloudinary.js",
     "migrate-users": "node migrateUserSchema.js",
     "migrate-otps": "node migrateOtpsToUsers.js",
