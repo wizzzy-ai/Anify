@@ -7010,7 +7010,7 @@ function createPersistentPlayer() {
     div.addEventListener('mouseenter', () => showMobilePlayerControls());
     div.addEventListener('touchstart', () => showMobilePlayerControls(), { passive: true });
     div.innerHTML = `
-        <video id="anify-video" class="w-full h-full object-cover" poster="" preload="metadata" onclick="handlePlayerVideoClick(event)" ondblclick="handlePlayerVideoDoubleClick(event)" ontouchend="handlePlayerVideoTouchEnd(event)" onpointermove="showMobilePlayerControls()" onmouseenter="showMobilePlayerControls()" onplay="showMobilePlayerControls(true)" onpause="showMobilePlayerControls()"></video>
+        <video id="anify-video" class="w-full h-full object-cover" poster="" preload="metadata" playsinline webkit-playsinline onclick="handlePlayerVideoClick(event)" ondblclick="handlePlayerVideoDoubleClick(event)" ontouchend="handlePlayerVideoTouchEnd(event)" onpointermove="showMobilePlayerControls()" onmouseenter="showMobilePlayerControls()" onplay="showMobilePlayerControls(true)" onpause="showMobilePlayerControls()"></video>
 
         <!-- Video Loading Overlay -->
         <div id="video-loading-overlay" class="video-loading-overlay hidden">
