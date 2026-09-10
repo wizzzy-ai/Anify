@@ -150,6 +150,16 @@ function isMobileCompatible(probe) {
 }
 
 async function download(url, destination) {
+  if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
+    const relativePath = url.replace(/^\/+/, '');
+    const localPath = path.resolve(process.cwd(), relativePath);
+    if (!localPath.startsWith(path.resolve(process.cwd(), 'uploads') + path.sep)) {
+      throw new Error(`Unsafe local video path: ${url}`);
+    }
+    await fs.copyFile(localPath, destination);
+    return;
+  }
+
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Download failed (${response.status})`);
   await fs.writeFile(destination, Buffer.from(await response.arrayBuffer()));
