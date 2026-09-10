@@ -42,6 +42,9 @@ const EXECUTE = process.argv.includes('--execute');
 const limitIndex = process.argv.indexOf('--limit');
 const requestedLimit = limitIndex >= 0 ? Number(process.argv[limitIndex + 1]) : LIMIT;
 const maxItems = Number.isFinite(requestedLimit) && requestedLimit > 0 ? requestedLimit : Infinity;
+const concurrencyIndex = process.argv.indexOf('--concurrency');
+const requestedConcurrency = concurrencyIndex >= 0 ? Number(process.argv[concurrencyIndex + 1]) : 3;
+const concurrency = Math.max(1, Math.min(6, Number.isFinite(requestedConcurrency) ? requestedConcurrency : 3));
 const tempRoot = path.join(os.tmpdir(), 'anify-mobile-video-migration');
 
 function log(message) {
@@ -199,6 +202,28 @@ async function migrateSource(anime, item, index) {
   }
 }
 
+async function processAnimeGroup(anime, sharedState) {
+  for (const item of collectSources(anime)) {
+    if (sharedState.processed >= maxItems) return;
+
+    const probe = await inspectSource(item);
+    if (isMobileCompatible(probe)) {
+      log(`skip: ${anime.title} ${item.location.kind} ${item.quality} is already mobile-compatible`);
+      continue;
+    }
+
+    if (sharedState.processed >= maxItems) return;
+    sharedState.processed += 1;
+    const video = probe.streams?.find(stream => stream.codec_type === 'video')?.codec_name || 'unknown';
+    const audio = probe.streams?.find(stream => stream.codec_type === 'audio')?.codec_name || 'none';
+    if (!EXECUTE) {
+      log(`${sharedState.processed}: NEEDS CONVERSION ${anime.title} -> ${item.location.kind} ${item.quality} (video: ${video}, audio: ${audio})`);
+      continue;
+    }
+    await migrateSource(anime, item, sharedState.processed);
+  }
+}
+
 async function main() {
   if (!EXECUTE) {
     log('DRY RUN: no files will be downloaded, uploaded, or changed. Use --execute to migrate.');
@@ -206,29 +231,18 @@ async function main() {
   await fs.mkdir(tempRoot, { recursive: true });
   await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI);
 
-  let processed = 0;
+  const sharedState = { processed: 0 };
   try {
     const animeList = await Anime.find();
-    for (const anime of animeList) {
-      for (const item of collectSources(anime)) {
-        if (processed >= maxItems) break;
-        const probe = await inspectSource(item);
-        if (isMobileCompatible(probe)) {
-          log(`skip: ${anime.title} ${item.location.kind} ${item.quality} is already mobile-compatible`);
-          continue;
-        }
-        processed += 1;
-        const video = probe.streams?.find(stream => stream.codec_type === 'video')?.codec_name || 'unknown';
-        const audio = probe.streams?.find(stream => stream.codec_type === 'audio')?.codec_name || 'none';
-        if (!EXECUTE) {
-          log(`${processed}: NEEDS CONVERSION ${anime.title} -> ${item.location.kind} ${item.quality} (video: ${video}, audio: ${audio})`);
-          continue;
-        }
-        await migrateSource(anime, item, processed);
+    let nextAnimeIndex = 0;
+    async function worker() {
+      while (nextAnimeIndex < animeList.length && sharedState.processed < maxItems) {
+        const anime = animeList[nextAnimeIndex++];
+        await processAnimeGroup(anime, sharedState);
       }
-      if (processed >= maxItems) break;
     }
-    log(`Finished. Sources discovered: ${processed}. Originals were not deleted.`);
+    await Promise.all(Array.from({ length: Math.min(concurrency, animeList.length) }, worker));
+    log(`Finished. Sources needing migration: ${sharedState.processed}. Concurrency: ${concurrency}. Originals were not deleted.`);
   } finally {
     await mongoose.disconnect();
     await fs.rm(tempRoot, { recursive: true, force: true });
