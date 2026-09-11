@@ -140,37 +140,49 @@ async function processJob(job) {
       console.log('[PROCESSING QUEUE] Updating anime with transcoded URL...');
       const anime = await Anime.findOne({ clientId: job.animeId });
       if (anime) {
-        const episode = anime.episodesMedia?.find(ep => ep.episodeNumber === job.episodeNumber);
-        if (episode) {
-          const language = episode.sub?.qualities?.[job.quality] ? 'sub' : 'dub';
-          episode[language].qualities.set(job.quality, uploadResult.url);
-          episode[language].keys.set(job.quality, uploadResult.key);
-          episode[language].sizes.set(job.quality, transcodedBuffer.length);
-          episode[language].mimeTypes.set(job.quality, 'video/mp4');
-          
-          // Update video metadata
-          if (!episode.videoMetadata) episode.videoMetadata = new Map();
-          const metadataKey = `${job.quality}-${language}`;
-          episode.videoMetadata.set(metadataKey, {
-            url: uploadResult.url,
-            key: uploadResult.key,
-            storageProvider: 'r2',
-            size: transcodedBuffer.length,
-            mimeType: 'video/mp4',
-            processingStatus: 'completed',
-            transcoded: true,
-            codecInfo: {
-              videoCodec: 'h264',
-              audioCodec: 'aac',
-              pixelFormat: 'yuv420p',
-              profile: 'high',
-              mobileCompatible: true
-            }
-          });
-          
-          await anime.save();
-          console.log('[PROCESSING QUEUE] Anime updated successfully');
+        let episode = anime.episodesMedia?.find(ep => ep.episodeNumber === job.episodeNumber);
+        
+        // Create episode if it doesn't exist
+        if (!episode) {
+          console.log('[PROCESSING QUEUE] Episode does not exist, creating it...');
+          episode = {
+            episodeNumber: job.episodeNumber,
+            sub: { qualities: {}, keys: {}, storageProvider: 'r2', sizes: {}, mimeTypes: {} },
+            dub: { qualities: {}, keys: {}, storageProvider: 'r2', sizes: {}, mimeTypes: {} },
+            videoMetadata: new Map()
+          };
+          anime.episodesMedia.push(episode);
         }
+        
+        // Update with transcoded URL
+        const language = 'sub'; // Default to sub for batch uploads
+        episode[language].qualities.set(job.quality, uploadResult.url);
+        episode[language].keys.set(job.quality, uploadResult.key);
+        episode[language].sizes.set(job.quality, transcodedBuffer.length);
+        episode[language].mimeTypes.set(job.quality, 'video/mp4');
+        
+        // Update video metadata
+        if (!episode.videoMetadata) episode.videoMetadata = new Map();
+        const metadataKey = `${job.quality}-${language}`;
+        episode.videoMetadata.set(metadataKey, {
+          url: uploadResult.url,
+          key: uploadResult.key,
+          storageProvider: 'r2',
+          size: transcodedBuffer.length,
+          mimeType: 'video/mp4',
+          processingStatus: 'completed',
+          transcoded: true,
+          codecInfo: {
+            videoCodec: 'h264',
+            audioCodec: 'aac',
+            pixelFormat: 'yuv420p',
+            profile: 'high',
+            mobileCompatible: true
+          }
+        });
+        
+        await anime.save();
+        console.log('[PROCESSING QUEUE] Anime updated successfully');
       }
       
       job.transcoded = true;
