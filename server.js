@@ -21,6 +21,7 @@ import {
 } from "./utils/r2DirectMultipart.js";
 import { uploadFile as storageUploadFile } from "./storage/storageService.js";
 import { getStorageHealthForDashboard } from "./storage/healthChecker.js";
+import { startQueueProcessor, addProcessingJob, getJobStatus, getAnimeJobs, getQueueStats } from "./utils/videoProcessingQueue.js";
 import streamifier from "streamifier";
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -1179,6 +1180,18 @@ app.post('/api/admin/r2-multipart/complete', requireAdmin, async (req, res) => {
   try {
     const result = await completeDirectMultipartUpload(req.body || {});
     console.log('[R2 DIRECT] 🎉 Multipart upload completed:', result.key);
+    
+    // Extract metadata from request body for processing queue
+    const { animeId, episodeNumber, quality = '1080p' } = req.body || {};
+    
+    // Add to processing queue if animeId and episodeNumber are provided
+    if (animeId && episodeNumber) {
+      console.log('[R2 DIRECT] Adding to processing queue:', { animeId, episodeNumber, quality });
+      const job = addProcessingJob(animeId, episodeNumber, result.key, result.url, quality);
+      result.processingJobId = job.id;
+      result.processingStatus = 'pending';
+    }
+    
     res.json({ ok: true, ...result, storage: 'r2' });
   } catch (error) {
     res.status(400).json({ ok: false, error: error.message || 'Could not complete multipart upload.' });
@@ -1191,6 +1204,37 @@ app.post('/api/admin/r2-multipart/abort', requireAdmin, async (req, res) => {
     res.json({ ok: true });
   } catch (error) {
     res.status(400).json({ ok: false, error: error.message || 'Could not cancel multipart upload.' });
+  }
+});
+
+// Video processing queue status endpoints
+app.get('/api/admin/processing/job/:jobId', requireAdmin, (req, res) => {
+  try {
+    const job = getJobStatus(req.params.jobId);
+    if (!job) {
+      return res.status(404).json({ ok: false, error: 'Job not found' });
+    }
+    res.json({ ok: true, job });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.get('/api/admin/processing/anime/:animeId', requireAdmin, (req, res) => {
+  try {
+    const jobs = getAnimeJobs(req.params.animeId);
+    res.json({ ok: true, jobs });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.get('/api/admin/processing/stats', requireAdmin, (req, res) => {
+  try {
+    const stats = getQueueStats();
+    res.json({ ok: true, stats });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
   }
 });
 app.get('/api/health', (req, res) => {
@@ -4764,4 +4808,8 @@ app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
   console.log(`MongoDB: ${dbReady ? 'connected' : hasMongo ? 'connecting...' : 'not configured'}`);
   console.log("Storage: Cloudinary");
+  
+  // Start video processing queue
+  startQueueProcessor();
+  console.log("Video processing queue started");
 });

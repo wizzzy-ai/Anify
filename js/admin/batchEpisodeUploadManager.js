@@ -35,7 +35,57 @@
   function clearSession(task) { const all = sessions(); delete all[task.sessionKey]; localStorage.setItem(STORAGE_KEY, JSON.stringify(all)); }
   function taskStatus(task) {
     if (task.status === 'uploading') return `⬆️ Uploading ${Math.round(task.progress)}%`;
+    if (task.status === 'queued_for_processing') return `⚙️ Queued for transcoding`;
+    if (task.status === 'processing') return `⚙️ Transcoding ${Math.round(task.processingProgress || 0)}%`;
     return ({ waiting: '⏳ Waiting', needs_episode: '⚠️ Episode number required', duplicate: `⚠️ Duplicate Episode ${task.episode}`, paused: '⏸ Paused', processing: '⚙️ Processing', completed: '✅ Completed', failed: `❌ ${task.error || 'Failed'}`, conflict: '⚠️ Episode already exists', cancelled: '🚫 Cancelled', skipped: '⏭ Skipped' }[task.status] || task.status);
+  }
+  
+  async function pollProcessingStatus(task) {
+    if (!task.processingJobId) return;
+    
+    const maxAttempts = 300; // 5 minutes with 1-second intervals
+    let attempts = 0;
+    
+    while (attempts < maxAttempts) {
+      try {
+        const response = await fetch(`/api/admin/processing/job/${task.processingJobId}`, {
+          headers: token() ? { Authorization: `Bearer ${token()}` } : {}
+        });
+        const data = await response.json();
+        
+        if (data.ok && data.job) {
+          const job = data.job;
+          task.processingProgress = job.progress || 0;
+          
+          if (job.status === 'completed') {
+            console.log('[BATCH UPLOAD] Processing completed:', task.processingJobId);
+            task.status = 'completed';
+            scheduleRender();
+            return;
+          } else if (job.status === 'failed') {
+            console.error('[BATCH UPLOAD] Processing failed:', job.error);
+            task.status = 'failed';
+            task.error = job.error || 'Transcoding failed';
+            scheduleRender();
+            return;
+          } else if (job.status === 'processing') {
+            task.status = 'processing';
+            scheduleRender();
+          }
+        }
+      } catch (error) {
+        console.error('[BATCH UPLOAD] Failed to poll processing status:', error);
+      }
+      
+      attempts++;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    // Timeout
+    console.error('[BATCH UPLOAD] Processing timeout:', task.processingJobId);
+    task.status = 'failed';
+    task.error = 'Processing timeout';
+    scheduleRender();
   }
   function render() {
     const list = $('batch-upload-list'); const summary = $('batch-upload-summary'); if (!list || !summary) return;
@@ -172,7 +222,27 @@
     task.status = 'processing'; scheduleRender();
     const completedParts = task.parts.filter((part) => Number(part.partNumber) > 0 && part.etag);
     if (!completedParts.length) throw new Error('No uploaded parts were recorded. Please retry this episode; the upload session was incomplete.');
-    const completeResult = await api('/api/admin/r2-multipart/complete', { key: task.key, uploadId: task.uploadId, parts: completedParts });
+    
+    // Pass animeId, episodeNumber, and quality to trigger transcoding
+    const completeResult = await api('/api/admin/r2-multipart/complete', { 
+      key: task.key, 
+      uploadId: task.uploadId, 
+      parts: completedParts,
+      animeId: anime.id,
+      episodeNumber: task.episode,
+      quality: '1080p'
+    });
+    
+    // Store processing job ID for status tracking
+    if (completeResult.processingJobId) {
+      task.processingJobId = completeResult.processingJobId;
+      task.status = 'queued_for_processing';
+      scheduleRender();
+      
+      // Poll for processing status
+      await pollProcessingStatus(task);
+    }
+    
     // Keep qualities already attached to an episode. The existing API preserves
     // its view counter, while this avoids batch replacement erasing other tracks.
     const currentEpisode = (anime.episodesMedia || []).find((episode) => Number(episode.episodeNumber) === Number(task.episode));
