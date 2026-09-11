@@ -4,39 +4,17 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import dns from 'node:dns';
-import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import mongoose from 'mongoose';
 import Anime from '../models/Anime.js';
 import { uploadToR2 } from '../utils/uploadToR2.js';
+import { inspectVideo, isMobileCompatible, transcodeVideo, cleanupFile } from '../utils/videoTranscoder.js';
 
 dns.setServers(['1.1.1.1', '1.0.0.1']);
 
-function findWindowsFfmpegTool(name) {
-  if (process.platform !== 'win32') return name;
-  const wingetRoot = path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WinGet', 'Packages');
-  try {
-    const packageDir = fsSync.readdirSync(wingetRoot)
-      .find(entry => entry.toLowerCase().startsWith('gyan.ffmpeg.'));
-    if (packageDir) {
-      const binPath = path.join(wingetRoot, packageDir);
-      const versionDir = fsSync.readdirSync(binPath, { withFileTypes: true })
-        .find(entry => entry.isDirectory() && entry.name.includes('ffmpeg'));
-      const executable = versionDir
-        ? path.join(binPath, versionDir.name, 'bin', `${name}.exe`)
-        : '';
-      if (executable && fsSync.existsSync(executable)) return executable;
-    }
-  } catch {}
-  return name;
-}
-
-const FFMPEG = process.env.FFMPEG_PATH || findWindowsFfmpegTool('ffmpeg');
-const FFPROBE = process.env.FFPROBE_PATH || findWindowsFfmpegTool('ffprobe');
 const LIMIT = Number(process.env.MOBILE_MIGRATION_LIMIT || 0);
 const EXECUTE = process.argv.includes('--execute');
 const limitIndex = process.argv.indexOf('--limit');
@@ -93,62 +71,6 @@ function collectSources(anime) {
   return sources;
 }
 
-function runFfmpeg(inputPath, outputPath) {
-  return new Promise((resolve, reject) => {
-    const process = spawn(FFMPEG, [
-      '-y', '-i', inputPath,
-      '-map', '0:v:0', '-map', '0:a:0?',
-      '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
-      '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac', '-b:a', '128k',
-      '-movflags', '+faststart',
-      outputPath,
-    ], { windowsHide: true });
-
-    let stderr = '';
-    process.stderr.on('data', chunk => { stderr += chunk.toString(); });
-    process.on('error', reject);
-    process.on('close', code => {
-      if (code === 0) resolve();
-      else reject(new Error(`FFmpeg exited with code ${code}: ${stderr.slice(-1200)}`));
-    });
-  });
-}
-
-function probeVideo(inputPath) {
-  return new Promise((resolve, reject) => {
-    const process = spawn(FFPROBE, [
-      '-v', 'error', '-show_streams', '-show_format', '-of', 'json', inputPath,
-    ], { windowsHide: true });
-
-    let stdout = '';
-    let stderr = '';
-    process.stdout.on('data', chunk => { stdout += chunk.toString(); });
-    process.stderr.on('data', chunk => { stderr += chunk.toString(); });
-    process.on('error', reject);
-    process.on('close', code => {
-      if (code !== 0) {
-        reject(new Error(`FFprobe exited with code ${code}: ${stderr.slice(-800)}`));
-        return;
-      }
-      try {
-        resolve(JSON.parse(stdout));
-      } catch (error) {
-        reject(new Error(`Could not parse FFprobe output: ${error.message}`));
-      }
-    });
-  });
-}
-
-function isMobileCompatible(probe) {
-  const video = probe.streams?.find(stream => stream.codec_type === 'video');
-  const audio = probe.streams?.find(stream => stream.codec_type === 'audio');
-  const format = String(probe.format?.format_name || '').split(',');
-  return video?.codec_name === 'h264' &&
-    (!audio || audio.codec_name === 'aac') &&
-    (format.includes('mov') || format.includes('mp4'));
-}
-
 async function download(url, destination) {
   if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
     const relativePath = url.replace(/^\/+/, '');
@@ -171,7 +93,7 @@ async function inspectSource(item) {
   await fs.mkdir(workDir, { recursive: true });
   try {
     await download(item.url, inputPath);
-    return await probeVideo(inputPath);
+    return await inspectVideo(inputPath);
   } catch (error) {
     if (error.code === 'ENOENT') {
       log(`skip: source file is unavailable locally (${item.url})`);
@@ -194,7 +116,14 @@ async function migrateSource(anime, item, index) {
   try {
     log(`${index}: converting ${anime.title} ${item.location.kind} ${item.quality}`);
     await download(item.url, inputPath);
-    await runFfmpeg(inputPath, outputPath);
+    
+    // Use the new transcodeVideo function
+    await transcodeVideo(inputPath, outputPath, {
+      onProgress: (progress) => {
+        log(`${index}: transcoding progress ${Math.round(progress.percent || 0)}%`);
+      }
+    });
+    
     const buffer = await fs.readFile(outputPath);
     const result = await uploadToR2({
       buffer,
@@ -222,17 +151,17 @@ async function processAnimeGroup(anime, sharedState) {
   for (const item of collectSources(anime)) {
     if (sharedState.processed >= maxItems) return;
 
-    const probe = await inspectSource(item);
-    if (!probe) continue;
-    if (isMobileCompatible(probe)) {
+    const metadata = await inspectSource(item);
+    if (!metadata) continue;
+    if (isMobileCompatible(metadata)) {
       log(`skip: ${anime.title} ${item.location.kind} ${item.quality} is already mobile-compatible`);
       continue;
     }
 
     if (sharedState.processed >= maxItems) return;
     sharedState.processed += 1;
-    const video = probe.streams?.find(stream => stream.codec_type === 'video')?.codec_name || 'unknown';
-    const audio = probe.streams?.find(stream => stream.codec_type === 'audio')?.codec_name || 'none';
+    const video = metadata.videoCodec || 'unknown';
+    const audio = metadata.audioCodec || 'none';
     if (!EXECUTE) {
       log(`${sharedState.processed}: NEEDS CONVERSION ${anime.title} -> ${item.location.kind} ${item.quality} (video: ${video}, audio: ${audio})`);
       continue;

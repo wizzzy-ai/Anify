@@ -38,6 +38,16 @@ const episodeVideoMetadataSchema = new mongoose.Schema({
   storageProvider: String,
   size: Number,
   mimeType: String,
+  processingStatus: { type: String, enum: ['pending', 'processing', 'completed', 'failed'], default: 'completed' },
+  transcoded: { type: Boolean, default: false },
+  codecInfo: {
+    videoCodec: String,
+    audioCodec: String,
+    pixelFormat: String,
+    profile: String,
+    mobileCompatible: { type: Boolean, default: true }
+  },
+  processingError: String,
 }, { _id: false });
 
 // Episode schema (per-episode data)

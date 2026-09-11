@@ -9,6 +9,7 @@ import {
 } from "@aws-sdk/client-s3";
 import r2Client from "../config/r2.js";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { quickValidateVideoSignature } from "./videoCodecValidator.js";
 
 /**
  * Upload a video file to Cloudflare R2
@@ -55,6 +56,12 @@ export async function uploadToR2(file, folder = "videos", options = {}) {
   // Validate video mime type
   if (!file.mimetype || !file.mimetype.startsWith('video/')) {
     throw new UploadError('Invalid file type. A video file is required.', "INVALID_FILE_TYPE");
+  }
+
+  // Validate MP4 file signature for mobile compatibility
+  const signatureCheck = quickValidateVideoSignature(file);
+  if (!signatureCheck.valid) {
+    throw new UploadError(signatureCheck.error, "INVALID_FILE_TYPE");
   }
 
   // Generate unique filename
@@ -142,6 +149,11 @@ async function uploadSingle(file, key, filename) {
     Key: key,
     Body: file.buffer,
     ContentType: file.mimetype,
+    CacheControl: 'public, max-age=31536000',
+    Metadata: {
+      'original-filename': file.originalname,
+      'upload-time': new Date().toISOString(),
+    },
   });
 
   await r2Client.send(command);
@@ -223,6 +235,10 @@ async function initiateMultipartUpload(key, contentType) {
     Bucket: process.env.R2_BUCKET,
     Key: key,
     ContentType: contentType,
+    CacheControl: 'public, max-age=31536000',
+    Metadata: {
+      'upload-time': new Date().toISOString(),
+    },
   });
 
   const response = await r2Client.send(command);

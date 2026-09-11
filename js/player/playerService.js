@@ -189,6 +189,9 @@
                             networkState: video.networkState,
                             error: video.error
                         });
+                        
+                        // Detect mobile codec incompatibility
+                        this.detectMobileCodecIssue(e);
                     }
                     return false;
                 });
@@ -200,6 +203,31 @@
             video.pause();
             this.syncState();
             return true;
+        },
+
+        detectMobileCodecIssue(error) {
+            const video = this.getVideoElement();
+            if (!video || !video.src) return;
+
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+            
+            // Check for codec-related errors on mobile
+            if (isMobile && (error.name === 'NotSupportedError' || error.message?.includes('codec') || error.message?.includes('format'))) {
+                console.warn('[Player] Detected potential codec incompatibility on mobile:', {
+                    userAgent: navigator.userAgent,
+                    isIOS,
+                    error: error.message,
+                    videoSrc: video.src
+                });
+
+                // Show user-friendly message
+                if (global.showToast && isIOS) {
+                    global.showToast('This video format is not supported on iOS. Please contact support.', 'error');
+                } else if (global.showToast) {
+                    global.showToast('Video format not supported. Try a different browser or quality.', 'error');
+                }
+            }
         },
 
         resume() {

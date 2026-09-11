@@ -904,11 +904,54 @@ async function sendUploadedFile(req, res, fieldName) {
         console.log('[UPLOAD] 🎞️ Uploading as banner video...');
         result = await uploadVideo(req.file, 'banner', { ...parsedMetadata, uploadId: req.uploadId });
       } else {
-        console.log('[UPLOAD] 🎞️ Uploading as content video to R2...');
+        console.log('[UPLOAD] 🎞️ Processing content video for mobile compatibility...');
+        
+        // Import transcoding service
+        const { processVideoFromBuffer, cleanupFile } = await import('./utils/videoTranscoder.js');
+        
+        // Process video to ensure mobile compatibility
+        let processedFile = req.file;
+        let transcoded = false;
+        
+        try {
+          console.log('[UPLOAD] 🔍 Inspecting video codec...');
+          const processResult = await processVideoFromBuffer(req.file.buffer, req.file.originalname, {
+            onProgress: (progress) => {
+              console.log('[UPLOAD] 🔄 Transcoding progress:', `${Math.round(progress.percent || 0)}%`);
+            }
+          });
+          
+          if (processResult.transcoded) {
+            console.log('[UPLOAD] ✅ Video transcoded to mobile-compatible format');
+            transcoded = true;
+            processedFile = {
+              ...req.file,
+              buffer: processResult.outputBuffer,
+              size: processResult.outputBuffer.length,
+              mimetype: 'video/mp4'
+            };
+          } else {
+            console.log('[UPLOAD] ✅ Video already mobile-compatible, skipping transcoding');
+          }
+        } catch (transcodeError) {
+          console.error('[UPLOAD] ❌ Video processing failed:', transcodeError.message);
+          // If transcoding fails, we should NOT proceed with upload
+          // Return error to admin so they can retry with a different file
+          return res.status(500).json({
+            ok: false,
+            error: `Video processing failed: ${transcodeError.message}. Please ensure the video is a valid MP4 file or try re-encoding it with H.264/AAC.`,
+            code: 'TRANSCODE_FAILED'
+          });
+        }
+        
+        console.log('[UPLOAD] 🎞️ Uploading processed video to R2...');
         // Use extended timeout for large video files (15 minutes)
-        const fileTimeout = req.file.size > 100 * 1024 * 1024 ? 900000 : 300000; // 15 min for >100MB, 5 min otherwise
+        const fileTimeout = processedFile.size > 100 * 1024 * 1024 ? 900000 : 300000; // 15 min for >100MB, 5 min otherwise
         console.log('[UPLOAD] ⏱️ Upload timeout:', fileTimeout > 300000 ? '15 minutes (large file)' : '5 minutes');
-        result = await uploadToR2(req.file, 'videos', { metadata: parsedMetadata, timeout: fileTimeout });
+        result = await uploadToR2(processedFile, 'videos', { metadata: parsedMetadata, timeout: fileTimeout });
+        
+        // Add transcoding info to result
+        result.transcoded = transcoded;
       }
       
       console.log('[UPLOAD] ✅ Video upload SUCCESS:', { 
@@ -917,7 +960,8 @@ async function sendUploadedFile(req, res, fieldName) {
         episodeNumber: parsedMetadata?.episodeNumber || 'unknown',
         url: result.url, 
         key: result.key, 
-        storage: result.storage 
+        storage: result.storage,
+        transcoded: result.transcoded || false
       });
     }
 
