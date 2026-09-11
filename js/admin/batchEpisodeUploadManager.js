@@ -26,10 +26,13 @@
       || base.match(/^\s*(\d{1,3})\s*$/);
     return match ? Number(match[1]) : null;
   }
+  function detectLanguage(name) {
+    return /\b(dub|dubbed|dual[\s._-]*audio)\b/i.test(String(name)) ? 'dub' : 'sub';
+  }
   function sessions() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; } }
   function saveSession(task) {
     const all = sessions();
-    all[task.sessionKey] = { name: task.file.name, size: task.file.size, episode: task.episode, key: task.key, uploadId: task.uploadId, partSize: task.partSize, parts: task.parts };
+    all[task.sessionKey] = { name: task.file.name, size: task.file.size, episode: task.episode, language: task.language, key: task.key, uploadId: task.uploadId, partSize: task.partSize, parts: task.parts };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
   }
   function clearSession(task) { const all = sessions(); delete all[task.sessionKey]; localStorage.setItem(STORAGE_KEY, JSON.stringify(all)); }
@@ -105,12 +108,13 @@
     const sortedLabel = numbered.length ? `✓ Sorted: Episode ${Math.min(...numbered)} → Episode ${Math.max(...numbered)}` : '⚠ Episode numbers required';
     summary.innerHTML = `${tasks.length} episodes for <b>${global.currentHubAnime?.title || 'this anime'}</b> • ${mb(total)} • <b>${completed}/${tasks.length}</b> completed${skipped ? ` • ${skipped} skipped` : ''}${failed ? ` • ${failed} failed` : ''}<br><span class="text-[10px] text-gold-400 font-bold">${sortedLabel}</span><div class="h-2 mt-2 rounded bg-black/10 dark:bg-white/10 overflow-hidden"><div class="h-full bg-gold-400" style="width:${percent}%"></div></div><span class="text-[10px]">${Math.round(percent)}% • ${mb(doneBytes)} uploaded • ${state.running}/${state.concurrency} uploads active globally${speed ? ` • ↑ ${mb(speed)}/s • ETA ${Math.ceil((total - doneBytes) / speed)}s` : ''}</span>`;
     list.innerHTML = visible.map(({ task: t, index: i }) => `<div class="p-3 rounded-xl border border-white/10 bg-black/5 dark:bg-white/5 text-xs">
-      <div class="flex justify-between gap-3"><span class="font-bold truncate">🎬 ${t.file.name}</span><span>Ep. <input data-episode="${i}" type="number" min="1" value="${t.episode || ''}" class="w-12 bg-transparent border-b border-gold-400 text-center" ${!['waiting', 'conflict', 'needs_episode'].includes(t.status) ? 'disabled' : ''}></span></div>
+      <div class="flex justify-between gap-3"><span class="font-bold truncate">🎬 ${t.file.name}</span><span class="flex items-center gap-2">Ep. <input data-episode="${i}" type="number" min="1" value="${t.episode || ''}" class="w-12 bg-transparent border-b border-gold-400 text-center" ${!['waiting', 'conflict', 'needs_episode'].includes(t.status) ? 'disabled' : ''}><select data-language="${i}" class="input-field h-7 w-20 text-[10px] uppercase" ${!['waiting', 'conflict', 'needs_episode'].includes(t.status) ? 'disabled' : ''}><option value="sub" ${t.language === 'sub' ? 'selected' : ''}>Sub</option><option value="dub" ${t.language === 'dub' ? 'selected' : ''}>Dub</option></select></span></div>
       <div class="mt-1 text-[10px] text-gray-500">🍥 ${t.animeTitle || 'Unknown anime'} • Batch ${t.batchOrder}</div>
       <div class="mt-2 h-1.5 rounded bg-black/10 dark:bg-white/10 overflow-hidden"><div class="h-full bg-gold-400" style="width:${t.progress || 0}%"></div></div>
       <div class="mt-1 flex justify-between text-gray-500"><span>${taskStatus(t)}</span><span>${mb(t.file.size)} ${t.speed ? `• ↑ ${mb(t.speed)}/s • ETA ${Math.ceil((t.file.size - t.loaded) / t.speed)}s` : ''}</span></div>
       <div class="mt-2 flex gap-2">${t.status === 'conflict' ? `<button data-replace="${i}" class="text-gold-400">Replace</button><button data-skip="${i}" class="text-gray-400">Skip</button>` : ''}${t.status === 'failed' ? `<button data-retry="${i}" class="text-gold-400">Retry</button>` : ''}${['uploading', 'paused', 'waiting', 'needs_episode', 'duplicate'].includes(t.status) ? `<button data-pause="${i}" class="text-gray-400">${t.status === 'paused' ? 'Resume' : 'Pause'}</button><button data-cancel="${i}" class="text-red-400">Cancel</button>` : ''}</div></div>`).join('');
     list.querySelectorAll('[data-episode]').forEach(el => { el.onchange = () => { const task = state.tasks[el.dataset.episode]; task.episode = Number(el.value) || null; recalculateBatchStatuses(task.batchOrder, task.animeId); sortByEpisode(); render(); }; });
+    list.querySelectorAll('[data-language]').forEach(el => { el.onchange = () => { const task = state.tasks[el.dataset.language]; task.language = el.value === 'dub' ? 'dub' : 'sub'; saveSession(task); }; });
     list.querySelectorAll('[data-replace]').forEach(el => el.onclick = () => { const t = state.tasks[el.dataset.replace]; t.status = 'waiting'; t.replace = true; render(); });
     list.querySelectorAll('[data-skip]').forEach(el => el.onclick = () => { state.tasks[el.dataset.skip].status = 'skipped'; render(); });
     list.querySelectorAll('[data-retry]').forEach(el => el.onclick = () => retry(state.tasks[el.dataset.retry]));
@@ -129,12 +133,13 @@
         fileOrder,
         animeId: anime.id,
         animeTitle: anime.title,
+        language: detectLanguage(file.name),
         batchOrder,
         existingEpisodes: anime.episodesMedia || [],
         episode,
         status: !episode ? 'needs_episode' : (existing.has(episode) ? 'conflict' : 'waiting'),
         progress: 0, loaded: 0, retries: 0,
-        sessionKey: `${anime.id}:${file.name}:${file.size}:${episode}`,
+        sessionKey: `${anime.id}:${file.name}:${file.size}:${episode}:${detectLanguage(file.name)}`,
       };
     });
     // The filename detector remains available as a hint, but the episode saved
@@ -200,7 +205,7 @@
     task.status = 'uploading'; task.controller = new AbortController(); scheduleRender();
     const saved = sessions()[task.sessionKey];
     if (saved && saved.name === task.file.name && saved.size === task.file.size) {
-      task.key = saved.key; task.uploadId = saved.uploadId; task.partSize = saved.partSize || 50 * 1024 * 1024; task.parts = saved.parts || [];
+      task.key = saved.key; task.uploadId = saved.uploadId; task.partSize = saved.partSize || 50 * 1024 * 1024; task.parts = saved.parts || []; task.language = saved.language === 'dub' ? 'dub' : task.language;
       const remote = await api('/api/admin/r2-multipart/parts', { key: task.key, uploadId: task.uploadId });
       task.parts = remote.parts.map(p => ({ partNumber: p.partNumber, etag: p.etag }));
     } else {
@@ -230,7 +235,8 @@
       parts: completedParts,
       animeId: anime.id,
       episodeNumber: task.episode,
-      quality: '1080p'
+      quality: '1080p',
+      language: task.language
     });
     
     // Store processing job ID for status tracking
@@ -260,11 +266,13 @@
     } else {
       // No transcoding needed (already compatible), update database directly
       const currentEpisode = (anime.episodesMedia || []).find((episode) => Number(episode.episodeNumber) === Number(task.episode));
+      const language = task.language === 'dub' ? 'dub' : 'sub';
       const payload = {
-        sub: { qualities: { ...(currentEpisode?.sub?.qualities || {}), '1080p': completeResult.url }, keys: { '1080p': completeResult.key }, storageProvider: 'r2', sizes: { '1080p': task.file.size }, mimeTypes: { '1080p': task.file.type } },
+        sub: { qualities: { ...(currentEpisode?.sub?.qualities || {}) } },
         dub: { qualities: { ...(currentEpisode?.dub?.qualities || {}) } },
         status: 'Airing',
       };
+      payload[language] = { qualities: { ...(currentEpisode?.[language]?.qualities || {}), '1080p': completeResult.url }, keys: { '1080p': completeResult.key }, storageProvider: 'r2', sizes: { '1080p': task.file.size }, mimeTypes: { '1080p': task.file.type } };
       const response = await fetch(`/api/anime/${anime.id}/episodes/${task.episode}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(token() ? { Authorization: `Bearer ${token()}` } : {}) }, body: JSON.stringify(payload) });
       const data = await response.json().catch(() => ({})); if (!response.ok || !data.ok) throw new Error(data.error || 'Episode metadata could not be saved.');
       if (global.updateLocalAnimeData) global.updateLocalAnimeData(data.anime);

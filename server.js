@@ -1182,12 +1182,13 @@ app.post('/api/admin/r2-multipart/complete', requireAdmin, async (req, res) => {
     console.log('[R2 DIRECT] 🎉 Multipart upload completed:', result.key);
     
     // Extract metadata from request body for processing queue
-    const { animeId, episodeNumber, quality = '1080p' } = req.body || {};
+    const { animeId, episodeNumber, quality = '1080p', language = 'sub' } = req.body || {};
+    const normalizedLanguage = language === 'dub' ? 'dub' : 'sub';
     
     // Add to processing queue if animeId and episodeNumber are provided
     if (animeId && episodeNumber) {
-      console.log('[R2 DIRECT] Adding to processing queue:', { animeId, episodeNumber, quality });
-      const job = addProcessingJob(animeId, episodeNumber, result.key, result.url, quality);
+      console.log('[R2 DIRECT] Adding to processing queue:', { animeId, episodeNumber, quality, language: normalizedLanguage });
+      const job = addProcessingJob(animeId, episodeNumber, result.key, result.url, quality, normalizedLanguage);
       result.processingJobId = job.id;
       result.processingStatus = 'pending';
     }
@@ -2078,7 +2079,10 @@ app.put('/api/anime/:id/episodes/:episodeNumber', requireDb, requireActiveUser, 
 
   anime.episodesMedia = Array.isArray(anime.episodesMedia) ? anime.episodesMedia : [];
   const idx = anime.episodesMedia.findIndex(e => Number(e.episodeNumber) === episodeNumber);
-  const existingViews = idx >= 0 ? (Number(anime.episodesMedia[idx]?.views) || 0) : 0;
+  const existingEpisode = idx >= 0 ? anime.episodesMedia[idx] : null;
+  const existingViews = Number(existingEpisode?.views) || 0;
+  const existingSub = existingEpisode?.sub || {};
+  const existingDub = existingEpisode?.dub || {};
 
   const nextEpisode = {
     episodeNumber,
@@ -2090,18 +2094,18 @@ app.put('/api/anime/:id/episodes/:episodeNumber', requireDb, requireActiveUser, 
     outroStart: outroStart ?? undefined,
     outroEnd: outroEnd ?? undefined,
     sub: {
-      qualities: { ...(subQualities || {}) },
-      keys: { ...(update?.sub?.keys || {}) },
-      storageProvider: update?.sub?.storageProvider || 'r2',
-      sizes: { ...(update?.sub?.sizes || {}) },
-      mimeTypes: { ...(update?.sub?.mimeTypes || {}) },
+      qualities: { ...(existingSub.qualities || {}), ...(subQualities || {}) },
+      keys: { ...(existingSub.keys || {}), ...(update?.sub?.keys || {}) },
+      storageProvider: update?.sub?.storageProvider || existingSub.storageProvider || 'r2',
+      sizes: { ...(existingSub.sizes || {}), ...(update?.sub?.sizes || {}) },
+      mimeTypes: { ...(existingSub.mimeTypes || {}), ...(update?.sub?.mimeTypes || {}) },
     },
     dub: {
-      qualities: { ...(dubQualities || {}) },
-      keys: { ...(update?.dub?.keys || {}) },
-      storageProvider: update?.dub?.storageProvider || 'r2',
-      sizes: { ...(update?.dub?.sizes || {}) },
-      mimeTypes: { ...(update?.dub?.mimeTypes || {}) },
+      qualities: { ...(existingDub.qualities || {}), ...(dubQualities || {}) },
+      keys: { ...(existingDub.keys || {}), ...(update?.dub?.keys || {}) },
+      storageProvider: update?.dub?.storageProvider || existingDub.storageProvider || 'r2',
+      sizes: { ...(existingDub.sizes || {}), ...(update?.dub?.sizes || {}) },
+      mimeTypes: { ...(existingDub.mimeTypes || {}), ...(update?.dub?.mimeTypes || {}) },
     },
   };
 

@@ -32,7 +32,7 @@ const JobStatus = {
 /**
  * Create a processing job
  */
-function createJob(animeId, episodeNumber, r2Key, r2Url, quality = '1080p') {
+function createJob(animeId, episodeNumber, r2Key, r2Url, quality = '1080p', language = 'sub') {
   const jobId = `${animeId}-${episodeNumber}-${quality}-${Date.now()}`;
   const job = {
     id: jobId,
@@ -41,6 +41,7 @@ function createJob(animeId, episodeNumber, r2Key, r2Url, quality = '1080p') {
     r2Key,
     r2Url,
     quality,
+    language: language === 'dub' ? 'dub' : 'sub',
     status: JobStatus.PENDING,
     createdAt: new Date(),
     startedAt: null,
@@ -147,15 +148,15 @@ async function processJob(job) {
           console.log('[PROCESSING QUEUE] Episode does not exist, creating it...');
           episode = {
             episodeNumber: job.episodeNumber,
-            sub: { qualities: {}, keys: {}, storageProvider: 'r2', sizes: {}, mimeTypes: {} },
-            dub: { qualities: {}, keys: {}, storageProvider: 'r2', sizes: {}, mimeTypes: {} },
+            sub: { qualities: new Map(), keys: new Map(), storageProvider: 'r2', sizes: new Map(), mimeTypes: new Map() },
+            dub: { qualities: new Map(), keys: new Map(), storageProvider: 'r2', sizes: new Map(), mimeTypes: new Map() },
             videoMetadata: new Map()
           };
           anime.episodesMedia.push(episode);
         }
         
         // Update with transcoded URL
-        const language = 'sub'; // Default to sub for batch uploads
+        const language = job.language === 'dub' ? 'dub' : 'sub';
         episode[language].qualities.set(job.quality, uploadResult.url);
         episode[language].keys.set(job.quality, uploadResult.key);
         episode[language].sizes.set(job.quality, transcodedBuffer.length);
@@ -272,8 +273,8 @@ export function startQueueProcessor() {
 /**
  * Add job to queue
  */
-export function addProcessingJob(animeId, episodeNumber, r2Key, r2Url, quality = '1080p') {
-  const job = createJob(animeId, episodeNumber, r2Key, r2Url, quality);
+export function addProcessingJob(animeId, episodeNumber, r2Key, r2Url, quality = '1080p', language = 'sub') {
+  const job = createJob(animeId, episodeNumber, r2Key, r2Url, quality, language);
   processQueue();
   return job;
 }
