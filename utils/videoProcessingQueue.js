@@ -138,7 +138,7 @@ async function processJob(job) {
       
       // Update anime with new URL
       console.log('[PROCESSING QUEUE] Updating anime with transcoded URL...');
-      const anime = await Anime.findById(job.animeId);
+      const anime = await Anime.findOne({ clientId: job.animeId });
       if (anime) {
         const episode = anime.episodesMedia?.find(ep => ep.episodeNumber === job.episodeNumber);
         if (episode) {
@@ -190,7 +190,7 @@ async function processJob(job) {
     
     // Update anime with error status
     try {
-      const anime = await Anime.findById(job.animeId);
+      const anime = await Anime.findOne({ clientId: job.animeId });
       if (anime) {
         const episode = anime.episodesMedia?.find(ep => ep.episodeNumber === job.episodeNumber);
         if (episode) {
