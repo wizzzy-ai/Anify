@@ -239,22 +239,38 @@
       task.status = 'queued_for_processing';
       scheduleRender();
       
-      // Poll for processing status
+      // Poll for processing status and wait for completion
       await pollProcessingStatus(task);
+      
+      // After transcoding completes, the processing queue has already updated the database
+      // with the transcoded URL. We just need to refresh local data.
+      if (global.updateLocalAnimeData) {
+        // Fetch updated anime data from server
+        const animeResponse = await fetch(`/api/anime/${anime.id}`, {
+          headers: token() ? { Authorization: `Bearer ${token()}` } : {}
+        });
+        const animeData = await animeResponse.json().catch(() => ({}));
+        if (animeData.ok && animeData.anime) {
+          global.updateLocalAnimeData(animeData.anime);
+          if (String(global.currentHubAnime?.id) === String(task.animeId)) {
+            global.currentHubAnime = animeData.anime;
+          }
+        }
+      }
+    } else {
+      // No transcoding needed (already compatible), update database directly
+      const currentEpisode = (anime.episodesMedia || []).find((episode) => Number(episode.episodeNumber) === Number(task.episode));
+      const payload = {
+        sub: { qualities: { ...(currentEpisode?.sub?.qualities || {}), '1080p': completeResult.url }, keys: { '1080p': completeResult.key }, storageProvider: 'r2', sizes: { '1080p': task.file.size }, mimeTypes: { '1080p': task.file.type } },
+        dub: { qualities: { ...(currentEpisode?.dub?.qualities || {}) } },
+        status: 'Airing',
+      };
+      const response = await fetch(`/api/anime/${anime.id}/episodes/${task.episode}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(token() ? { Authorization: `Bearer ${token()}` } : {}) }, body: JSON.stringify(payload) });
+      const data = await response.json().catch(() => ({})); if (!response.ok || !data.ok) throw new Error(data.error || 'Episode metadata could not be saved.');
+      if (global.updateLocalAnimeData) global.updateLocalAnimeData(data.anime);
+      if (String(global.currentHubAnime?.id) === String(task.animeId)) global.currentHubAnime = data.anime;
     }
     
-    // Keep qualities already attached to an episode. The existing API preserves
-    // its view counter, while this avoids batch replacement erasing other tracks.
-    const currentEpisode = (anime.episodesMedia || []).find((episode) => Number(episode.episodeNumber) === Number(task.episode));
-    const payload = {
-      sub: { qualities: { ...(currentEpisode?.sub?.qualities || {}), '1080p': completeResult.url }, keys: { '1080p': completeResult.key }, storageProvider: 'r2', sizes: { '1080p': task.file.size }, mimeTypes: { '1080p': task.file.type } },
-      dub: { qualities: { ...(currentEpisode?.dub?.qualities || {}) } },
-      status: 'Airing',
-    };
-    const response = await fetch(`/api/anime/${anime.id}/episodes/${task.episode}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(token() ? { Authorization: `Bearer ${token()}` } : {}) }, body: JSON.stringify(payload) });
-    const data = await response.json().catch(() => ({})); if (!response.ok || !data.ok) throw new Error(data.error || 'Episode metadata could not be saved.');
-    if (global.updateLocalAnimeData) global.updateLocalAnimeData(data.anime);
-    if (String(global.currentHubAnime?.id) === String(task.animeId)) global.currentHubAnime = data.anime;
     task.progress = 100; task.status = 'completed'; clearSession(task); scheduleRender();
   }
   async function run(task) {
