@@ -162,8 +162,9 @@ export async function transcodeVideo(inputPath, outputPath, options = {}) {
       console.log('[Transcode] Transcoding completed successfully');
       resolve({ success: true, outputPath });
     })
-    .on('error', (err) => {
+    .on('error', (err, stdout, stderr) => {
       console.error('[Transcode] FFmpeg error:', err.message);
+      console.error('[Transcode] FFmpeg stderr:', stderr);
       reject(new Error(`Transcoding failed: ${err.message}`));
     })
     .run();
@@ -263,11 +264,15 @@ export async function processVideoFromBuffer(buffer, originalName, options = {})
   const inputPath = join(tmpdir(), `input-${Date.now()}-${originalName}`);
   fs.writeFileSync(inputPath, buffer);
 
+  let result = null;
+  let outputPath = null;
+
   try {
-    const result = await processVideo(inputPath, options);
+    result = await processVideo(inputPath, options);
     
     // Read output file if transcoded
     if (result.transcoded) {
+      outputPath = result.outputPath;
       const outputBuffer = fs.readFileSync(result.outputPath);
       result.outputBuffer = outputBuffer;
     } else {
@@ -278,8 +283,8 @@ export async function processVideoFromBuffer(buffer, originalName, options = {})
   } finally {
     // Clean up temporary files
     cleanupFile(inputPath);
-    if (result?.transcoded && result?.outputPath) {
-      cleanupFile(result.outputPath);
+    if (outputPath) {
+      cleanupFile(outputPath);
     }
   }
 }

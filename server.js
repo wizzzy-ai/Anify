@@ -935,6 +935,7 @@ async function sendUploadedFile(req, res, fieldName) {
           }
         } catch (transcodeError) {
           console.error('[UPLOAD] ❌ Video processing failed:', transcodeError.message);
+          console.error('[UPLOAD] Transcode error stack:', transcodeError.stack);
           // If transcoding fails, we should NOT proceed with upload
           // Return error to admin so they can retry with a different file
           return res.status(500).json({
@@ -948,24 +949,49 @@ async function sendUploadedFile(req, res, fieldName) {
         // Use extended timeout for large video files (15 minutes)
         const fileTimeout = processedFile.size > 100 * 1024 * 1024 ? 900000 : 300000; // 15 min for >100MB, 5 min otherwise
         console.log('[UPLOAD] ⏱️ Upload timeout:', fileTimeout > 300000 ? '15 minutes (large file)' : '5 minutes');
-        result = await uploadToR2(processedFile, 'videos', { metadata: parsedMetadata, timeout: fileTimeout });
         
-        // Add transcoding info to result
-        result.transcoded = transcoded;
+        try {
+          result = await uploadToR2(processedFile, 'videos', { metadata: parsedMetadata, timeout: fileTimeout });
+          
+          // Add transcoding info to result
+          result.transcoded = transcoded;
+        } catch (uploadError) {
+          console.error('[UPLOAD] ❌ R2 upload failed:', uploadError.message);
+          console.error('[UPLOAD] Upload error stack:', uploadError.stack);
+          return res.status(500).json({
+            ok: false,
+            error: `R2 upload failed: ${uploadError.message}`,
+            code: 'R2_UPLOAD_FAILED'
+          });
+        }
       }
       
-      console.log('[UPLOAD] ✅ Video upload SUCCESS:', { 
-        animeTitle: parsedMetadata?.animeTitle || 'unknown',
-        animeId: parsedMetadata?.animeId || 'unknown',
-        episodeNumber: parsedMetadata?.episodeNumber || 'unknown',
-        url: result.url, 
-        key: result.key, 
-        storage: result.storage,
-        transcoded: result.transcoded || false
-      });
+      // Only log success if result is defined
+      if (result) {
+        console.log('[UPLOAD] ✅ Video upload SUCCESS:', { 
+          animeTitle: parsedMetadata?.animeTitle || 'unknown',
+          animeId: parsedMetadata?.animeId || 'unknown',
+          episodeNumber: parsedMetadata?.episodeNumber || 'unknown',
+          url: result.url, 
+          key: result.key, 
+          storage: result.storage,
+          transcoded: result.transcoded || false
+        });
+      }
     }
 
     console.log('[UPLOAD] 📤 Sending success response to client');
+    
+    // Ensure result is defined before sending response
+    if (!result) {
+      console.error('[UPLOAD] ❌ No result object available');
+      return res.status(500).json({
+        ok: false,
+        error: 'Upload failed: no result returned',
+        code: 'NO_RESULT'
+      });
+    }
+    
     return res.json({
       ok: true,
       url: result.url || result.secure_url,
