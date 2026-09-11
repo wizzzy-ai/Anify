@@ -16,7 +16,7 @@ import os from 'os';
 // In-memory queue (could be replaced with Redis/Bull for production)
 const queue = [];
 const activeJobs = new Map();
-const MAX_CONCURRENT_JOBS = 3;
+const MAX_CONCURRENT_JOBS = 6;
 let isProcessing = false;
 
 /**
