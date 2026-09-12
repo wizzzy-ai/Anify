@@ -24,9 +24,22 @@ const concurrencyIndex = process.argv.indexOf('--concurrency');
 const requestedConcurrency = concurrencyIndex >= 0 ? Number(process.argv[concurrencyIndex + 1]) : 3;
 const concurrency = Math.max(1, Math.min(6, Number.isFinite(requestedConcurrency) ? requestedConcurrency : 3));
 const tempRoot = path.join(os.tmpdir(), 'anify-mobile-video-migration');
+const animeIndex = process.argv.indexOf('--anime');
+const animeFilter = animeIndex >= 0 ? String(process.argv[animeIndex + 1] || '').trim() : '';
 
 function log(message) {
   console.log(`[mobile-migration] ${message}`);
+}
+
+async function removeWorkDir(workDir) {
+  try {
+    // Windows can keep a file handle open for a moment after FFmpeg/FFprobe
+    // exits. Retrying prevents a successful migration from being reported as
+    // failed solely because its disposable working directory is still locked.
+    await fs.rm(workDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+  } catch (error) {
+    log(`warning: could not clean temporary directory ${workDir}: ${error.message}`);
+  }
 }
 
 function getQualityEntries(source) {
@@ -101,7 +114,7 @@ async function inspectSource(item) {
     }
     throw error;
   } finally {
-    await fs.rm(workDir, { recursive: true, force: true });
+    await removeWorkDir(workDir);
   }
 }
 
@@ -143,7 +156,7 @@ async function migrateSource(anime, item, index) {
     await anime.save();
     log(`${index}: database updated; original retained`);
   } finally {
-    await fs.rm(workDir, { recursive: true, force: true });
+    await removeWorkDir(workDir);
   }
 }
 
@@ -174,12 +187,24 @@ async function main() {
   if (!EXECUTE) {
     log('DRY RUN: no files will be downloaded, uploaded, or changed. Use --execute to migrate.');
   }
+  if (animeIndex >= 0 && !animeFilter) {
+    throw new Error('Provide an anime title or client ID after --anime.');
+  }
   await fs.mkdir(tempRoot, { recursive: true });
   await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI);
 
   const sharedState = { processed: 0 };
   try {
-    const animeList = await Anime.find();
+    const animeQuery = !animeFilter
+      ? {}
+      : /^\d+$/.test(animeFilter)
+        ? { clientId: Number(animeFilter) }
+        : { title: { $regex: `^${animeFilter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } };
+    const animeList = await Anime.find(animeQuery);
+    if (!animeList.length) {
+      throw new Error(`No anime matched "${animeFilter}".`);
+    }
+    if (animeFilter) log(`Targeting ${animeList.map(anime => `${anime.title} (${anime.clientId || anime._id})`).join(', ')}.`);
     let nextAnimeIndex = 0;
     async function worker() {
       while (nextAnimeIndex < animeList.length && sharedState.processed < maxItems) {
@@ -191,7 +216,7 @@ async function main() {
     log(`Finished. Sources needing migration: ${sharedState.processed}. Concurrency: ${concurrency}. Originals were not deleted.`);
   } finally {
     await mongoose.disconnect();
-    await fs.rm(tempRoot, { recursive: true, force: true });
+    await removeWorkDir(tempRoot);
   }
 }
 

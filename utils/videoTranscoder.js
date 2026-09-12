@@ -18,6 +18,12 @@ import { createReadStream, createWriteStream, unlinkSync, existsSync } from 'fs'
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+// Hosting providers and Windows installations do not always expose FFmpeg on
+// PATH. Supplying these environment variables keeps the upload and migration
+// paths portable without hard-coding a machine-specific executable location.
+if (process.env.FFMPEG_PATH) ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH);
+if (process.env.FFPROBE_PATH) ffmpeg.setFfprobePath(process.env.FFPROBE_PATH);
+
 /**
  * Inspect video codec information using ffprobe
  * 
