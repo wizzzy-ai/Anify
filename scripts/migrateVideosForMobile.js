@@ -26,6 +26,7 @@ const concurrency = Math.max(1, Math.min(6, Number.isFinite(requestedConcurrency
 const tempRoot = path.join(os.tmpdir(), 'anify-mobile-video-migration');
 const animeIndex = process.argv.indexOf('--anime');
 const animeFilter = animeIndex >= 0 ? String(process.argv[animeIndex + 1] || '').trim() : '';
+const DOWNLOAD_ATTEMPTS = 4;
 
 function log(message) {
   console.log(`[mobile-migration] ${message}`);
@@ -95,9 +96,22 @@ async function download(url, destination) {
     return;
   }
 
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Download failed (${response.status})`);
-  await fs.writeFile(destination, Buffer.from(await response.arrayBuffer()));
+  let lastError;
+  for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Download failed (${response.status})`);
+      await fs.writeFile(destination, Buffer.from(await response.arrayBuffer()));
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt === DOWNLOAD_ATTEMPTS) break;
+      const delay = attempt * 2000;
+      log(`download attempt ${attempt}/${DOWNLOAD_ATTEMPTS} failed: ${error.message}; retrying in ${delay / 1000}s`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error(`Download failed after ${DOWNLOAD_ATTEMPTS} attempts: ${lastError?.message || 'unknown error'}`);
 }
 
 async function inspectSource(item) {
@@ -164,22 +178,27 @@ async function processAnimeGroup(anime, sharedState) {
   for (const item of collectSources(anime)) {
     if (sharedState.processed >= maxItems) return;
 
-    const metadata = await inspectSource(item);
-    if (!metadata) continue;
-    if (isMobileCompatible(metadata)) {
-      log(`skip: ${anime.title} ${item.location.kind} ${item.quality} is already mobile-compatible`);
-      continue;
-    }
+    try {
+      const metadata = await inspectSource(item);
+      if (!metadata) continue;
+      if (isMobileCompatible(metadata)) {
+        log(`skip: ${anime.title} ${item.location.kind} ${item.quality} is already mobile-compatible`);
+        continue;
+      }
 
-    if (sharedState.processed >= maxItems) return;
-    sharedState.processed += 1;
-    const video = metadata.videoCodec || 'unknown';
-    const audio = metadata.audioCodec || 'none';
-    if (!EXECUTE) {
-      log(`${sharedState.processed}: NEEDS CONVERSION ${anime.title} -> ${item.location.kind} ${item.quality} (video: ${video}, audio: ${audio})`);
-      continue;
+      if (sharedState.processed >= maxItems) return;
+      sharedState.processed += 1;
+      const video = metadata.videoCodec || 'unknown';
+      const audio = metadata.audioCodec || 'none';
+      if (!EXECUTE) {
+        log(`${sharedState.processed}: NEEDS CONVERSION ${anime.title} -> ${item.location.kind} ${item.quality} (video: ${video}, audio: ${audio})`);
+        continue;
+      }
+      await migrateSource(anime, item, sharedState.processed);
+    } catch (error) {
+      const episodeNumber = item.location.episode?.episodeNumber || 'movie';
+      log(`skip: ${anime.title} episode ${episodeNumber} ${item.quality} failed: ${error.message}`);
     }
-    await migrateSource(anime, item, sharedState.processed);
   }
 }
 
