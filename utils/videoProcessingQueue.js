@@ -16,6 +16,7 @@ import os from 'os';
 // In-memory queue (could be replaced with Redis/Bull for production)
 const queue = [];
 const activeJobs = new Map();
+const completedJobs = new Map(); // Store completed jobs for status polling
 const MAX_CONCURRENT_JOBS = 6;
 let isProcessing = false;
 
@@ -26,8 +27,15 @@ const JobStatus = {
   PENDING: 'pending',
   PROCESSING: 'processing',
   COMPLETED: 'completed',
-  FAILED: 'failed'
+  FAILED: 'failed',
+  SKIPPED: 'skipped' // For videos already compatible
 };
+
+function setMapValue(collection, key, value) {
+  if (!collection) return;
+  if (typeof collection.set === 'function') collection.set(key, value);
+  else collection[key] = value;
+}
 
 /**
  * Create a processing job
@@ -59,7 +67,7 @@ function createJob(animeId, episodeNumber, r2Key, r2Url, quality = '1080p', lang
  * Get job by ID
  */
 function getJob(jobId) {
-  return queue.find(job => job.id === jobId) || activeJobs.get(jobId);
+  return queue.find(job => job.id === jobId) || activeJobs.get(jobId) || completedJobs.get(jobId);
 }
 
 /**
@@ -102,12 +110,84 @@ async function processJob(job) {
     console.log('[PROCESSING QUEUE] Video metadata:', metadata);
     
     job.progress = 40;
-    
+
     // Check if already compatible
     if (isMobileCompatible(metadata)) {
-      console.log('[PROCESSING QUEUE] Video already compatible, skipping transcoding');
+      console.log('[PROCESSING QUEUE] ✅ Video already compatible, skipping transcoding');
+      console.log('[PROCESSING QUEUE] Codec info:', {
+        videoCodec: metadata.videoCodec,
+        audioCodec: metadata.audioCodec,
+        pixelFormat: metadata.pixelFormat,
+        container: metadata.container
+      });
       job.transcoded = false;
+      job.status = JobStatus.SKIPPED;
       job.progress = 100;
+
+      // Update anime with original URL (since no transcoding needed)
+      console.log('[PROCESSING QUEUE] Updating anime with original compatible URL...');
+      console.log('[PROCESSING QUEUE] Searching for anime with clientId:', job.animeId, typeof job.animeId);
+      const anime = await Anime.findOne({ clientId: job.animeId });
+      console.log('[PROCESSING QUEUE] Found anime:', anime ? anime.title : 'NO');
+      if (anime) {
+        console.log('[PROCESSING QUEUE] Current episodes count:', anime.episodesMedia?.length || 0);
+
+        let episode = anime.episodesMedia?.find(ep => ep.episodeNumber === job.episodeNumber);
+        console.log('[PROCESSING QUEUE] Found episode:', episode ? 'YES' : 'NO');
+
+        // Create episode if it doesn't exist
+        if (!episode) {
+          console.log('[PROCESSING QUEUE] Episode does not exist, creating it...');
+          episode = {
+            episodeNumber: job.episodeNumber,
+            sub: { qualities: {}, keys: {}, storageProvider: 'r2', sizes: {}, mimeTypes: {} },
+            dub: { qualities: {}, keys: {}, storageProvider: 'r2', sizes: {}, mimeTypes: {} },
+            videoMetadata: {}
+          };
+          anime.episodesMedia.push(episode);
+        }
+
+        // Update with original URL
+        const language = job.language === 'dub' ? 'dub' : 'sub';
+        episode.language = language;
+        console.log('[PROCESSING QUEUE] Updating episode:', { episodeNumber: job.episodeNumber, language, quality: job.quality, url: job.r2Url });
+
+        setMapValue(episode[language].qualities, job.quality, job.r2Url);
+        setMapValue(episode[language].keys, job.quality, job.r2Key);
+        setMapValue(episode[language].sizes, job.quality, metadata.size || 0);
+        setMapValue(episode[language].mimeTypes, job.quality, 'video/mp4');
+        episode[language].storageProvider = 'r2';
+
+        // Update video metadata
+        if (!episode.videoMetadata) episode.videoMetadata = {};
+        const metadataKey = `${job.quality}-${language}`;
+        setMapValue(episode.videoMetadata, metadataKey, {
+          url: job.r2Url,
+          key: job.r2Key,
+          storageProvider: 'r2',
+          size: metadata.size || 0,
+          mimeType: 'video/mp4',
+          processingStatus: 'completed',
+          transcoded: false,
+          codecInfo: {
+            videoCodec: metadata.videoCodec,
+            audioCodec: metadata.audioCodec,
+            pixelFormat: metadata.pixelFormat,
+            profile: metadata.profile,
+            mobileCompatible: true
+          }
+        });
+
+        await anime.save();
+        console.log('[PROCESSING QUEUE] ✅ Anime updated successfully with original URL');
+        console.log('[PROCESSING QUEUE] Episode quality check:', episode[language].qualities[job.quality] ? 'URL SET' : 'URL NOT SET');
+      }
+
+      job.status = JobStatus.COMPLETED;
+      job.completedAt = new Date();
+      job.transcoded = false;
+      console.log('[PROCESSING QUEUE] ✅ Job completed (skipped transcoding):', job.id);
+      console.log('[PROCESSING QUEUE] Database updated with compatible video URL');
     } else {
       console.log('[PROCESSING QUEUE] Transcoding to mobile-compatible format...');
       await transcodeVideo(inputPath, outputPath, {
@@ -148,24 +228,25 @@ async function processJob(job) {
           console.log('[PROCESSING QUEUE] Episode does not exist, creating it...');
           episode = {
             episodeNumber: job.episodeNumber,
-            sub: { qualities: new Map(), keys: new Map(), storageProvider: 'r2', sizes: new Map(), mimeTypes: new Map() },
-            dub: { qualities: new Map(), keys: new Map(), storageProvider: 'r2', sizes: new Map(), mimeTypes: new Map() },
-            videoMetadata: new Map()
+            sub: { qualities: {}, keys: {}, storageProvider: 'r2', sizes: {}, mimeTypes: {} },
+            dub: { qualities: {}, keys: {}, storageProvider: 'r2', sizes: {}, mimeTypes: {} },
+            videoMetadata: {}
           };
           anime.episodesMedia.push(episode);
         }
         
         // Update with transcoded URL
         const language = job.language === 'dub' ? 'dub' : 'sub';
-        episode[language].qualities.set(job.quality, uploadResult.url);
-        episode[language].keys.set(job.quality, uploadResult.key);
-        episode[language].sizes.set(job.quality, transcodedBuffer.length);
-        episode[language].mimeTypes.set(job.quality, 'video/mp4');
+        episode.language = language;
+        setMapValue(episode[language].qualities, job.quality, uploadResult.url);
+        setMapValue(episode[language].keys, job.quality, uploadResult.key);
+        setMapValue(episode[language].sizes, job.quality, transcodedBuffer.length);
+        setMapValue(episode[language].mimeTypes, job.quality, 'video/mp4');
         
         // Update video metadata
-        if (!episode.videoMetadata) episode.videoMetadata = new Map();
+        if (!episode.videoMetadata) episode.videoMetadata = {};
         const metadataKey = `${job.quality}-${language}`;
-        episode.videoMetadata.set(metadataKey, {
+        episode.videoMetadata[metadataKey] = {
           url: uploadResult.url,
           key: uploadResult.key,
           storageProvider: 'r2',
@@ -180,7 +261,7 @@ async function processJob(job) {
             profile: 'high',
             mobileCompatible: true
           }
-        });
+        };
         
         await anime.save();
         console.log('[PROCESSING QUEUE] Anime updated successfully');
@@ -200,17 +281,17 @@ async function processJob(job) {
     console.error('[PROCESSING QUEUE] Job failed:', job.id, error.message);
     job.status = JobStatus.FAILED;
     job.error = error.message;
-    
+
     // Update anime with error status
     try {
       const anime = await Anime.findOne({ clientId: job.animeId });
       if (anime) {
         const episode = anime.episodesMedia?.find(ep => ep.episodeNumber === job.episodeNumber);
         if (episode) {
-          const language = episode.sub?.qualities?.[job.quality] ? 'sub' : 'dub';
-          if (!episode.videoMetadata) episode.videoMetadata = new Map();
+          const language = job.language === 'dub' ? 'dub' : 'sub';
+          if (!episode.videoMetadata) episode.videoMetadata = {};
           const metadataKey = `${job.quality}-${language}`;
-          episode.videoMetadata.set(metadataKey, {
+          episode.videoMetadata[metadataKey] = {
             url: job.r2Url,
             key: job.r2Key,
             storageProvider: 'r2',
@@ -219,14 +300,14 @@ async function processJob(job) {
             codecInfo: {
               mobileCompatible: false
             }
-          });
+          };
           await anime.save();
         }
       }
     } catch (dbError) {
       console.error('[PROCESSING QUEUE] Failed to update error status:', dbError.message);
     }
-    
+
   } finally {
     // Cleanup temp files
     try {
@@ -234,8 +315,16 @@ async function processJob(job) {
     } catch (cleanupError) {
       console.error('[PROCESSING QUEUE] Cleanup failed:', cleanupError.message);
     }
-    
+
+    // Move job to completed jobs for status polling
     activeJobs.delete(job.id);
+    completedJobs.set(job.id, job);
+
+    // Clean up old completed jobs (keep last 100)
+    if (completedJobs.size > 100) {
+      const oldestKey = completedJobs.keys().next().value;
+      completedJobs.delete(oldestKey);
+    }
   }
 }
 
@@ -300,8 +389,9 @@ export function getQueueStats() {
   return {
     pending: queue.filter(j => j.status === JobStatus.PENDING).length,
     processing: activeJobs.size,
-    completed: queue.filter(j => j.status === JobStatus.COMPLETED).length,
-    failed: queue.filter(j => j.status === JobStatus.FAILED).length
+    completed: Array.from(completedJobs.values()).filter(j => j.status === JobStatus.COMPLETED).length,
+    skipped: Array.from(completedJobs.values()).filter(j => j.status === JobStatus.SKIPPED).length,
+    failed: Array.from(completedJobs.values()).filter(j => j.status === JobStatus.FAILED).length
   };
 }
 

@@ -49,6 +49,37 @@
         return 'Just now';
     }
 
+    function getEpisodeLanguageDisplay(episode) {
+        const hasValues = (collection) => {
+            if (!collection) return false;
+            if (typeof collection.size === 'number') return collection.size > 0;
+            return Object.keys(collection).length > 0;
+        };
+        const hasMetadataLanguage = (language) => {
+            const suffix = `-${language}`;
+            const metadata = episode?.videoMetadata;
+            if (!metadata) return false;
+            const keys = typeof metadata.keys === 'function' ? Array.from(metadata.keys()) : Object.keys(metadata);
+            return keys.some(key => String(key).endsWith(suffix));
+        };
+        const hasSub = hasValues(episode?.sub?.qualities) || hasMetadataLanguage('sub');
+        const hasDub = hasValues(episode?.dub?.qualities) || hasMetadataLanguage('dub');
+        if (episode?.language === 'sub') return 'Sub';
+        if (episode?.language === 'dub') return 'Dub';
+
+        if (hasSub && hasDub) return 'Sub • Dub';
+        if (hasSub) return 'Sub';
+        if (hasDub) return 'Dub';
+        return 'Unknown';
+    }
+    function getEpisodeLanguages(episode) {
+        const display = getEpisodeLanguageDisplay(episode);
+        if (display === 'Sub • Dub') return ['sub', 'dub'];
+        if (display === 'Sub') return ['sub'];
+        if (display === 'Dub') return ['dub'];
+        return ['unknown'];
+    }
+
     // Quick action functions
     function refreshDashboard() {
         renderAdminDashboard();
@@ -1339,15 +1370,15 @@
                         <i data-lucide="history" class="w-3.5 h-3.5 text-gray-400 dark:text-gray-600"></i>
                     </div>
                     <div class="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar" id="hub-episode-list">
-                        ${episodes.length > 0 ? episodes.sort((a, b) => b.episodeNumber - a.episodeNumber).map(e => `
-                            <div class="group p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-transparent dark:border-white/5 hover:border-gold-400/30 hover:bg-black/8 dark:hover:bg-white/8 transition-all flex items-center justify-between cursor-pointer" onclick="loadEpisodeIntoWorkspace(${e.episodeNumber})">
+                        ${episodes.length > 0 ? episodes.sort((a, b) => b.episodeNumber - a.episodeNumber).flatMap(e => getEpisodeLanguages(e).map(language => `
+                            <div class="group p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-transparent dark:border-white/5 hover:border-gold-400/30 hover:bg-black/8 dark:hover:bg-white/8 transition-all flex items-center justify-between cursor-pointer" onclick="loadEpisodeIntoWorkspace(${e.episodeNumber}, '${language}')">
                                 <div class="flex items-center gap-3">
                                     <div class="w-8 h-8 rounded-lg bg-green-400/10 flex items-center justify-center border border-green-400/20">
                                         <i data-lucide="check" class="w-4 h-4 text-green-400"></i>
                                     </div>
                                     <div>
-                                        <p class="text-sm font-bold text-black dark:text-white">Episode ${e.episodeNumber}</p>
-                                        <p class="text-[10px] text-gray-500 font-bold uppercase">${Object.keys(e.sub?.qualities || {}).length > 0 ? 'Sub' : ''} ${Object.keys(e.dub?.qualities || {}).length > 0 ? '• Dub' : ''} • ${(typeof formatViewCount === 'function' ? formatViewCount(e.views || 0) : ((e.views || 0) + ' views'))}</p>
+                                        <p class="text-sm font-bold text-black dark:text-white">Episode ${e.episodeNumber} — ${language.toUpperCase()}</p>
+                                        <p class="text-[10px] text-gray-500 font-bold uppercase">${language.toUpperCase()} • ${(typeof formatViewCount === 'function' ? formatViewCount(e.views || 0) : ((e.views || 0) + ' views'))}</p>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1355,7 +1386,7 @@
                                     <button class="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400" onclick="deleteHubEpisode(${e.episodeNumber}, event)"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                                 </div>
                             </div>
-                        `).join('') : `
+                        `)).join('') : `
                             <div class="flex flex-col items-center justify-center py-10 text-center opacity-40">
                                 <i data-lucide="inbox" class="w-10 h-10 mb-2"></i>
                                 <p class="text-xs font-bold text-black dark:text-white">No episodes yet</p>
@@ -1513,6 +1544,14 @@
                         <div><h4 class="font-black text-black dark:text-white">🚀 Batch episode uploader</h4><p class="text-xs text-gray-500 mt-1">Add as many anime batches as you need. All batches share this safe upload limit, so only four videos upload at once.</p></div>
                         <select id="batch-upload-concurrency" class="input-field h-9 text-xs w-24"><option value="2">2 at once</option><option value="4" selected>4 at once</option><option value="6">6 at once</option></select>
                     </div>
+                    <div class="flex items-center justify-between gap-3 mb-1">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500">Audio version</label>
+                        <select id="batch-upload-language" class="batch-language-select input-field h-9 text-xs w-28 uppercase" aria-label="Batch audio version">
+                            <option value="sub" selected>SUB</option>
+                            <option value="dub">DUB</option>
+                        </select>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mb-3">Applies to every file in this batch</p>
                     <div id="batch-upload-drop" class="rounded-2xl border-2 border-dashed border-gold-400/30 bg-gold-400/5 p-5 text-center">
                         <input id="batch-episode-files" type="file" accept="video/*" multiple class="hidden">
                         <p class="font-bold text-sm">🎞️ Drop episode files here</p><p class="text-xs text-gray-500 mt-1">or <label for="batch-episode-files" class="text-gold-400 cursor-pointer font-bold">browse files</label> — episode numbers are detected from filenames.</p>
@@ -1660,15 +1699,15 @@
                 const episodes = Array.isArray(window.currentHubAnime.episodesMedia) ? window.currentHubAnime.episodesMedia : [];
                 console.log('[Add New Episode] Refreshing sidebar with episodes:', episodes.map(e => e.episodeNumber));
                 
-                episodeList.innerHTML = episodes.length > 0 ? episodes.sort((a, b) => b.episodeNumber - a.episodeNumber).map(e => `
-                    <div class="group p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-transparent dark:border-white/5 hover:border-gold-400/30 hover:bg-black/8 dark:hover:bg-white/8 transition-all flex items-center justify-between cursor-pointer ${Number(e.episodeNumber) === Number(calculatedNextNum) ? 'hub-episode-active' : ''}" onclick="loadEpisodeIntoWorkspace(${e.episodeNumber})">
+                episodeList.innerHTML = episodes.length > 0 ? episodes.sort((a, b) => b.episodeNumber - a.episodeNumber).flatMap(e => getEpisodeLanguages(e).map(language => `
+                    <div class="group p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-transparent dark:border-white/5 hover:border-gold-400/30 hover:bg-black/8 dark:hover:bg-white/8 transition-all flex items-center justify-between cursor-pointer ${Number(e.episodeNumber) === Number(calculatedNextNum) ? 'hub-episode-active' : ''}" onclick="loadEpisodeIntoWorkspace(${e.episodeNumber}, '${language}')">
                         <div class="flex items-center gap-3">
                             <div class="w-8 h-8 rounded-lg bg-green-400/10 flex items-center justify-center border border-green-400/20">
                                 <i data-lucide="check" class="w-4 h-4 text-green-400"></i>
                             </div>
                             <div>
-                                <p class="text-sm font-bold text-black dark:text-white">Episode ${e.episodeNumber}</p>
-                                <p class="text-[10px] text-gray-500 font-bold uppercase">${Object.keys(e.sub?.qualities || {}).length > 0 ? 'Sub' : ''} ${Object.keys(e.dub?.qualities || {}).length > 0 ? '• Dub' : ''} • ${(typeof formatViewCount === 'function' ? formatViewCount(e.views || 0) : ((e.views || 0) + ' views'))}</p>
+                                <p class="text-sm font-bold text-black dark:text-white">Episode ${e.episodeNumber} — ${language.toUpperCase()}</p>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase">${language.toUpperCase()} • ${(typeof formatViewCount === 'function' ? formatViewCount(e.views || 0) : ((e.views || 0) + ' views'))}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1676,7 +1715,7 @@
                             <button class="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400" onclick="deleteHubEpisode(${e.episodeNumber}, event)"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                         </div>
                     </div>
-                `).join('') : `
+                `)).join('') : `
                     <div class="flex flex-col items-center justify-center py-10 text-center opacity-40">
                         <i data-lucide="inbox" class="w-10 h-10 mb-2"></i>
                         <p class="text-xs font-bold text-black dark:text-white">No episodes yet</p>
@@ -4161,15 +4200,15 @@ function editAdminAnime(id) {
                 const episodes = Array.isArray(window.currentHubAnime.episodesMedia) ? window.currentHubAnime.episodesMedia : [];
                 console.log('[Add New Episode] Refreshing sidebar with episodes:', episodes.map(e => e.episodeNumber));
                 
-                episodeList.innerHTML = episodes.length > 0 ? episodes.sort((a, b) => b.episodeNumber - a.episodeNumber).map(e => `
-                    <div class="group p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-transparent dark:border-white/5 hover:border-gold-400/30 hover:bg-black/8 dark:hover:bg-white/8 transition-all flex items-center justify-between cursor-pointer ${Number(e.episodeNumber) === Number(calculatedNextNum) ? 'hub-episode-active' : ''}" onclick="loadEpisodeIntoWorkspace(${e.episodeNumber})">
+                episodeList.innerHTML = episodes.length > 0 ? episodes.sort((a, b) => b.episodeNumber - a.episodeNumber).flatMap(e => getEpisodeLanguages(e).map(language => `
+                    <div class="group p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-transparent dark:border-white/5 hover:border-gold-400/30 hover:bg-black/8 dark:hover:bg-white/8 transition-all flex items-center justify-between cursor-pointer ${Number(e.episodeNumber) === Number(calculatedNextNum) ? 'hub-episode-active' : ''}" onclick="loadEpisodeIntoWorkspace(${e.episodeNumber}, '${language}')">
                         <div class="flex items-center gap-3">
                             <div class="w-8 h-8 rounded-lg bg-green-400/10 flex items-center justify-center border border-green-400/20">
                                 <i data-lucide="check" class="w-4 h-4 text-green-400"></i>
                             </div>
                             <div>
-                                <p class="text-sm font-bold text-black dark:text-white">Episode ${e.episodeNumber}</p>
-                                <p class="text-[10px] text-gray-500 font-bold uppercase">${Object.keys(e.sub?.qualities || {}).length > 0 ? 'Sub' : ''} ${Object.keys(e.dub?.qualities || {}).length > 0 ? '• Dub' : ''} • ${(typeof formatViewCount === 'function' ? formatViewCount(e.views || 0) : ((e.views || 0) + ' views'))}</p>
+                                <p class="text-sm font-bold text-black dark:text-white">Episode ${e.episodeNumber} — ${language.toUpperCase()}</p>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase">${language.toUpperCase()} • ${(typeof formatViewCount === 'function' ? formatViewCount(e.views || 0) : ((e.views || 0) + ' views'))}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -4177,7 +4216,7 @@ function editAdminAnime(id) {
                             <button class="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400" onclick="deleteHubEpisode(${e.episodeNumber}, event)"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                         </div>
                     </div>
-                `).join('') : `
+                `)).join('') : `
                     <div class="flex flex-col items-center justify-center py-10 text-center opacity-40">
                         <i data-lucide="inbox" class="w-10 h-10 mb-2"></i>
                         <p class="text-xs font-bold text-black dark:text-white">No episodes yet</p>

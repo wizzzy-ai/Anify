@@ -27,7 +27,18 @@
     return match ? Number(match[1]) : null;
   }
   function detectLanguage(name) {
-    return /\b(dub|dubbed|dual[\s._-]*audio)\b/i.test(String(name)) ? 'dub' : 'sub';
+    // Underscores are common in release filenames but count as “word”
+    // characters in JavaScript. Use the filename separators explicitly so
+    // `Episode_06_Dub.mkv` is recognised as Dub rather than falling back to
+    // Sub.
+    return /(?:^|[\s._-])(?:dub(?:bed)?|dual(?:[\s._-]*audio)?)(?=$|[\s._-])/i.test(String(name)) ? 'dub' : 'sub';
+  }
+  function hasEpisodeSource(episodes, episodeNumber, language, quality = '1080p') {
+    const episode = (episodes || []).find(item => Number(item?.episodeNumber) === Number(episodeNumber));
+    const qualities = episode?.[language]?.qualities;
+    if (!qualities) return false;
+    if (typeof qualities.get === 'function') return Boolean(qualities.get(quality));
+    return Boolean(qualities[quality]);
   }
   function sessions() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; } }
   function saveSession(task) {
@@ -38,31 +49,70 @@
   function clearSession(task) { const all = sessions(); delete all[task.sessionKey]; localStorage.setItem(STORAGE_KEY, JSON.stringify(all)); }
   function taskStatus(task) {
     if (task.status === 'uploading') return `⬆️ Uploading ${Math.round(task.progress)}%`;
-    if (task.status === 'queued_for_processing') return `⚙️ Queued for transcoding`;
-    if (task.status === 'processing') return `⚙️ Transcoding ${Math.round(task.processingProgress || 0)}%`;
-    return ({ waiting: '⏳ Waiting', needs_episode: '⚠️ Episode number required', duplicate: `⚠️ Duplicate Episode ${task.episode}`, paused: '⏸ Paused', processing: '⚙️ Processing', completed: '✅ Completed', failed: `❌ ${task.error || 'Failed'}`, conflict: '⚠️ Episode already exists', cancelled: '🚫 Cancelled', skipped: '⏭ Skipped' }[task.status] || task.status);
+    if (task.status === 'queued_for_processing') return '⚙️ Checking compatibility';
+    if (task.status === 'processing') return `⟳ Transcoding ${Math.round(task.processingProgress || 0)}%`;
+    if (task.status === 'skipped_transcoding') return '✅ Uploaded — transcoding skipped';
+    if (task.status === 'completed' && task.transcodingSkipped) return '✅ Uploaded — transcoding skipped';
+    if (task.status === 'completed') return '✅ Uploaded';
+    return ({ waiting: '⏳ Waiting', needs_episode: '⚠️ Episode number required', duplicate: `⚠️ Duplicate Episode ${task.episode}`, paused: '⏸ Paused', processing: '⚙️ Processing', failed: `❌ ${task.error || 'Failed'}`, conflict: '⚠️ Episode already exists', cancelled: '🚫 Cancelled', skipped: '⏭ Skipped' }[task.status] || task.status);
+  }
+  function getBatchLanguagePreference() {
+    const selected = $('batch-upload-language')?.value;
+    return selected === 'dub' ? 'dub' : 'sub';
+  }
+  function applyBatchLanguageToPendingTasks(language) {
+    const normalized = language === 'dub' ? 'dub' : 'sub';
+    const currentAnimeId = global.currentHubAnime?.id;
+    if (!currentAnimeId) return;
+
+    state.tasks
+      .filter((task) => String(task.animeId) === String(currentAnimeId) && !['uploading', 'processing', 'completed', 'cancelled', 'failed'].includes(task.status))
+      .forEach((task) => {
+        task.language = normalized;
+      });
   }
   
   async function pollProcessingStatus(task) {
     if (!task.processingJobId) return;
-    
-    const maxAttempts = 300; // 5 minutes with 1-second intervals
+
+    const maxAttempts = 1800; // 30 minutes with 1-second intervals for large transcodes
     let attempts = 0;
-    
+
     while (attempts < maxAttempts) {
       try {
         const response = await fetch(`/api/admin/processing/job/${task.processingJobId}`, {
           headers: token() ? { Authorization: `Bearer ${token()}` } : {}
         });
         const data = await response.json();
-        
+
         if (data.ok && data.job) {
           const job = data.job;
           task.processingProgress = job.progress || 0;
-          
+
           if (job.status === 'completed') {
-            console.log('[BATCH UPLOAD] Processing completed:', task.processingJobId);
-            task.status = 'completed';
+            if (job.transcoded === false) {
+              console.log('[BATCH UPLOAD] ✅ Video already compatible, transcoding skipped:', task.processingJobId);
+              task.status = 'completed';
+              task.transcodingSkipped = true;
+            } else {
+              console.log('[BATCH UPLOAD] Processing completed:', task.processingJobId);
+              task.status = 'completed';
+            }
+
+            // Refresh local data to show the updated episode in UI
+            if (global.updateLocalAnimeData) {
+              const animeResponse = await fetch(`/api/anime/${task.animeId}`, {
+                headers: token() ? { Authorization: `Bearer ${token()}` } : {}
+              });
+              const animeData = await animeResponse.json().catch(() => ({}));
+              if (animeData.ok && animeData.anime) {
+                global.updateLocalAnimeData(animeData.anime);
+                if (String(global.currentHubAnime?.id) === String(task.animeId)) {
+                  global.currentHubAnime = animeData.anime;
+                }
+              }
+            }
+
             scheduleRender();
             return;
           } else if (job.status === 'failed') {
@@ -75,15 +125,36 @@
             task.status = 'processing';
             scheduleRender();
           }
+        } else if (response.status === 404) {
+          // Job not found - might have been completed before we could poll
+          console.warn('[BATCH UPLOAD] Job not found, assuming completed:', task.processingJobId);
+          task.status = 'completed';
+
+          // Refresh local data to show the updated episode in UI
+          if (global.updateLocalAnimeData) {
+            const animeResponse = await fetch(`/api/anime/${task.animeId}`, {
+              headers: token() ? { Authorization: `Bearer ${token()}` } : {}
+            });
+            const animeData = await animeResponse.json().catch(() => ({}));
+            if (animeData.ok && animeData.anime) {
+              global.updateLocalAnimeData(animeData.anime);
+              if (String(global.currentHubAnime?.id) === String(task.animeId)) {
+                global.currentHubAnime = animeData.anime;
+              }
+            }
+          }
+
+          scheduleRender();
+          return;
         }
       } catch (error) {
         console.error('[BATCH UPLOAD] Failed to poll processing status:', error);
       }
-      
+
       attempts++;
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    
+
     // Timeout
     console.error('[BATCH UPLOAD] Processing timeout:', task.processingJobId);
     task.status = 'failed';
@@ -102,30 +173,34 @@
     const completed = tasks.filter(t => t.status === 'completed').length;
     const failed = tasks.filter(t => t.status === 'failed').length;
     const skipped = tasks.filter(t => t.status === 'skipped').length;
+    const transcodingSkipped = tasks.filter(t => t.transcodingSkipped).length;
     const speed = tasks.reduce((n, t) => n + (t.status === 'uploading' ? (t.speed || 0) : 0), 0);
     const percent = total ? doneBytes / total * 100 : 0;
     const numbered = tasks.filter((task) => Number.isFinite(Number(task.episode))).map((task) => Number(task.episode));
     const sortedLabel = numbered.length ? `✓ Sorted: Episode ${Math.min(...numbered)} → Episode ${Math.max(...numbered)}` : '⚠ Episode numbers required';
-    summary.innerHTML = `${tasks.length} episodes for <b>${global.currentHubAnime?.title || 'this anime'}</b> • ${mb(total)} • <b>${completed}/${tasks.length}</b> completed${skipped ? ` • ${skipped} skipped` : ''}${failed ? ` • ${failed} failed` : ''}<br><span class="text-[10px] text-gold-400 font-bold">${sortedLabel}</span><div class="h-2 mt-2 rounded bg-black/10 dark:bg-white/10 overflow-hidden"><div class="h-full bg-gold-400" style="width:${percent}%"></div></div><span class="text-[10px]">${Math.round(percent)}% • ${mb(doneBytes)} uploaded • ${state.running}/${state.concurrency} uploads active globally${speed ? ` • ↑ ${mb(speed)}/s • ETA ${Math.ceil((total - doneBytes) / speed)}s` : ''}</span>`;
-    list.innerHTML = visible.map(({ task: t, index: i }) => `<div class="p-3 rounded-xl border border-white/10 bg-black/5 dark:bg-white/5 text-xs">
-      <div class="flex justify-between gap-3"><span class="font-bold truncate">🎬 ${t.file.name}</span><span class="flex items-center gap-2">Ep. <input data-episode="${i}" type="number" min="1" value="${t.episode || ''}" class="w-12 bg-transparent border-b border-gold-400 text-center" ${!['waiting', 'conflict', 'needs_episode'].includes(t.status) ? 'disabled' : ''}><select data-language="${i}" class="input-field h-7 w-20 text-[10px] uppercase" ${!['waiting', 'conflict', 'needs_episode'].includes(t.status) ? 'disabled' : ''}><option value="sub" ${t.language === 'sub' ? 'selected' : ''}>Sub</option><option value="dub" ${t.language === 'dub' ? 'selected' : ''}>Dub</option></select></span></div>
-      <div class="mt-1 text-[10px] text-gray-500">🍥 ${t.animeTitle || 'Unknown anime'} • Batch ${t.batchOrder}</div>
+    summary.innerHTML = `${tasks.length} episodes for <b>${global.currentHubAnime?.title || 'this anime'}</b> • ${mb(total)} • <b>${completed}/${tasks.length}</b> completed${skipped ? ` • ${skipped} skipped` : ''}${failed ? ` • ${failed} failed` : ''}${transcodingSkipped ? ` • ✅ ${transcodingSkipped} already compatible` : ''}<br><span class="text-[10px] text-gold-400 font-bold">${sortedLabel}</span><div class="h-2 mt-2 rounded bg-black/10 dark:bg-white/10 overflow-hidden"><div class="h-full bg-gold-400" style="width:${percent}%"></div></div><span class="text-[10px]">${Math.round(percent)}% • ${mb(doneBytes)} uploaded • ${state.running}/${state.concurrency} uploads active globally${speed ? ` • ↑ ${mb(speed)}/s • ETA ${Math.ceil((total - doneBytes) / speed)}s` : ''}</span>`;
+    list.innerHTML = visible.map(({ task: t }) => {
+      const taskIndex = state.tasks.indexOf(t);
+      return `<div class="p-3 rounded-xl border border-white/10 bg-black/5 dark:bg-white/5 text-xs">
+      <div class="flex justify-between gap-3"><span class="font-bold truncate">🎬 ${t.file.name}</span><span class="flex items-center gap-2">Ep. <input data-episode="${taskIndex}" type="number" min="1" value="${t.episode || ''}" class="w-12 bg-transparent border-b border-gold-400 text-center" ${!['waiting', 'conflict', 'needs_episode'].includes(t.status) ? 'disabled' : ''}><select data-language="${taskIndex}" class="batch-language-select input-field h-7 w-20 text-[10px] uppercase" aria-label="File audio version" ${!['waiting', 'conflict', 'needs_episode'].includes(t.status) ? 'disabled' : ''}><option value="sub" ${t.language === 'sub' ? 'selected' : ''}>Sub</option><option value="dub" ${t.language === 'dub' ? 'selected' : ''}>Dub</option></select></span></div>
+      <div class="mt-1 text-[10px] text-gray-500">🍥 ${t.animeTitle || 'Unknown anime'} • Batch ${t.batchOrder}${t.transcodingSkipped ? ' • ✅ Already compatible' : ''}</div>
       <div class="mt-2 h-1.5 rounded bg-black/10 dark:bg-white/10 overflow-hidden"><div class="h-full bg-gold-400" style="width:${t.progress || 0}%"></div></div>
       <div class="mt-1 flex justify-between text-gray-500"><span>${taskStatus(t)}</span><span>${mb(t.file.size)} ${t.speed ? `• ↑ ${mb(t.speed)}/s • ETA ${Math.ceil((t.file.size - t.loaded) / t.speed)}s` : ''}</span></div>
-      <div class="mt-2 flex gap-2">${t.status === 'conflict' ? `<button data-replace="${i}" class="text-gold-400">Replace</button><button data-skip="${i}" class="text-gray-400">Skip</button>` : ''}${t.status === 'failed' ? `<button data-retry="${i}" class="text-gold-400">Retry</button>` : ''}${['uploading', 'paused', 'waiting', 'needs_episode', 'duplicate'].includes(t.status) ? `<button data-pause="${i}" class="text-gray-400">${t.status === 'paused' ? 'Resume' : 'Pause'}</button><button data-cancel="${i}" class="text-red-400">Cancel</button>` : ''}</div></div>`).join('');
-    list.querySelectorAll('[data-episode]').forEach(el => { el.onchange = () => { const task = state.tasks[el.dataset.episode]; task.episode = Number(el.value) || null; recalculateBatchStatuses(task.batchOrder, task.animeId); sortByEpisode(); render(); }; });
-    list.querySelectorAll('[data-language]').forEach(el => { el.onchange = () => { const task = state.tasks[el.dataset.language]; task.language = el.value === 'dub' ? 'dub' : 'sub'; saveSession(task); }; });
-    list.querySelectorAll('[data-replace]').forEach(el => el.onclick = () => { const t = state.tasks[el.dataset.replace]; t.status = 'waiting'; t.replace = true; render(); });
-    list.querySelectorAll('[data-skip]').forEach(el => el.onclick = () => { state.tasks[el.dataset.skip].status = 'skipped'; render(); });
-    list.querySelectorAll('[data-retry]').forEach(el => el.onclick = () => retry(state.tasks[el.dataset.retry]));
-    list.querySelectorAll('[data-pause]').forEach(el => el.onclick = () => togglePause(state.tasks[el.dataset.pause]));
-    list.querySelectorAll('[data-cancel]').forEach(el => el.onclick = () => cancel(state.tasks[el.dataset.cancel]));
+      <div class="mt-2 flex gap-2">${t.status === 'conflict' ? `<button data-replace="${taskIndex}" class="text-gold-400">Replace</button><button data-skip="${taskIndex}" class="text-gray-400">Skip</button>` : ''}${t.status === 'failed' ? `<button data-retry="${taskIndex}" class="text-gold-400">Retry</button>` : ''}${['uploading', 'paused', 'waiting', 'needs_episode', 'duplicate'].includes(t.status) ? `<button data-pause="${taskIndex}" class="text-gray-400">${t.status === 'paused' ? 'Resume' : 'Pause'}</button><button data-cancel="${taskIndex}" class="text-red-400">Cancel</button>` : ''}</div></div>`;
+    }).join('');
+    list.querySelectorAll('[data-episode]').forEach(el => { el.onchange = () => { const task = state.tasks[Number(el.dataset.episode)]; if (!task) return; task.episode = Number(el.value) || null; recalculateBatchStatuses(task.batchOrder, task.animeId); sortByEpisode(); render(); }; });
+    list.querySelectorAll('[data-language]').forEach(el => { el.onchange = () => { const task = state.tasks[Number(el.dataset.language)]; if (!task) return; task.language = el.value === 'dub' ? 'dub' : 'sub'; recalculateBatchStatuses(task.batchOrder, task.animeId); if (task.key && task.uploadId) saveSession(task); render(); }; });
+    list.querySelectorAll('[data-replace]').forEach(el => el.onclick = () => { const task = state.tasks[Number(el.dataset.replace)]; if (!task) return; task.status = 'waiting'; task.replace = true; render(); });
+    list.querySelectorAll('[data-skip]').forEach(el => el.onclick = () => { const task = state.tasks[Number(el.dataset.skip)]; if (!task) return; task.status = 'skipped'; render(); });
+    list.querySelectorAll('[data-retry]').forEach(el => el.onclick = () => retry(state.tasks[Number(el.dataset.retry)]));
+    list.querySelectorAll('[data-pause]').forEach(el => el.onclick = () => togglePause(state.tasks[Number(el.dataset.pause)]));
+    list.querySelectorAll('[data-cancel]').forEach(el => el.onclick = () => cancel(state.tasks[Number(el.dataset.cancel)]));
   }
   function scheduleRender() { if (!state.timer) state.timer = setTimeout(() => { state.timer = null; render(); }, 500); }
   function select(files) {
     const anime = global.currentHubAnime; if (!anime) return;
-    const existing = new Set((anime.episodesMedia || []).map(e => Number(e.episodeNumber)));
     const batchOrder = state.nextBatchOrder++;
+    const batchLanguage = getBatchLanguagePreference();
     const newTasks = [...files].filter(isVideoFile).map((file, fileOrder) => {
       const episode = detectEpisode(file.name);
       return {
@@ -133,13 +208,13 @@
         fileOrder,
         animeId: anime.id,
         animeTitle: anime.title,
-        language: detectLanguage(file.name),
+        language: batchLanguage,
         batchOrder,
         existingEpisodes: anime.episodesMedia || [],
         episode,
-        status: !episode ? 'needs_episode' : (existing.has(episode) ? 'conflict' : 'waiting'),
+        status: !episode ? 'needs_episode' : (hasEpisodeSource(anime.episodesMedia, episode, batchLanguage) ? 'conflict' : 'waiting'),
         progress: 0, loaded: 0, retries: 0,
-        sessionKey: `${anime.id}:${file.name}:${file.size}:${episode}:${detectLanguage(file.name)}`,
+        sessionKey: `${anime.id}:${file.name}:${file.size}:${episode}:${batchLanguage}`,
       };
     });
     // The filename detector remains available as a hint, but the episode saved
@@ -152,7 +227,7 @@
     newTasks.forEach((task, index) => {
       task.detectedEpisode = task.episode;
       task.episode = index + 1;
-      task.status = task.existingEpisodes.some((existingEpisode) => Number(existingEpisode.episodeNumber) === task.episode)
+      task.status = hasEpisodeSource(task.existingEpisodes, task.episode, task.language)
         ? 'conflict'
         : 'waiting';
     });
@@ -178,7 +253,7 @@
       if (['uploading', 'processing', 'completed', 'cancelled', 'skipped'].includes(task.status)) return;
       if (!task.episode) task.status = 'needs_episode';
       else if (counts.get(task.episode) > 1) task.status = 'duplicate';
-      else if (task.existingEpisodes?.some((episode) => Number(episode.episodeNumber) === task.episode)) task.status = 'conflict';
+      else if (hasEpisodeSource(task.existingEpisodes, task.episode, task.language)) task.status = 'conflict';
       else task.status = 'waiting';
     });
   }
@@ -193,7 +268,7 @@
       .sort((a, b) => (a.batchOrder - b.batchOrder) || ((a.fileOrder || 0) - (b.fileOrder || 0)))
       .forEach((task) => {
         task.episode = nextEpisode++;
-        const duplicate = (task.existingEpisodes || []).some((episode) => Number(episode.episodeNumber) === task.episode);
+        const duplicate = hasEpisodeSource(task.existingEpisodes, task.episode, task.language);
         task.status = duplicate ? 'conflict' : 'waiting';
       });
     sortByEpisode();
@@ -204,14 +279,26 @@
     if (!anime.id || !task.episode) throw new Error('Choose a valid episode number.');
     task.status = 'uploading'; task.controller = new AbortController(); scheduleRender();
     const saved = sessions()[task.sessionKey];
-    if (saved && saved.name === task.file.name && saved.size === task.file.size) {
-      task.key = saved.key; task.uploadId = saved.uploadId; task.partSize = saved.partSize || 50 * 1024 * 1024; task.parts = saved.parts || []; task.language = saved.language === 'dub' ? 'dub' : task.language;
-      const remote = await api('/api/admin/r2-multipart/parts', { key: task.key, uploadId: task.uploadId });
-      task.parts = remote.parts.map(p => ({ partNumber: p.partNumber, etag: p.etag }));
-    } else {
-      const session = await api('/api/admin/r2-multipart/init', { animeId: anime.id, season: 1, episodeNumber: task.episode, filename: task.file.name, mimeType: task.file.type, size: task.file.size });
-      Object.assign(task, session, { parts: [] }); saveSession(task);
+    if (saved && saved.name === task.file.name && saved.size === task.file.size && saved.key && saved.uploadId) {
+      try {
+        task.key = saved.key; task.uploadId = saved.uploadId; task.partSize = saved.partSize || 50 * 1024 * 1024; task.parts = saved.parts || []; task.language = saved.language === 'dub' ? 'dub' : task.language;
+        const remote = await api('/api/admin/r2-multipart/parts', { key: task.key, uploadId: task.uploadId });
+        task.parts = remote.parts.map(p => ({ partNumber: p.partNumber, etag: p.etag }));
+      } catch (error) {
+        // Upload session expired or doesn't exist, clear and start fresh
+        console.warn('[BATCH UPLOAD] ⚠️ Saved upload session expired, starting fresh upload:', error.message);
+        clearSession(task);
+        // Continue to create new session below
+      }
     }
+
+    // Create new session if we don't have a valid one
+    if (!task.key || !task.uploadId) {
+      const session = await api('/api/admin/r2-multipart/init', { animeId: anime.id, season: 1, episodeNumber: task.episode, filename: task.file.name, mimeType: task.file.type, size: task.file.size });
+      Object.assign(task, session, { parts: [] });
+      saveSession(task);
+    }
+
     const partSize = task.partSize; const count = Math.ceil(task.file.size / partSize); const complete = new Map(task.parts.map(p => [p.partNumber, p]));
     task.loaded = [...complete.values()].reduce((n, p) => n + (p.size || partSize), 0);
     for (let partNumber = 1; partNumber <= count; partNumber++) {
@@ -325,7 +412,7 @@
       .sort((a, b) => (a.batchOrder - b.batchOrder) || ((a.fileOrder || 0) - (b.fileOrder || 0)))
       .forEach((task, index) => {
         task.episode = startEpisode + index;
-        const duplicate = (task.existingEpisodes || []).some((episode) => Number(episode.episodeNumber) === task.episode);
+        const duplicate = hasEpisodeSource(task.existingEpisodes, task.episode, task.language);
         task.status = duplicate ? 'conflict' : 'waiting';
         console.log('[APPLY START] Updated task:', task.file.name, 'to episode:', task.episode);
       });
@@ -334,6 +421,13 @@
   }
   function init() {
     const input = $('batch-episode-files'); if (!input || input.dataset.bound) return; input.dataset.bound = 'true';
+    const languageSelector = $('batch-upload-language');
+    if (languageSelector) {
+      languageSelector.onchange = () => {
+        applyBatchLanguageToPendingTasks(languageSelector.value);
+        render();
+      };
+    }
     input.onchange = () => select(input.files); $('batch-upload-start').onclick = start;
     $('batch-upload-auto-number').onclick = autoNumber;
     $('batch-upload-apply-start').onclick = applyStartNumber;

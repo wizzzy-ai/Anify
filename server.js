@@ -1180,19 +1180,29 @@ app.post('/api/admin/r2-multipart/complete', requireAdmin, async (req, res) => {
   try {
     const result = await completeDirectMultipartUpload(req.body || {});
     console.log('[R2 DIRECT] 🎉 Multipart upload completed:', result.key);
-    
+
     // Extract metadata from request body for processing queue
     const { animeId, episodeNumber, quality = '1080p', language = 'sub' } = req.body || {};
     const normalizedLanguage = language === 'dub' ? 'dub' : 'sub';
-    
+
     // Add to processing queue if animeId and episodeNumber are provided
     if (animeId && episodeNumber) {
       console.log('[R2 DIRECT] Adding to processing queue:', { animeId, episodeNumber, quality, language: normalizedLanguage });
+      const anime = await Anime.findOne({ clientId: animeId });
+      if (anime) {
+        let episode = anime.episodesMedia?.find(item => Number(item.episodeNumber) === Number(episodeNumber));
+        if (!episode) {
+          anime.episodesMedia.push({ episodeNumber: Number(episodeNumber), language: normalizedLanguage });
+        } else {
+          episode.language = normalizedLanguage;
+        }
+        await anime.save();
+      }
       const job = addProcessingJob(animeId, episodeNumber, result.key, result.url, quality, normalizedLanguage);
       result.processingJobId = job.id;
       result.processingStatus = 'pending';
     }
-    
+
     res.json({ ok: true, ...result, storage: 'r2' });
   } catch (error) {
     res.status(400).json({ ok: false, error: error.message || 'Could not complete multipart upload.' });
@@ -2022,8 +2032,14 @@ app.put('/api/anime/:id/episodes/:episodeNumber', requireDb, requireActiveUser, 
   }
 
   const update = req.body || {};
-  const subQualities = update?.sub?.qualities || {};
-  const dubQualities = update?.dub?.qualities || {};
+
+  // Convert Map to object if needed (for compatibility with recent changes)
+  const subQualities = update?.sub?.qualities instanceof Map
+    ? Object.fromEntries(update.sub.qualities)
+    : (update?.sub?.qualities || {});
+  const dubQualities = update?.dub?.qualities instanceof Map
+    ? Object.fromEntries(update.dub.qualities)
+    : (update?.dub?.qualities || {});
 
   const episodeTitle = update?.episodeTitle ?? '';
   const thumbnail = update?.thumbnail ?? '';
@@ -2069,85 +2085,129 @@ app.put('/api/anime/:id/episodes/:episodeNumber', requireDb, requireActiveUser, 
 
   console.log('[MongoDB Update] Video metadata extracted:', videoMetadata);
 
-  const anime = await Anime.findOne(query);
-  if (!anime) {
-    console.error('[MongoDB Update] Anime not found:', query);
-    return res.status(404).json({ ok: false, error: 'Anime not found.' });
-  }
+  try {
+    const anime = await Anime.findOne(query);
+    if (!anime) {
+      console.error('[MongoDB Update] Anime not found:', query);
+      return res.status(404).json({ ok: false, error: 'Anime not found.' });
+    }
 
-  console.log('[MongoDB Update] Anime found:', anime.title);
+    console.log('[MongoDB Update] Anime found:', anime.title);
 
-  anime.episodesMedia = Array.isArray(anime.episodesMedia) ? anime.episodesMedia : [];
-  const idx = anime.episodesMedia.findIndex(e => Number(e.episodeNumber) === episodeNumber);
-  const existingEpisode = idx >= 0 ? anime.episodesMedia[idx] : null;
-  const existingViews = Number(existingEpisode?.views) || 0;
-  const existingSub = existingEpisode?.sub || {};
-  const existingDub = existingEpisode?.dub || {};
+    anime.episodesMedia = Array.isArray(anime.episodesMedia) ? anime.episodesMedia : [];
+    const idx = anime.episodesMedia.findIndex(e => Number(e.episodeNumber) === episodeNumber);
+    const existingEpisode = idx >= 0 ? anime.episodesMedia[idx] : null;
+    const existingViews = Number(existingEpisode?.views) || 0;
+    const existingSub = existingEpisode?.sub || {};
+    const existingDub = existingEpisode?.dub || {};
 
-  const nextEpisode = {
-    episodeNumber,
-    episodeTitle: String(episodeTitle || ''),
-    thumbnail: String(thumbnail || ''),
-    views: existingViews,
-    introStart: introStart ?? undefined,
-    introEnd: introEnd ?? undefined,
-    outroStart: outroStart ?? undefined,
-    outroEnd: outroEnd ?? undefined,
-    sub: {
-      qualities: { ...(existingSub.qualities || {}), ...(subQualities || {}) },
-      keys: { ...(existingSub.keys || {}), ...(update?.sub?.keys || {}) },
-      storageProvider: update?.sub?.storageProvider || existingSub.storageProvider || 'r2',
-      sizes: { ...(existingSub.sizes || {}), ...(update?.sub?.sizes || {}) },
-      mimeTypes: { ...(existingSub.mimeTypes || {}), ...(update?.sub?.mimeTypes || {}) },
-    },
-    dub: {
-      qualities: { ...(existingDub.qualities || {}), ...(dubQualities || {}) },
-      keys: { ...(existingDub.keys || {}), ...(update?.dub?.keys || {}) },
-      storageProvider: update?.dub?.storageProvider || existingDub.storageProvider || 'r2',
-      sizes: { ...(existingDub.sizes || {}), ...(update?.dub?.sizes || {}) },
-      mimeTypes: { ...(existingDub.mimeTypes || {}), ...(update?.dub?.mimeTypes || {}) },
-    },
-  };
+    // Convert existing Map instances to objects for compatibility
+    const normalizeSub = { ...existingSub };
+    if (normalizeSub.qualities instanceof Map) normalizeSub.qualities = Object.fromEntries(normalizeSub.qualities);
+    if (normalizeSub.keys instanceof Map) normalizeSub.keys = Object.fromEntries(normalizeSub.keys);
+    if (normalizeSub.sizes instanceof Map) normalizeSub.sizes = Object.fromEntries(normalizeSub.sizes);
+    if (normalizeSub.mimeTypes instanceof Map) normalizeSub.mimeTypes = Object.fromEntries(normalizeSub.mimeTypes);
 
-  // Some older movie upload forms used the episode endpoint with episode 1.
-  // Movies have a single player source, so mirror that upload into
-  // movieMedia as well; this keeps those successfully uploaded R2 objects
-  // playable without requiring a re-upload.
-  if ((anime.type || 'anime') !== 'anime' && Object.keys(subQualities).length) {
-    anime.movieMedia = anime.movieMedia || { qualities: {} };
-    const existingMovieQualities = anime.movieMedia.qualities instanceof Map
-      ? Object.fromEntries(anime.movieMedia.qualities)
-      : (anime.movieMedia.qualities || {});
-    anime.movieMedia.qualities = {
-      ...existingMovieQualities,
-      ...subQualities,
+    const normalizeDub = { ...existingDub };
+    if (normalizeDub.qualities instanceof Map) normalizeDub.qualities = Object.fromEntries(normalizeDub.qualities);
+    if (normalizeDub.keys instanceof Map) normalizeDub.keys = Object.fromEntries(normalizeDub.keys);
+    if (normalizeDub.sizes instanceof Map) normalizeDub.sizes = Object.fromEntries(normalizeDub.sizes);
+    if (normalizeDub.mimeTypes instanceof Map) normalizeDub.mimeTypes = Object.fromEntries(normalizeDub.mimeTypes);
+
+    const nextEpisode = {
+      episodeNumber,
+      episodeTitle: String(episodeTitle || ''),
+      thumbnail: String(thumbnail || ''),
+      views: existingViews,
+      introStart: introStart ?? undefined,
+      introEnd: introEnd ?? undefined,
+      outroStart: outroStart ?? undefined,
+      outroEnd: outroEnd ?? undefined,
+      sub: {
+        qualities: { ...(existingSub.qualities || {}), ...(subQualities || {}) },
+        keys: { ...(existingSub.keys || {}), ...(update?.sub?.keys || {}) },
+        storageProvider: update?.sub?.storageProvider || existingSub.storageProvider || 'r2',
+        sizes: { ...(existingSub.sizes || {}), ...(update?.sub?.sizes || {}) },
+        mimeTypes: { ...(existingSub.mimeTypes || {}), ...(update?.sub?.mimeTypes || {}) },
+      },
+      dub: {
+        qualities: { ...(existingDub.qualities || {}), ...(dubQualities || {}) },
+        keys: { ...(existingDub.keys || {}), ...(update?.dub?.keys || {}) },
+        storageProvider: update?.dub?.storageProvider || existingDub.storageProvider || 'r2',
+        sizes: { ...(existingDub.sizes || {}), ...(update?.dub?.sizes || {}) },
+        mimeTypes: { ...(existingDub.mimeTypes || {}), ...(update?.dub?.mimeTypes || {}) },
+      },
     };
-    anime.episodes = 1;
+
+    // Convert any Map instances to objects for database compatibility
+    if (nextEpisode.sub.qualities instanceof Map) {
+      nextEpisode.sub.qualities = Object.fromEntries(nextEpisode.sub.qualities);
+    }
+    if (nextEpisode.sub.keys instanceof Map) {
+      nextEpisode.sub.keys = Object.fromEntries(nextEpisode.sub.keys);
+    }
+    if (nextEpisode.sub.sizes instanceof Map) {
+      nextEpisode.sub.sizes = Object.fromEntries(nextEpisode.sub.sizes);
+    }
+    if (nextEpisode.sub.mimeTypes instanceof Map) {
+      nextEpisode.sub.mimeTypes = Object.fromEntries(nextEpisode.sub.mimeTypes);
+    }
+    if (nextEpisode.dub.qualities instanceof Map) {
+      nextEpisode.dub.qualities = Object.fromEntries(nextEpisode.dub.qualities);
+    }
+    if (nextEpisode.dub.keys instanceof Map) {
+      nextEpisode.dub.keys = Object.fromEntries(nextEpisode.dub.keys);
+    }
+    if (nextEpisode.dub.sizes instanceof Map) {
+      nextEpisode.dub.sizes = Object.fromEntries(nextEpisode.dub.sizes);
+    }
+    if (nextEpisode.dub.mimeTypes instanceof Map) {
+      nextEpisode.dub.mimeTypes = Object.fromEntries(nextEpisode.dub.mimeTypes);
+    }
+
+    // Some older movie upload forms used the episode endpoint with episode 1.
+    // Movies have a single player source, so mirror that upload into
+    // movieMedia as well; this keeps those successfully uploaded R2 objects
+    // playable without requiring a re-upload.
+    if ((anime.type || 'anime') !== 'anime' && Object.keys(subQualities).length) {
+      anime.movieMedia = anime.movieMedia || { qualities: {} };
+      const existingMovieQualities = anime.movieMedia.qualities instanceof Map
+        ? Object.fromEntries(anime.movieMedia.qualities)
+        : (anime.movieMedia.qualities || {});
+      anime.movieMedia.qualities = {
+        ...existingMovieQualities,
+        ...subQualities,
+      };
+      anime.episodes = 1;
+    }
+
+    // Remove undefined fields so Mongoose default values can apply on insert
+    Object.keys(nextEpisode).forEach((k) => {
+      if (nextEpisode[k] === undefined) delete nextEpisode[k];
+    });
+
+    if (idx >= 0) {
+      console.log('[Episode Creation] Updating existing episode:', episodeNumber);
+      anime.episodesMedia[idx] = nextEpisode;
+    } else {
+      console.log('[Episode Creation] Adding new episode:', episodeNumber);
+      anime.episodesMedia.push(nextEpisode);
+    }
+
+    // Keep numeric hint display value (max episodes)
+    anime.episodes = Math.max(Number(anime.episodes || 1), episodeNumber);
+    anime.newEpisode = true;
+    anime.status = update?.status || 'Airing';
+
+    console.log('[Episode Creation] Saving to database...');
+    await anime.save();
+    console.log('[Episode Creation] Saved successfully, total episodes:', anime.episodesMedia.length);
+
+    res.json({ ok: true, anime: normalizeAnime(anime) });
+  } catch (error) {
+    console.error('[Episode Creation] Error during episode save:', error);
+    return res.status(500).json({ ok: false, error: error.message || 'Internal server error' });
   }
-
-  // Remove undefined fields so Mongoose default values can apply on insert
-  Object.keys(nextEpisode).forEach((k) => {
-    if (nextEpisode[k] === undefined) delete nextEpisode[k];
-  });
-
-  if (idx >= 0) {
-    console.log('[Episode Creation] Updating existing episode:', episodeNumber);
-    anime.episodesMedia[idx] = nextEpisode;
-  } else {
-    console.log('[Episode Creation] Adding new episode:', episodeNumber);
-    anime.episodesMedia.push(nextEpisode);
-  }
-
-  // Keep numeric hint display value (max episodes)
-  anime.episodes = Math.max(Number(anime.episodes || 1), episodeNumber);
-  anime.newEpisode = true;
-  anime.status = update?.status || 'Airing';
-
-  console.log('[Episode Creation] Saving to database...');
-  await anime.save();
-  console.log('[Episode Creation] Saved successfully, total episodes:', anime.episodesMedia.length);
-
-  res.json({ ok: true, anime: normalizeAnime(anime) });
 });
 
 function collectEpisodeR2Keys(episode) {

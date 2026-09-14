@@ -53,6 +53,7 @@ const episodeVideoMetadataSchema = new mongoose.Schema({
 // Episode schema (per-episode data)
 const episodeSchema = new mongoose.Schema({
   episodeNumber: { type: Number, required: true, index: true },
+  language: { type: String, enum: ['sub', 'dub'], default: undefined },
   episodeTitle: { type: String, default: '' },
   thumbnail: { type: String, default: '' },
   thumbnailMetadata: { type: imageMetadataSchema, default: null },
