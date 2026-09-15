@@ -3647,8 +3647,81 @@ function renderRegister() {
     </div>`;
 }
 
-// ============ PROFILE CUSTOMIZATION ============
+// ============ PROFILE CUSTOMIZATION & OTAKU PROGRESSION ============
 let profileCustomizationDraft = null;
+let profileAvatarFilterCategory = 'all';
+window.__anifyProfileActiveTab = window.__anifyProfileActiveTab || 'overview';
+
+function getOtakuRank(totalEpisodes, totalMinutes) {
+    const epCount = Math.max(0, Number(totalEpisodes) || 0);
+    const minCount = Math.max(0, Number(totalMinutes) || 0);
+    const xp = Math.max(0, epCount * 85 + Math.round(minCount * 1.5));
+    const level = Math.max(1, Math.floor(Math.sqrt(xp / 60)) + 1);
+    const currentLevelBaseXp = Math.round(Math.pow(level - 1, 2) * 60);
+    const nextLevelXp = Math.round(Math.pow(level, 2) * 60);
+    const levelXpNeeded = Math.max(1, nextLevelXp - currentLevelBaseXp);
+    const currentLevelXp = Math.max(0, xp - currentLevelBaseXp);
+    const progressPct = Math.min(100, Math.max(0, Math.round((currentLevelXp / levelXpNeeded) * 100)));
+
+    let tier = { title: 'E-Rank Novice', kanji: '見習い', icon: 'sparkles', badgeColor: '#94a3b8', gradient: 'from-slate-500 to-gray-700', rarity: 'Common' };
+    if (level >= 75) {
+        tier = { title: 'Mythic Senpai God', kanji: '異世界の神', icon: 'crown', badgeColor: '#ec4899', gradient: 'from-pink-500 via-purple-500 to-indigo-600', rarity: 'Mythic' };
+    } else if (level >= 50) {
+        tier = { title: 'S-Rank Hashira', kanji: '柱', icon: 'award', badgeColor: '#a855f7', gradient: 'from-purple-500 to-indigo-600', rarity: 'Legendary' };
+    } else if (level >= 35) {
+        tier = { title: 'A-Rank Special Grade', kanji: '特級呪術師', icon: 'shield', badgeColor: '#f43f5e', gradient: 'from-rose-500 to-red-600', rarity: 'Epic' };
+    } else if (level >= 20) {
+        tier = { title: 'B-Rank Demon Slayer', kanji: '鬼殺隊員', icon: 'flame', badgeColor: '#fbbf24', gradient: 'from-amber-400 to-orange-500', rarity: 'Rare' };
+    } else if (level >= 10) {
+        tier = { title: 'C-Rank Chunin', kanji: '中忍', icon: 'zap', badgeColor: '#34d399', gradient: 'from-emerald-400 to-teal-500', rarity: 'Uncommon' };
+    } else if (level >= 5) {
+        tier = { title: 'D-Rank Adventurer', kanji: '冒険者', icon: 'compass', badgeColor: '#38bdf8', gradient: 'from-sky-400 to-blue-500', rarity: 'Adventurer' };
+    }
+
+    return {
+        xp,
+        level,
+        currentLevelXp,
+        levelXpNeeded,
+        progressPct,
+        ...tier
+    };
+}
+
+function formatAnimeWatchTime(minutes) {
+    const m = Math.max(0, Number(minutes) || 0);
+    const days = Math.floor(m / (24 * 60));
+    const hours = Math.floor((m % (24 * 60)) / 60);
+    const mins = m % 60;
+    if (days > 0) return `${days}d ${hours}h ${mins}m`;
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
+}
+
+function switchProfileTab(tab) {
+    window.__anifyProfileActiveTab = tab;
+    document.querySelectorAll('[data-profile-tab-btn]').forEach(btn => {
+        const isActive = btn.dataset.tab === tab;
+        btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-selected', String(isActive));
+    });
+    document.querySelectorAll('[data-profile-tab-panel]').forEach(panel => {
+        panel.classList.toggle('hidden', panel.dataset.tab !== tab);
+    });
+    createLucideIconsSafe();
+}
+
+function filterProfileAvatars(category) {
+    profileAvatarFilterCategory = category;
+    document.querySelectorAll('[data-avatar-filter-btn]').forEach(btn => {
+        btn.classList.toggle('is-active', btn.dataset.category === category);
+    });
+    document.querySelectorAll('[data-profile-avatar-option]').forEach(opt => {
+        const cat = opt.dataset.avatarCategory || '';
+        const show = category === 'all' || cat.toLowerCase().includes(category.toLowerCase());
+        opt.style.display = show ? '' : 'none';
+    });
+}
 
 function getProfileAvatarUrl(avatarId) {
     return getProfileConfig().getAvatarUrl(resolveProfileAvatarId(avatarId));
@@ -3677,7 +3750,8 @@ function rerenderProfilePage() {
 }
 
 function scrollToProfileCustomization() {
-    document.querySelector('.profile-customization')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    switchProfileTab('customization');
+    document.querySelector('.anime-profile-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function setProfileCustomizationStatus(message, state = '') {
@@ -3722,7 +3796,7 @@ function selectProfileTheme(themeId) {
     document.querySelectorAll('[data-profile-theme-option]').forEach((option) => {
         option.setAttribute('aria-pressed', String(option.dataset.themeId === nextTheme));
     });
-    setProfileCustomizationStatus(`${getProfileConfig().PROFILE_THEMES[nextTheme]?.label || 'Theme'} preview active`, 'success');
+    setProfileCustomizationStatus(`${getProfileConfig().PROFILE_THEMES[nextTheme]?.label || 'Theme'} applied!`, 'success');
     saveProfileCustomization({ profileTheme: nextTheme, silent: true });
 }
 
@@ -3747,14 +3821,30 @@ function cancelBioEdit() {
 
 function renderAvatarPicker(selectedAvatarId) {
     const config = getProfileConfig();
+    const categories = [
+        { id: 'all', label: 'All Avatars' },
+        { id: 'haired', label: 'Characters' },
+        { id: 'ninja', label: 'Shinobi' },
+        { id: 'chibi', label: 'Cute & Chibi' },
+        { id: 'dark', label: 'Mystic & Dark' }
+    ];
+
     return `
-        <div class="profile-avatar-grid-wrap">
-            <div class="profile-avatar-grid" role="group" aria-label="Choose an avatar">
+        <div class="anime-avatar-selector-wrap">
+            <div class="anime-category-pills mb-3 flex flex-wrap gap-1.5" role="tablist">
+                ${categories.map(c => `
+                    <button type="button" class="anime-pill-btn ${profileAvatarFilterCategory === c.id ? 'is-active' : ''}" data-avatar-filter-btn data-category="${c.id}" onclick="filterProfileAvatars('${c.id}')">
+                        ${c.label}
+                    </button>
+                `).join('')}
+            </div>
+            <div class="profile-avatar-grid anime-custom-scroll" role="group" aria-label="Choose an avatar">
                 ${config.PROFILE_AVATARS.map((avatar) => {
         const selected = avatar.id === selectedAvatarId;
+        const matchesCat = profileAvatarFilterCategory === 'all' || avatar.category.toLowerCase().includes(profileAvatarFilterCategory.toLowerCase()) || avatar.label.toLowerCase().includes(profileAvatarFilterCategory.toLowerCase());
         return `
-                        <button type="button" class="profile-avatar-option" data-profile-avatar-option data-avatar-id="${avatar.id}" aria-label="${escapeHtml(avatar.label)} avatar, ${escapeHtml(avatar.category)}" aria-pressed="${selected}" onclick="selectProfileAvatar('${avatar.id}')">
-                            <img src="${config.getAvatarUrl(avatar.id)}" alt="${escapeHtml(avatar.label)} anime-inspired avatar" loading="lazy">
+                        <button type="button" class="profile-avatar-option anime-avatar-tile" data-profile-avatar-option data-avatar-id="${avatar.id}" data-avatar-category="${escapeHtml(avatar.category)}" style="${matchesCat ? '' : 'display:none;'}" aria-label="${escapeHtml(avatar.label)} avatar, ${escapeHtml(avatar.category)}" aria-pressed="${selected}" onclick="selectProfileAvatar('${avatar.id}')">
+                            <img src="${config.getAvatarUrl(avatar.id)}" alt="${escapeHtml(avatar.label)} avatar" loading="lazy">
                             ${selected ? '<span class="profile-avatar-option__check" aria-hidden="true"><i data-lucide="check"></i></span>' : ''}
                             <span class="profile-avatar-option__label">${escapeHtml(avatar.label)}</span>
                         </button>
@@ -3775,13 +3865,16 @@ function renderThemePreviewCard(themeId, selectedThemeId, mode = getCurrentTheme
     const safeThemeId = escapeHtml(themeId);
 
     return `
-        <button type="button" class="profile-theme-card" data-profile-theme-option data-theme-id="${safeThemeId}" aria-label="${escapeHtml(theme.label)} theme" aria-pressed="${selected}" style="${previewStyle}" onclick="selectProfileTheme('${safeThemeId}')">
+        <button type="button" class="profile-theme-card anime-theme-card" data-profile-theme-option data-theme-id="${safeThemeId}" aria-label="${escapeHtml(theme.label)} theme" aria-pressed="${selected}" style="${previewStyle}" onclick="selectProfileTheme('${safeThemeId}')">
             <span class="profile-theme-card__mock" aria-hidden="true">
                 <span class="profile-theme-card__avatar"></span>
                 <span class="profile-theme-card__surface-hover"></span>
                 <span class="profile-theme-card__button"></span>
             </span>
-            <span class="profile-theme-card__title">${escapeHtml(theme.label)}</span>
+            <span class="profile-theme-card__title flex items-center justify-between">
+                <span>${escapeHtml(theme.label)}</span>
+                ${selected ? '<span class="text-[10px] text-primary font-bold px-1.5 py-0.5 rounded bg-primary/20">ACTIVE</span>' : ''}
+            </span>
             <span class="profile-theme-card__description">${escapeHtml(theme.description)}</span>
             <span class="profile-theme-card__check" aria-hidden="true"><i data-lucide="check"></i></span>
         </button>
@@ -3804,82 +3897,119 @@ function renderProfileCustomization(profile, draft, totalEpisodes, watchedCount,
     const username = profile?.username || 'user';
     const avatarUrl = getProfileAvatarUrl(draft.avatarId);
     const bio = draft.bio || '';
+    const otakuStats = getOtakuRank(totalEpisodes, continueWatching.reduce((total, item) => total + Math.max(0, Number(item.time) || 0), 0) / 60);
 
     return `
-        <section class="profile-customization" aria-labelledby="profile-customization-title">
-            <div class="profile-preview-card anim-slide-up">
-                <div class="profile-preview-card__banner"></div>
-                <div class="profile-preview-card__body">
-                    <span class="profile-preview-card__badge"><i data-lucide="eye" class="w-3 h-3"></i> Live preview</span>
-                    ${profile?.isSupporter ? '<span class="profile-preview-card__badge text-gold-400"><i data-lucide="heart" class="w-3 h-3"></i> Supporter</span>' : ''}
-                    <img id="profile-preview-avatar" data-profile-avatar src="${avatarUrl}" class="profile-preview-card__avatar" alt="${escapeHtml(displayName)} avatar">
-                    <h2 id="profile-customization-title" class="profile-preview-card__name">${escapeHtml(displayName)}</h2>
-                    <p class="profile-preview-card__handle">@${escapeHtml(username)}${profile?.isSupporter ? ' · ❤️ Supporter' : ''}</p>
-                    <p id="profile-preview-bio" class="profile-preview-card__bio">${escapeHtml(bio || 'Add a bio to tell other anime fans a little about yourself.')}</p>
-                    <div class="profile-preview-card__footer"><span>${escapeHtml(theme.label)}</span><span>•</span><span>Public profile</span></div>
+        <section class="profile-customization anime-customization-section" aria-labelledby="profile-customization-title">
+            <!-- Anime Guild Card (Live Trading Card Preview) -->
+            <div class="anime-guild-card-preview anim-slide-up">
+                <div class="anime-guild-card">
+                    <div class="anime-guild-card__aura"></div>
+                    <div class="anime-guild-card__header">
+                        <span class="anime-guild-card__badge"><i data-lucide="shield-check" class="w-3 h-3 inline mr-1"></i> OTAKU GUILD CARD</span>
+                        <span class="anime-guild-card__rank" style="color: ${otakuStats.badgeColor}"><i data-lucide="${otakuStats.icon}" class="w-3 h-3 inline"></i> ${otakuStats.title}</span>
+                    </div>
+                    <div class="anime-guild-card__banner">
+                        <div class="anime-guild-card__kanji">「 アニファイ 」</div>
+                    </div>
+                    <div class="anime-guild-card__body">
+                        <div class="anime-guild-card__avatar-wrap">
+                            <img id="profile-preview-avatar" data-profile-avatar src="${avatarUrl}" class="anime-guild-card__avatar" alt="${escapeHtml(displayName)} avatar">
+                            <span class="anime-guild-card__lvl-tag" style="background:${otakuStats.badgeColor};">LV.${otakuStats.level}</span>
+                        </div>
+                        <div class="mt-2">
+                            <h2 id="profile-customization-title" class="anime-guild-card__name">${escapeHtml(displayName)}</h2>
+                            <p class="anime-guild-card__handle">@${escapeHtml(username)}${profile?.isSupporter ? ' · ❤️ VIP Supporter' : ''}</p>
+                        </div>
+                        <div class="anime-guild-card__bio-quote">
+                            <p id="profile-preview-bio">「 ${escapeHtml(bio || 'Add a bio to tell other anime fans a little about yourself.')} 」</p>
+                        </div>
+                        <div class="anime-guild-card__stats-bar">
+                            <div class="anime-guild-card__stat-item">
+                                <span class="anime-guild-card__stat-val">${totalEpisodes}</span>
+                                <span class="anime-guild-card__stat-lbl">Episodes</span>
+                            </div>
+                            <div class="anime-guild-card__stat-item">
+                                <span class="anime-guild-card__stat-val">${bookmarkCount}</span>
+                                <span class="anime-guild-card__stat-lbl">Watchlist</span>
+                            </div>
+                            <div class="anime-guild-card__stat-item">
+                                <span class="anime-guild-card__stat-val">${favoriteCount}</span>
+                                <span class="anime-guild-card__stat-lbl">Favorites</span>
+                            </div>
+                        </div>
+                        <div class="anime-guild-card__footer">
+                            <span class="flex items-center gap-1"><i data-lucide="palette" class="w-3 h-3"></i> ${escapeHtml(theme.label)}</span>
+                            <span>•</span>
+                            <span>Public Persona</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
+            <!-- Customization Controls -->
             <div class="profile-customization__controls">
-                <div class="profile-editor-panel anim-slide-up anim-delay-1">
+                <!-- Avatar Selector -->
+                <div class="profile-editor-panel anime-editor-card anim-slide-up anim-delay-1">
                     <div class="profile-editor-panel__heading">
-                        <div><h3 class="profile-editor-panel__title"><i data-lucide="user-round"></i> Choose Avatar</h3><p class="profile-editor-panel__description">20 original anime-inspired avatars. Your choice appears across Anify.</p></div>
-                        <span class="text-xs text-gray-500">${escapeHtml(config.getAvatar(draft.avatarId).label)}</span>
+                        <div>
+                            <h3 class="profile-editor-panel__title"><i data-lucide="sparkles" class="text-gold-400"></i> Choose Anime Avatar</h3>
+                            <p class="profile-editor-panel__description">Select your anime persona. Click any avatar to equip immediately.</p>
+                        </div>
+                        <span class="text-xs font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">${escapeHtml(config.getAvatar(draft.avatarId).label)}</span>
                     </div>
                     ${renderAvatarPicker(draft.avatarId)}
                 </div>
 
-                <div class="profile-editor-panel anim-slide-up anim-delay-2">
+                <!-- Bio / Motto Editor -->
+                <div class="profile-editor-panel anime-editor-card anim-slide-up anim-delay-2">
                     <div class="profile-editor-panel__heading">
-                        <div><h3 class="profile-editor-panel__title"><i data-lucide="sparkles"></i> About Me</h3><p class="profile-editor-panel__description">A short note for fellow anime fans.</p></div>
-                        ${draft.editingBio ? '' : '<button type="button" class="btn-secondary px-3 py-1.5 text-xs" onclick="beginBioEdit()">Edit</button>'}
+                        <div>
+                            <h3 class="profile-editor-panel__title"><i data-lucide="pen-tool" class="text-gold-400"></i> Otaku Bio & Motto</h3>
+                            <p class="profile-editor-panel__description">A personalized quote displayed on your anime profile.</p>
+                        </div>
+                        ${draft.editingBio ? '' : '<button type="button" class="btn-secondary px-3 py-1.5 text-xs flex items-center gap-1" onclick="beginBioEdit()"><i data-lucide="edit-2" class="w-3 h-3"></i> Edit</button>'}
                     </div>
                     ${draft.editingBio ? `
                         <div class="profile-bio-editor">
                             <label for="profile-bio-input" class="sr-only">About me</label>
-                            <textarea id="profile-bio-input" maxlength="160" class="input-field" aria-describedby="profile-bio-count" oninput="updateProfileBioCounter(this.value)">${escapeHtml(bio)}</textarea>
+                            <textarea id="profile-bio-input" maxlength="160" placeholder="Write your anime motto or favorite quote…" class="input-field anime-bio-input" aria-describedby="profile-bio-count" oninput="updateProfileBioCounter(this.value)">${escapeHtml(bio)}</textarea>
                             <span id="profile-bio-count" class="profile-character-count">${bio.length} / 160 characters</span>
                         </div>
-                        <div class="profile-customization__actions">
+                        <div class="profile-customization__actions mt-3">
                             <button type="button" class="btn-secondary px-4 py-2 text-xs" onclick="cancelBioEdit()">Cancel</button>
-                            <button type="button" class="btn-primary px-4 py-2 text-xs" onclick="saveProfileCustomization()">Save</button>
+                            <button type="button" class="btn-primary px-4 py-2 text-xs" onclick="saveProfileCustomization()">Save Bio</button>
                         </div>
-                    ` : `<p class="text-sm leading-6 text-gray-400">${escapeHtml(bio || 'Add a bio to tell other anime fans a little about yourself.')}</p>`}
+                    ` : `<p class="text-sm leading-6 text-gray-300 italic font-medium bg-black/20 p-3.5 rounded-xl border border-white/5">「 ${escapeHtml(bio || 'Add a bio to tell other anime fans a little about yourself.')} 」</p>`}
                 </div>
 
-                <div class="profile-editor-panel anim-slide-up anim-delay-3">
+                <!-- Theme Selector -->
+                <div class="profile-editor-panel anime-editor-card anim-slide-up anim-delay-3">
                     <div class="profile-editor-panel__heading">
-                        <div><h3 class="profile-editor-panel__title"><i data-lucide="palette"></i> Profile Theme</h3><p class="profile-editor-panel__description">Preview the entire Anify interface, not just this page.</p></div>
-                        <span class="text-xs text-gray-500">${escapeHtml(theme.label)}</span>
+                        <div>
+                            <h3 class="profile-editor-panel__title"><i data-lucide="palette" class="text-gold-400"></i> Anime Atmosphere Theme</h3>
+                            <p class="profile-editor-panel__description">Changes lighting, glows, and accents across your entire Anify experience.</p>
+                        </div>
+                        <span class="text-xs font-semibold px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">${escapeHtml(theme.label)}</span>
                     </div>
                     ${renderThemePicker(draft.profileTheme)}
                     <p id="profile-customization-status" class="profile-customization__status" role="status" aria-live="polite"></p>
                     <div class="profile-customization__actions">
-                        ${draft.editingBio ? '' : '<button type="button" class="btn-primary px-4 py-2 text-xs" onclick="saveProfileCustomization()">Save Changes</button>'}
-                    </div>
-                </div>
-
-                <div class="profile-editor-panel anim-slide-up anim-delay-4">
-                    <div class="profile-editor-panel__heading"><div><h3 class="profile-editor-panel__title"><i data-lucide="bar-chart-3"></i> Profile Stats</h3><p class="profile-editor-panel__description">Your personal Anify snapshot.</p></div></div>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <div class="rounded-xl bg-white/5 p-3 text-center"><p class="text-lg font-black text-primary">${watchedCount}</p><p class="text-[10px] text-gray-500 uppercase tracking-wide">Anime watched</p></div>
-                        <div class="rounded-xl bg-white/5 p-3 text-center"><p class="text-lg font-black text-primary">${totalEpisodes}</p><p class="text-[10px] text-gray-500 uppercase tracking-wide">Episodes watched</p></div>
-                        <div class="rounded-xl bg-white/5 p-3 text-center"><p class="text-lg font-black text-primary">${bookmarkCount}</p><p class="text-[10px] text-gray-500 uppercase tracking-wide">Bookmarks</p></div>
-                        <div class="rounded-xl bg-white/5 p-3 text-center"><p class="text-lg font-black text-primary">${favoriteCount}</p><p class="text-[10px] text-gray-500 uppercase tracking-wide">Favorites</p></div>
+                        ${draft.editingBio ? '' : '<button type="button" class="btn-primary px-5 py-2.5 text-xs flex items-center gap-1.5" onclick="saveProfileCustomization()"><i data-lucide="check" class="w-3.5 h-3.5"></i> Save Persona</button>'}
                     </div>
                 </div>
             </div>
         </section>`;
 }
 
-// ============ RENDER: PROFILE ============
+// ============ RENDER: ANIME PROFILE HUB ============
 function renderProfile() {
     const profile = authService.getCurrentUser();
 
-    const username = profile?.username || 'User';
+    const username = profile?.username || 'Otaku';
     const displayName = profile?.name || username;
     const userPlan = profile?.plan || 'Free';
-    const userStatus = profile?.status || 'Active';
+    const userStatus = profile?.status || 'Active in Isekai';
     const profileConfig = getProfileConfig();
     const draft = getProfileCustomizationDraft(profile);
     const bio = draft.bio || '';
@@ -3889,164 +4019,546 @@ function renderProfile() {
     const avatarUrl = getProfileAvatarUrl(draft.avatarId);
 
     const watchedCount = continueWatching.length;
-    const favoriteCount = interactionService && typeof interactionService.getFavoriteCount === 'function'
-        ? interactionService.getFavoriteCount()
-        : 0;
+    const favoriteList = interactionService && typeof interactionService.getFavorites === 'function'
+        ? interactionService.getFavorites()
+        : [];
+    const favoriteCount = favoriteList.length;
+
+    const totalEpisodes = continueWatching.reduce((total, item) => total + Math.max(0, Number(item.episode) || 0), 0);
+    const totalMinutes = Math.round(continueWatching.reduce((total, item) => total + Math.max(0, Number(item.time) || 0), 0) / 60);
+    const otakuStats = getOtakuRank(totalEpisodes, totalMinutes);
+    const watchTimeString = formatAnimeWatchTime(totalMinutes);
+
+    // Watch History items
     const watchHistoryItems = (() => {
         const list = Array.isArray(continueWatching) ? continueWatching : [];
         return list
-            .slice(0, 5)
+            .slice(0, 8)
             .map(cw => {
                 const anime = animeData.find(a => a.id === cw.id);
                 if (!anime) return null;
                 const ts = cw.updatedAt || cw.time;
                 return {
                     anime,
-                    timeLabel: ts ? timeAgo(ts) : '',
+                    episode: Number(cw.episode) || 1,
+                    timeLabel: ts ? timeAgo(ts) : 'Recently',
                 };
             })
             .filter(Boolean);
     })();
-    const totalEpisodes = continueWatching.reduce((total, item) => total + Math.max(0, Number(item.episode) || 0), 0);
-    const totalMinutes = Math.round(continueWatching.reduce((total, item) => total + Math.max(0, Number(item.time) || 0), 0) / 60);
+
+    // Genre Affinity
     const genreCounts = continueWatching.reduce((counts, item) => {
         const anime = animeData.find(a => Number(a.id) === Number(item.id));
         (anime?.genres || []).forEach(genre => { counts[genre] = (counts[genre] || 0) + 1; });
         return counts;
     }, {});
-    const preferredGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([genre]) => genre);
+    const totalGenrePicks = Object.values(genreCounts).reduce((a, b) => a + b, 0) || 1;
+    const topGenres = Object.entries(genreCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([genre, count]) => ({
+            name: genre,
+            count,
+            percentage: Math.min(100, Math.round((count / totalGenrePicks) * 100))
+        }));
+
+    // Pinned Favorites Shrine
     const pinnedIds = Array.isArray(profile?.pinnedAnimeIds) ? profile.pinnedAnimeIds.map(String) : [];
     const pinnedAnime = pinnedIds.map(id => animeData.find(anime => String(anime.id) === id)).filter(Boolean);
-    const favoriteAnime = (interactionService?.getFavorites?.() || []).map(id => animeData.find(anime => Number(anime.id) === Number(id))).filter(Boolean);
-    const badges = [
-        profile?.isSupporter && { icon: 'heart', label: '❤️ Anify Supporter', color: 'text-gold-400' },
-        totalEpisodes >= 100 && { icon: 'trophy', label: '100 Episodes' },
-        totalEpisodes >= 25 && { icon: 'clapperboard', label: 'Binge Starter' },
-        preferredGenres.length >= 3 && { icon: 'compass', label: 'Genre Explorer' },
-        favoriteCount >= 5 && { icon: 'heart', label: 'Top Picks' },
-    ].filter(Boolean);
+    const favoriteAnime = favoriteList.map(id => animeData.find(anime => Number(anime.id) === Number(id))).filter(Boolean);
+
+    // Achievements System
+    const achievements = [
+        {
+            id: 'supporter',
+            title: 'Anify Patron',
+            kanji: '後援者',
+            desc: 'Honorary supporter of the Anify streaming realm.',
+            icon: 'crown',
+            rarity: 'Mythic',
+            color: '#ec4899',
+            unlocked: Boolean(profile?.isSupporter),
+            progress: profile?.isSupporter ? '100%' : '0%',
+        },
+        {
+            id: 'episodes_100',
+            title: 'Episode Hashira',
+            kanji: '百話達成',
+            desc: 'Stream and conquer over 100 anime episodes.',
+            icon: 'award',
+            rarity: 'Legendary',
+            color: '#a855f7',
+            unlocked: totalEpisodes >= 100,
+            progress: `${Math.min(100, totalEpisodes)} / 100`,
+        },
+        {
+            id: 'binge_master',
+            title: 'Binge Sorcerer',
+            kanji: '連鎖視聴',
+            desc: 'Power through 25+ episodes in your anime journey.',
+            icon: 'zap',
+            rarity: 'Epic',
+            color: '#fbbf24',
+            unlocked: totalEpisodes >= 25,
+            progress: `${Math.min(25, totalEpisodes)} / 25`,
+        },
+        {
+            id: 'genre_explorer',
+            title: 'Isekai Wanderer',
+            kanji: '次元探索者',
+            desc: 'Explore and watch anime across 3 or more distinct genres.',
+            icon: 'compass',
+            rarity: 'Rare',
+            color: '#38bdf8',
+            unlocked: Object.keys(genreCounts).length >= 3,
+            progress: `${Math.min(3, Object.keys(genreCounts).length)} / 3 Genres`,
+        },
+        {
+            id: 'taste_collector',
+            title: 'Sacred Collector',
+            kanji: '至高の收藏',
+            desc: 'Add at least 5 cherished titles to your holy favorites.',
+            icon: 'heart',
+            rarity: 'Rare',
+            color: '#f43f5e',
+            unlocked: favoriteCount >= 5,
+            progress: `${Math.min(5, favoriteCount)} / 5 Favorites`,
+        },
+        {
+            id: 'marathoner',
+            title: 'Realm Dweller',
+            kanji: '異世界定住',
+            desc: 'Spend over 5 hours immersed in other anime worlds.',
+            icon: 'flame',
+            rarity: 'Epic',
+            color: '#34d399',
+            unlocked: totalMinutes >= 300,
+            progress: `${Math.min(300, totalMinutes)} / 300 Mins`,
+        },
+    ];
 
     const isDarkMode = getCurrentTheme() === 'dark';
+    const activeTab = window.__anifyProfileActiveTab || 'overview';
 
     return `
-    <div class="pt-24 pb-20 min-h-screen">
-        <div class="max-w-4xl mx-auto px-4 md:px-8">
-            <!-- Profile Header -->
-            <div class="glass-card rounded-3xl overflow-hidden anim-slide-up">
-                <div class="h-32 md:h-44 animated-gradient relative" style="--tw-gradient-from: ${accent}; --tw-gradient-to: var(--surface-strong);">
-                    <div class="floating-orb w-48 h-48 -top-24 -right-24" style="animation-delay: 1s; background-color: ${accent};"></div>
+    <div class="anime-profile-wrapper pt-20 pb-24 min-h-screen">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+
+            <!-- ============ EPIC ANIME HERO BANNER ============ -->
+            <div class="anime-hero-banner anim-slide-up">
+                <div class="anime-hero-banner__backdrop" style="--hero-accent: ${accent};">
+                    <div class="anime-hero-banner__grid-overlay"></div>
+                    <div class="anime-hero-banner__kanji-watermark">「 アニファイ・プロフィール 」</div>
+                    <div class="anime-hero-banner__orb" style="background: ${accent};"></div>
+                    <div class="anime-hero-banner__orb-secondary"></div>
                 </div>
-                <div class="px-6 md:px-8 pb-6 -mt-14 relative">
-                    <div class="flex items-end gap-4">
-                        <img src="${avatarUrl}" data-profile-avatar class="profile-summary-avatar" alt="${escapeHtml(displayName)} avatar">
-                        <div class="mb-1">
-                            <h1 class="text-2xl font-black">${escapeHtml(displayName)}</h1>
-                            <p class="text-sm text-gray-500">@${escapeHtml(username)}${userPlan === 'Premium' ? ' · Premium Member 👑' : ''}${profile?.isSupporter ? ' · ❤️ Anify Supporter' : ''}${userStatus ? ` · ${escapeHtml(userStatus)}` : ''}</p>
+
+                <div class="anime-hero-banner__content">
+                    <div class="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
+                        
+                        <!-- Glowing Anime Avatar Frame -->
+                        <div class="relative group">
+                            <div class="anime-avatar-aura" style="--aura-color: ${accent};"></div>
+                            <div class="anime-avatar-ring">
+                                <img src="${avatarUrl}" data-profile-avatar class="anime-hero-avatar" alt="${escapeHtml(displayName)} avatar">
+                                <span class="anime-avatar-rank-badge" style="background: ${otakuStats.badgeColor};" title="Otaku Level ${otakuStats.level}">
+                                    LV.${otakuStats.level}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- User Identity & Anime Title -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
+                                <h1 class="anime-hero-name text-3xl sm:text-4xl font-black tracking-tight text-white flex items-center gap-2">
+                                    ${escapeHtml(displayName)}
+                                    ${profile?.isSupporter ? '<span class="anime-supporter-star" title="Anify VIP Supporter">👑</span>' : ''}
+                                </h1>
+                                <span class="anime-hero-rank-pill" style="border-color: ${otakuStats.badgeColor}; color: ${otakuStats.badgeColor}; background: color-mix(in srgb, ${otakuStats.badgeColor} 12%, transparent);">
+                                    <i data-lucide="${otakuStats.icon}" class="w-3.5 h-3.5 inline mr-1"></i> ${otakuStats.title}
+                                </span>
+                            </div>
+
+                            <p class="anime-hero-handle text-sm mt-1 text-gray-400 flex flex-wrap items-center justify-center md:justify-start gap-2">
+                                <span>@${escapeHtml(username)}</span>
+                                <span>•</span>
+                                <span class="anime-status-indicator">
+                                    <span class="anime-status-dot"></span> ${escapeHtml(userStatus)}
+                                </span>
+                                ${userPlan === 'Premium' ? '<span>•</span><span class="text-gold-400 font-bold">👑 Premium Pass</span>' : ''}
+                            </p>
+
+                            <p class="anime-hero-bio mt-3 text-sm text-gray-300 max-w-2xl font-medium">
+                                「 ${bio ? escapeHtml(bio) : 'Exploring the multiverse one episode at a time…'} 」
+                            </p>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex flex-wrap items-center justify-center gap-3">
+                            <button type="button" class="btn-primary anime-glow-btn px-5 py-2.5 text-xs font-bold rounded-xl flex items-center gap-2" onclick="scrollToProfileCustomization()">
+                                <i data-lucide="palette" class="w-4 h-4"></i> Customize Persona
+                            </button>
+                            <button type="button" class="btn-secondary px-4 py-2.5 text-xs font-semibold rounded-xl flex items-center gap-2" onclick="showToast('Otaku Profile link copied!')">
+                                <i data-lucide="share-2" class="w-4 h-4"></i> Share Card
+                            </button>
                         </div>
                     </div>
-                    <p class="mt-4 max-w-2xl text-sm leading-6 text-gray-400">${bio ? escapeHtml(bio) : 'Add a bio to tell other anime fans a little about yourself.'}</p>
-                    <div class="flex flex-wrap items-center justify-between gap-3 mt-5">
-                        <span class="text-xs text-gray-500">Make your profile feel like yours.</span>
-                        <button type="button" class="btn-secondary px-4 py-2 text-xs" onclick="scrollToProfileCustomization()"><i data-lucide="palette" class="w-3.5 h-3.5 inline-block mr-1"></i> Customize Profile</button>
-                    </div>
-                    <div class="grid grid-cols-3 gap-4 mt-6">
-                        <div class="text-center p-3 rounded-xl bg-white/5">
-                            <p class="text-xl font-bold" style="color:${accent}">${totalEpisodes}</p>
-                            <p class="text-xs text-gray-500">Episodes</p>
+
+                    <!-- Otaku Power & XP Progression Bar -->
+                    <div class="anime-xp-bar-container mt-6 p-4 rounded-2xl">
+                        <div class="flex items-center justify-between text-xs font-bold mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-gold-400 font-black tracking-wider flex items-center gap-1">
+                                    <i data-lucide="zap" class="w-3.5 h-3.5 text-gold-400"></i> OTAKU POWER
+                                </span>
+                                <span class="text-gray-400">• Level ${otakuStats.level} (${otakuStats.kanji})</span>
+                            </div>
+                            <span class="text-gray-400">${otakuStats.currentLevelXp} / ${otakuStats.levelXpNeeded} XP to Lv.${otakuStats.level + 1}</span>
                         </div>
-                        <div class="text-center p-3 rounded-xl bg-white/5">
-                            <p class="text-xl font-bold text-gold-400">${watchlistService.getEntries().length}</p>
-                            <p class="text-xs text-gray-500">Watchlist</p>
-                        </div>
-                        <div class="text-center p-3 rounded-xl bg-white/5">
-                            <p class="text-xl font-bold text-gold-400">${favoriteCount}</p>
-                            <p class="text-xs text-gray-500">Favorites</p>
+                        <div class="anime-xp-track">
+                            <div class="anime-xp-fill" style="width: ${otakuStats.progressPct}%; background: linear-gradient(90deg, ${accent}, #fbbf24);"></div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            ${renderProfileCustomization(profile, draft, totalEpisodes, watchedCount, watchlistService.getEntries().length, favoriteCount)}
+            <!-- ============ ANIME POWER STATS GRID ============ -->
+            <div class="anime-stats-grid grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-6 anim-slide-up anim-delay-1">
+                <div class="anime-stat-card">
+                    <div class="anime-stat-card__icon text-gold-400"><i data-lucide="sword"></i></div>
+                    <div>
+                        <p class="anime-stat-card__val text-gold-400">${totalEpisodes}</p>
+                        <p class="anime-stat-card__lbl">Episodes Cleared</p>
+                    </div>
+                </div>
+                <div class="anime-stat-card">
+                    <div class="anime-stat-card__icon text-sky-400"><i data-lucide="clock"></i></div>
+                    <div>
+                        <p class="anime-stat-card__val text-sky-400">${watchTimeString}</p>
+                        <p class="anime-stat-card__lbl">Time in Other Worlds</p>
+                    </div>
+                </div>
+                <div class="anime-stat-card">
+                    <div class="anime-stat-card__icon text-rose-400"><i data-lucide="heart"></i></div>
+                    <div>
+                        <p class="anime-stat-card__val text-rose-400">${favoriteCount}</p>
+                        <p class="anime-stat-card__lbl">Sacred Favorites</p>
+                    </div>
+                </div>
+                <div class="anime-stat-card">
+                    <div class="anime-stat-card__icon text-emerald-400"><i data-lucide="bookmark"></i></div>
+                    <div>
+                        <p class="anime-stat-card__val text-emerald-400">${watchlistService.getEntries().length}</p>
+                        <p class="anime-stat-card__lbl">Guild Watchlist</p>
+                    </div>
+                </div>
+            </div>
 
-            <!-- Stats & Settings -->
-            <div class="grid md:grid-cols-2 gap-6 mt-6">
-                <!-- Watch History -->
-                <div class="glass-card rounded-2xl p-5 anim-slide-up anim-delay-1">
-                    <h3 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="clock" class="w-5 h-5 text-gold-400"></i> Watch History</h3>
-                    <div class="space-y-3 max-h-64 overflow-y-auto">
-                        ${watchHistoryItems.length ? watchHistoryItems.map(({ anime, timeLabel }) => `
-                            <button onclick="navigate('anime', ${anime.id})" class="flex items-center gap-3 w-full text-left p-2 rounded-xl hover:bg-white/5 transition-all">
-                                <img src="${getOptimizedImageUrl(anime.image, 80, 112, 70)}" class="w-10 h-14 rounded-lg object-cover" alt="${anime.title}">
-                                <div class="min-w-0 flex-1">
-                                    <p class="font-medium text-sm truncate">${anime.title}</p>
-                                    <p class="text-xs text-gray-500">${timeLabel ? `Last watched ${timeLabel}` : 'Last watched'}</p>
+            <!-- ============ ANIME PROFILE TABS ============ -->
+            <div class="anime-profile-tabs mt-8 flex flex-wrap items-center gap-2 border-b border-white/10 pb-2.5" role="tablist">
+                <button type="button" class="anime-tab-btn ${activeTab === 'overview' ? 'is-active' : ''}" data-profile-tab-btn data-tab="overview" onclick="switchProfileTab('overview')">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    <span>Overview</span>
+                    <span class="anime-tab-kanji">概要</span>
+                </button>
+                <button type="button" class="anime-tab-btn ${activeTab === 'customization' ? 'is-active' : ''}" data-profile-tab-btn data-tab="customization" onclick="switchProfileTab('customization')">
+                    <i data-lucide="palette" class="w-4 h-4"></i>
+                    <span>Persona & Style</span>
+                    <span class="anime-tab-kanji">設定</span>
+                </button>
+                <button type="button" class="anime-tab-btn ${activeTab === 'history' ? 'is-active' : ''}" data-profile-tab-btn data-tab="history" onclick="switchProfileTab('history')">
+                    <i data-lucide="history" class="w-4 h-4"></i>
+                    <span>Watch Records</span>
+                    <span class="anime-tab-badge">${watchHistoryItems.length}</span>
+                </button>
+                <button type="button" class="anime-tab-btn ${activeTab === 'settings' ? 'is-active' : ''}" data-profile-tab-btn data-tab="settings" onclick="switchProfileTab('settings')">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+                    <span>Settings</span>
+                    <span class="anime-tab-kanji">環境</span>
+                </button>
+            </div>
+
+            <!-- ============ TAB 1: OVERVIEW ============ -->
+            <div class="anime-tab-panel ${activeTab === 'overview' ? '' : 'hidden'}" data-profile-tab-panel data-tab="overview">
+                
+                <!-- My Anime Shrine (Pinned Favorites) -->
+                <div class="anime-shrine-section mt-6 anim-slide-up">
+                    <div class="flex items-center justify-between gap-4 mb-4">
+                        <div>
+                            <h2 class="anime-section-title flex items-center gap-2 text-lg font-black text-white">
+                                <span class="text-gold-400">★</span> My Anime Shrine <span class="text-xs text-gray-500 font-normal">「 推しアニメ 」</span>
+                            </h2>
+                            <p class="text-xs text-gray-400 mt-0.5">Your top showcase of masterpiece anime. Click to play or customize pins.</p>
+                        </div>
+                        <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300">
+                            ${pinnedAnime.length} / 6 Pinned
+                        </span>
+                    </div>
+
+                    ${pinnedAnime.length ? `
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3.5">
+                            ${pinnedAnime.map((anime, idx) => `
+                                <div class="anime-shrine-card group relative rounded-2xl overflow-hidden cursor-pointer" onclick="navigate('anime', ${anime.id})">
+                                    <span class="anime-shrine-rank">#${idx + 1}</span>
+                                    <img src="${getOptimizedImageUrl(anime.image, 200, 280, 80)}" alt="${escapeHtml(anime.title)}" class="w-full aspect-[3/4] object-cover transition-transform duration-300 group-hover:scale-105">
+                                    <div class="anime-shrine-card__overlay">
+                                        <p class="text-xs font-bold text-white line-clamp-2">${escapeHtml(anime.title)}</p>
+                                        <div class="flex items-center justify-between text-[10px] text-gray-300 mt-1">
+                                            <span>⭐ ${anime.rating || '9.5'}</span>
+                                            <span class="text-gold-400 font-semibold">PLAY ▶</span>
+                                        </div>
+                                    </div>
                                 </div>
-                            </button>
-                        `).join('') : `
-                            <p class="text-sm text-gray-500">No watch history yet. Start watching something!</p>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div class="anime-empty-shrine p-8 text-center rounded-2xl border border-dashed border-white/15 bg-white/5">
+                            <div class="w-12 h-12 rounded-2xl bg-gold-400/10 text-gold-400 flex items-center justify-center mx-auto mb-3">
+                                <i data-lucide="star" class="w-6 h-6"></i>
+                            </div>
+                            <h3 class="font-bold text-white text-base">Your Anime Shrine is Empty</h3>
+                            <p class="text-xs text-gray-400 max-w-md mx-auto mt-1">Add anime to your favorites, then pin your all-time top 6 here to build your personal shrine.</p>
+                            ${favoriteAnime.length ? `
+                                <div class="mt-4 flex flex-wrap justify-center gap-2">
+                                    ${favoriteAnime.slice(0, 6).map(anime => `
+                                        <button onclick="togglePinnedAnime(${anime.id})" class="btn-secondary px-3 py-1.5 text-xs rounded-lg flex items-center gap-1.5">
+                                            <i data-lucide="pin" class="w-3 h-3 text-gold-400"></i> Pin ${escapeHtml(anime.title.slice(0, 14))}…
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            ` : `
+                                <button onclick="navigate('browse')" class="btn-primary px-5 py-2 text-xs font-bold rounded-xl mt-4">
+                                    Discover Anime to Favorite
+                                </button>
+                            `}
+                        </div>
+                    `}
+
+                    <!-- Pin Selector Modal/List if favorites exist -->
+                    ${favoriteAnime.length ? `
+                        <details class="anime-pin-drawer mt-4 rounded-xl bg-white/5 border border-white/10 p-3.5">
+                            <summary class="text-xs font-bold text-gray-300 cursor-pointer flex items-center justify-between">
+                                <span class="flex items-center gap-1.5"><i data-lucide="pin" class="w-3.5 h-3.5 text-gold-400"></i> Manage Shrine Pins (${favoriteAnime.length} favorites available)</span>
+                                <span class="text-[10px] text-gray-500">Click to expand</span>
+                            </summary>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5 mt-3 pt-3 border-t border-white/10">
+                                ${favoriteAnime.map(anime => {
+        const isPinned = pinnedIds.includes(String(anime.id));
+        return `
+                                        <button onclick="togglePinnedAnime(${anime.id})" class="text-left p-1.5 rounded-xl border ${isPinned ? 'border-gold-400 bg-gold-400/10' : 'border-white/5 bg-white/5'} hover:border-gold-400/60 transition-all flex items-center gap-2">
+                                            <img src="${getOptimizedImageUrl(anime.image, 60, 80, 70)}" class="w-9 h-12 rounded object-cover flex-shrink-0" alt="">
+                                            <div class="min-w-0 flex-1">
+                                                <p class="text-[11px] font-bold text-white truncate">${escapeHtml(anime.title)}</p>
+                                                <span class="text-[9px] ${isPinned ? 'text-gold-400 font-bold' : 'text-gray-500'}">${isPinned ? '✓ PINNED' : '+ PIN'}</span>
+                                            </div>
+                                        </button>
+                                    `;
+    }).join('')}
+                            </div>
+                        </details>
+                    ` : ''}
+                </div>
+
+                <!-- 2-Column Grid: Genre Affinity & Achievements -->
+                <div class="grid md:grid-cols-2 gap-6 mt-6">
+                    
+                    <!-- Genre Affinity Radar -->
+                    <div class="anime-panel-card p-6 rounded-2xl">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-white flex items-center gap-2">
+                                <i data-lucide="dna" class="w-4 h-4 text-sky-400"></i> Otaku Genre Affinity <span class="text-xs text-gray-500 font-normal">「 ジャンル分析 」</span>
+                            </h3>
+                            <span class="text-xs text-gray-500">${topGenres.length} top tags</span>
+                        </div>
+                        ${topGenres.length ? `
+                            <div class="space-y-3.5">
+                                ${topGenres.map((g, idx) => {
+        const colors = ['#f43f5e', '#38bdf8', '#fbbf24', '#a855f7'];
+        const barColor = colors[idx % colors.length];
+        return `
+                                        <div>
+                                            <div class="flex items-center justify-between text-xs font-bold mb-1">
+                                                <span class="text-gray-200">${escapeHtml(g.name)}</span>
+                                                <span style="color: ${barColor}">${g.percentage}% (${g.count} watches)</span>
+                                            </div>
+                                            <div class="h-2 rounded-full bg-white/5 overflow-hidden">
+                                                <div class="h-full rounded-full transition-all duration-500" style="width: ${g.percentage}%; background: ${barColor};"></div>
+                                            </div>
+                                        </div>
+                                    `;
+    }).join('')}
+                            </div>
+                        ` : `
+                            <p class="text-xs text-gray-400 py-4">Watch more anime to generate your personalized anime genre radar!</p>
                         `}
                     </div>
+
+                    <!-- Achievement Badges (称号) -->
+                    <div class="anime-panel-card p-6 rounded-2xl">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-white flex items-center gap-2">
+                                <i data-lucide="trophy" class="w-4 h-4 text-gold-400"></i> Otaku Achievements <span class="text-xs text-gray-500 font-normal">「 称号 」</span>
+                            </h3>
+                            <span class="text-xs text-gray-500">${achievements.filter(a => a.unlocked).length} / ${achievements.length} Unlocked</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2.5">
+                            ${achievements.map(a => `
+                                <div class="anime-badge-card p-3 rounded-xl border ${a.unlocked ? 'border-gold-400/40 bg-gold-400/5' : 'border-white/5 bg-white/5 opacity-60'}">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm" style="background: color-mix(in srgb, ${a.color} 20%, transparent); color: ${a.color};">
+                                            <i data-lucide="${a.icon}" class="w-4 h-4"></i>
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-xs font-bold text-white truncate">${a.title}</p>
+                                            <p class="text-[10px] text-gray-400">${a.kanji} • ${a.rarity}</p>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 text-[10px] flex items-center justify-between text-gray-400 font-medium">
+                                        <span>${a.unlocked ? '✨ UNLOCKED' : '🔒 LOCKED'}</span>
+                                        <span class="font-bold" style="color: ${a.unlocked ? a.color : '#9ca3af'}">${a.progress}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Settings -->
-                <div class="glass-card rounded-2xl p-5 anim-slide-up anim-delay-2">
-                    <h3 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="settings" class="w-5 h-5 text-gold-400"></i> Settings</h3>
-                    <div class="space-y-4">
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm">Dark Mode</span>
-                            <button onclick="toggleTheme()" class="w-12 h-6 rounded-full transition-all ${isDarkMode ? 'bg-gold-400' : 'bg-gray-600'} relative">
-                                <div class="w-5 h-5 rounded-full bg-white shadow-md absolute top-0.5 transition-all ${isDarkMode ? 'right-0.5' : 'left-0.5'}"></div>
-                            </button>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm">Notifications</span>
-                            <button class="w-12 h-6 rounded-full bg-gold-400 relative">
-                                <div class="w-5 h-5 rounded-full bg-white shadow-md absolute top-0.5 right-0.5"></div>
-                            </button>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm">Auto-Next Episode</span>
-                            <button class="w-12 h-6 rounded-full bg-gold-400 relative">
-                                <div class="w-5 h-5 rounded-full bg-white shadow-md absolute top-0.5 right-0.5"></div>
-                            </button>
-                        </div>
+                <!-- Recent Activity Timeline (Quest Log) -->
+                <div class="anime-panel-card p-6 rounded-2xl mt-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-white flex items-center gap-2">
+                            <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i> Recent Quest Log & Activity <span class="text-xs text-gray-500 font-normal">「 タイムライン 」</span>
+                        </h3>
+                        <button onclick="loadProfileActivity()" class="text-xs text-gray-400 hover:text-white flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Refresh</button>
+                    </div>
+                    <div id="profile-activity-list" class="space-y-3 text-sm text-gray-400">Loading recent activity…</div>
+                </div>
+            </div>
+
+            <!-- ============ TAB 2: PERSONA & STYLING ============ -->
+            <div class="anime-tab-panel ${activeTab === 'customization' ? '' : 'hidden'}" data-profile-tab-panel data-tab="customization">
+                ${renderProfileCustomization(profile, draft, totalEpisodes, watchedCount, watchlistService.getEntries().length, favoriteCount)}
+            </div>
+
+            <!-- ============ TAB 3: WATCH HISTORY ============ -->
+            <div class="anime-tab-panel ${activeTab === 'history' ? '' : 'hidden'}" data-profile-tab-panel data-tab="history">
+                <div class="anime-panel-card p-6 rounded-2xl mt-6">
+                    <div class="flex items-center justify-between mb-6">
                         <div>
-                            <label class="text-sm font-medium text-gray-400 mb-1 block">Language</label>
-                            <select class="input-field">
-                                <option>English</option>
-                                <option>Japanese</option>
-                                <option>Spanish</option>
-                            </select>
+                            <h2 class="text-lg font-black text-white flex items-center gap-2">
+                                <i data-lucide="clapperboard" class="w-5 h-5 text-gold-400"></i> Anime Watch Records <span class="text-xs text-gray-500 font-normal">「 視聴履歴 」</span>
+                            </h2>
+                            <p class="text-xs text-gray-400 mt-0.5">Pick up right where you left off in your streaming adventures.</p>
                         </div>
-                        <button onclick="signOut()" class="w-full btn-secondary py-2.5 flex items-center justify-center gap-2 text-sm mt-2">
-                            <i data-lucide="log-out" class="w-4 h-4"></i> Sign Out
-                        </button>
+                        <span class="text-xs font-semibold px-3 py-1.5 rounded-xl bg-white/5 text-gray-300">
+                            ${watchHistoryItems.length} Series Tracked
+                        </span>
+                    </div>
+
+                    ${watchHistoryItems.length ? `
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            ${watchHistoryItems.map(({ anime, episode, timeLabel }) => `
+                                <div class="anime-history-card rounded-2xl overflow-hidden border border-white/10 bg-white/5 hover:border-gold-400/50 transition-all flex flex-col">
+                                    <div class="relative aspect-video overflow-hidden">
+                                        <img src="${getOptimizedImageUrl(anime.image, 320, 180, 75)}" class="w-full h-full object-cover" alt="${escapeHtml(anime.title)}">
+                                        <span class="absolute bottom-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/80 text-gold-400 border border-gold-400/40">
+                                            EP ${episode}
+                                        </span>
+                                    </div>
+                                    <div class="p-3.5 flex-1 flex flex-col justify-between">
+                                        <div>
+                                            <p class="font-bold text-sm text-white line-clamp-1">${escapeHtml(anime.title)}</p>
+                                            <p class="text-[11px] text-gray-400 mt-1 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${timeLabel}</p>
+                                        </div>
+                                        <button onclick="navigate('player', ${anime.id}, { episode: ${episode} })" class="btn-primary w-full py-2 text-xs font-bold rounded-xl mt-3 flex items-center justify-center gap-1.5">
+                                            <i data-lucide="play" class="w-3.5 h-3.5"></i> Resume Ep ${episode}
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div class="text-center py-12">
+                            <i data-lucide="tv" class="w-12 h-12 text-gray-600 mx-auto mb-3"></i>
+                            <p class="text-sm text-gray-400">No watch records yet! Start your first anime episode to record your journey.</p>
+                            <button onclick="navigate('browse')" class="btn-primary px-5 py-2 text-xs font-bold rounded-xl mt-4">
+                                Browse Trending Anime
+                            </button>
+                        </div>
+                    `}
+                </div>
+            </div>
+
+            <!-- ============ TAB 4: SETTINGS ============ -->
+            <div class="anime-tab-panel ${activeTab === 'settings' ? '' : 'hidden'}" data-profile-tab-panel data-tab="settings">
+                <div class="grid md:grid-cols-2 gap-6 mt-6">
+                    
+                    <!-- Player & Interface Preferences -->
+                    <div class="anime-panel-card p-6 rounded-2xl">
+                        <h3 class="font-bold text-white mb-4 flex items-center gap-2">
+                            <i data-lucide="settings-2" class="w-4 h-4 text-gold-400"></i> Player & Streaming Preferences
+                        </h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                                <div>
+                                    <p class="text-sm font-bold text-white">Dark / Light Mode</p>
+                                    <p class="text-xs text-gray-400">Toggle website luminescence theme</p>
+                                </div>
+                                <button onclick="toggleTheme(); rerenderProfilePage();" class="w-12 h-6 rounded-full transition-all ${isDarkMode ? 'bg-gold-400' : 'bg-gray-600'} relative">
+                                    <div class="w-5 h-5 rounded-full bg-white shadow-md absolute top-0.5 transition-all ${isDarkMode ? 'right-0.5' : 'left-0.5'}"></div>
+                                </button>
+                            </div>
+
+                            <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                                <div>
+                                    <p class="text-sm font-bold text-white">Auto-Next Episode</p>
+                                    <p class="text-xs text-gray-400">Automatically start next episode upon completion</p>
+                                </div>
+                                <button class="w-12 h-6 rounded-full bg-gold-400 relative">
+                                    <div class="w-5 h-5 rounded-full bg-white shadow-md absolute top-0.5 right-0.5"></div>
+                                </button>
+                            </div>
+
+                            <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                                <div>
+                                    <p class="text-sm font-bold text-white">Default Audio Stream</p>
+                                    <p class="text-xs text-gray-400">Preferred audio track for series</p>
+                                </div>
+                                <select class="input-field text-xs py-1.5 px-3 rounded-lg w-28 bg-black/40 border border-white/10">
+                                    <option value="sub" selected>Subbed (JP)</option>
+                                    <option value="dub">Dubbed (EN)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Account & Session -->
+                    <div class="anime-panel-card p-6 rounded-2xl flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-white mb-4 flex items-center gap-2">
+                                <i data-lucide="shield" class="w-4 h-4 text-rose-400"></i> Account & Membership
+                            </h3>
+                            <div class="p-4 rounded-xl bg-gradient-to-r from-gold-400/10 to-transparent border border-gold-400/20 mb-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-bold text-white flex items-center gap-1.5"><i data-lucide="crown" class="w-4 h-4 text-gold-400"></i> ${userPlan} Pass</p>
+                                        <p class="text-xs text-gray-400 mt-0.5">Status: <span class="text-emerald-400 font-semibold">${userStatus}</span></p>
+                                    </div>
+                                    <span class="text-xs font-bold px-3 py-1 rounded-full bg-gold-400 text-black">ACTIVE</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3 pt-4 border-t border-white/10">
+                            <button onclick="signOut()" class="w-full btn-secondary py-3 flex items-center justify-center gap-2 text-xs font-bold text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30 rounded-xl">
+                                <i data-lucide="log-out" class="w-4 h-4"></i> Sign Out of Anify
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-
-            <div class="glass-card rounded-2xl p-5 mt-6">
-                <div class="flex items-center justify-between gap-4 mb-4"><h3 class="font-bold flex items-center gap-2"><i data-lucide="pin" class="w-5 h-5" style="color:${accent}"></i> Pinned Favorites</h3><span class="text-xs text-gray-500">Pin up to 6 from your favorites</span></div>
-                ${favoriteAnime.length ? `<div class="flex flex-wrap gap-3">${favoriteAnime.map(anime => `<button onclick="togglePinnedAnime(${anime.id})" class="relative w-20 text-left"><img src="${getOptimizedImageUrl(anime.image, 120, 168, 75)}" alt="${escapeHtml(anime.title)}" class="h-28 w-20 object-cover rounded-lg ${pinnedIds.includes(String(anime.id)) ? 'ring-2 ring-gold-400' : ''}"><span class="block mt-1 truncate text-xs">${escapeHtml(anime.title)}</span></button>`).join('')}</div>` : '<p class="text-sm text-gray-500">Add anime to your favorites first, then pin them here.</p>'}
-                ${pinnedAnime.length ? `<p class="mt-4 text-xs text-gray-500">Pinned: ${pinnedAnime.map(anime => escapeHtml(anime.title)).join(', ')}</p>` : ''}
-            </div>
-
-            <div class="glass-card rounded-2xl p-5 mt-6">
-                <h3 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5" style="color:${accent}"></i> Activity Timeline</h3>
-                <div id="profile-activity-list" class="space-y-3 text-sm text-gray-500">Loading recent activity…</div>
-            </div>
-
-            <!-- Subscription -->
-            <div class="glass-card rounded-2xl p-6 mt-6 anim-slide-up anim-delay-3">
-                <div class="flex items-center justify-between flex-wrap gap-4">
-                    <div>
-                        <h3 class="font-bold flex items-center gap-2"><i data-lucide="crown" class="w-5 h-5 text-gold-400"></i> ${userPlan} Plan</h3>
-                        <p class="text-sm text-gray-500 mt-1">Status: ${userStatus}</p>
-                    </div>
-                    <button class="btn-primary px-5 py-2 text-sm">Manage Subscription</button>
-                </div>
-            </div>
         </div>
     </div>`;
 }

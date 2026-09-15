@@ -10495,255 +10495,704 @@ html[data-theme] .player-control-btn:active {
     background: var(--accent-soft) !important;
 }
 
-/* ============ PROFILE CUSTOMIZATION ============ */
+/* ============ ANIME PROFILE HUB & OTAKU STYLING ============ */
 .text-primary {
     color: var(--primary) !important;
 }
 
-.profile-customization {
-    display: grid;
-    grid-template-columns: minmax(17rem, 0.8fr) minmax(0, 1.4fr);
-    gap: 1.25rem;
-    align-items: start;
-    margin-top: 1.25rem;
+.anime-profile-wrapper {
+    position: relative;
+    background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--primary) 12%, transparent) 0%, transparent 60%);
 }
 
-.profile-preview-card {
-    position: sticky;
-    top: 6.5rem;
+/* --- Hero Banner & Scenery Backdrop --- */
+.anime-hero-banner {
+    position: relative;
     overflow: hidden;
-    border: 1px solid var(--border);
-    border-radius: 1.5rem;
-    background: linear-gradient(145deg, color-mix(in srgb, var(--surface) 98%, transparent), color-mix(in srgb, var(--surface-hover) 62%, transparent));
-    box-shadow: 0 25px 65px var(--shadow-color);
+    border-radius: 2rem;
+    border: 1px solid color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+    background: linear-gradient(160deg, color-mix(in srgb, var(--surface) 95%, transparent), color-mix(in srgb, var(--surface-strong) 98%, #000));
+    box-shadow: 0 25px 60px -15px color-mix(in srgb, var(--shadow-color) 70%, transparent), 0 0 35px -10px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
-.profile-preview-card__banner {
-    height: 7.5rem;
-    background: radial-gradient(circle at 75% 15%, color-mix(in srgb, var(--accent) 70%, transparent), transparent 42%), linear-gradient(135deg, var(--primary-dark), var(--surface));
+.anime-hero-banner__backdrop {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 12rem;
+    overflow: hidden;
+    background: radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--hero-accent, var(--primary)) 45%, transparent), transparent 60%),
+                linear-gradient(135deg, color-mix(in srgb, var(--hero-accent, var(--primary-dark)) 80%, #050510), color-mix(in srgb, var(--surface) 90%, #000));
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, var(--primary) 30%);
 }
 
-.profile-preview-card__body {
-    padding: 0 1.25rem 1.35rem;
+.anime-hero-banner__grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+    mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
 }
 
-.profile-preview-card__avatar {
-    width: 5.25rem;
-    height: 5.25rem;
-    margin-top: -2.65rem;
-    border: 4px solid var(--surface);
-    box-shadow: 0 0 0 2px var(--primary), 0 16px 32px var(--shadow-color);
+.anime-hero-banner__kanji-watermark {
+    position: absolute;
+    right: 2rem;
+    top: 1.5rem;
+    font-size: clamp(2.2rem, 5vw, 4.5rem);
+    font-weight: 900;
+    letter-spacing: 0.25em;
+    color: rgba(255, 255, 255, 0.06);
+    user-select: none;
+    pointer-events: none;
+    font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
-.profile-preview-card__badge {
+.anime-hero-banner__orb {
+    position: absolute;
+    width: 14rem;
+    height: 14rem;
+    top: -5rem;
+    right: -3rem;
+    border-radius: 50%;
+    filter: blur(40px);
+    opacity: 0.55;
+    animation: animeOrbFloat 6s ease-in-out infinite alternate;
+}
+
+.anime-hero-banner__orb-secondary {
+    position: absolute;
+    width: 10rem;
+    height: 10rem;
+    bottom: -2rem;
+    left: 15%;
+    border-radius: 50%;
+    background: var(--accent);
+    filter: blur(45px);
+    opacity: 0.35;
+}
+
+@keyframes animeOrbFloat {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(-20px, 15px) scale(1.15); }
+}
+
+.anime-hero-banner__content {
+    position: relative;
+    z-index: 2;
+    padding: 6.5rem 1.75rem 1.75rem;
+}
+
+@media (min-width: 768px) {
+    .anime-hero-banner__content {
+        padding: 6.5rem 2.5rem 2rem;
+    }
+}
+
+/* --- Avatar & Glowing Anime Aura --- */
+.anime-avatar-aura {
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--aura-color, var(--primary)) 30%, transparent 70%);
+    filter: blur(14px);
+    opacity: 0.75;
+    animation: animeAuraPulse 3.5s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes animeAuraPulse {
+    0%, 100% { transform: scale(1); opacity: 0.6; filter: blur(12px); }
+    50% { transform: scale(1.12); opacity: 0.95; filter: blur(20px); }
+}
+
+.anime-avatar-ring {
+    position: relative;
+    width: 7rem;
+    height: 7rem;
+    border-radius: 50%;
+    padding: 4px;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-hover), var(--accent));
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 0 12px rgba(255, 255, 255, 0.4);
+}
+
+@media (min-width: 768px) {
+    .anime-avatar-ring {
+        width: 8.5rem;
+        height: 8.5rem;
+    }
+}
+
+.anime-hero-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--surface);
+    border: 3px solid var(--surface);
+    transition: transform 300ms ease;
+}
+
+.anime-avatar-ring:hover .anime-hero-avatar {
+    transform: scale(1.03) rotate(2deg);
+}
+
+.anime-avatar-rank-badge {
+    position: absolute;
+    bottom: -0.35rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 900;
+    color: #000;
+    letter-spacing: 0.05em;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 10px rgba(255, 255, 255, 0.3);
+    border: 2px solid #fff;
+    white-space: nowrap;
+}
+
+/* --- Hero Details & Rank Badges --- */
+.anime-hero-name {
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+}
+
+.anime-hero-rank-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    margin-top: 1rem;
-    padding: 0.35rem 0.6rem;
+    padding: 0.3rem 0.75rem;
     border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--primary-light);
-    font-family: 'IBM Plex Sans', monospace;
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    border: 1.5px solid currentColor;
+    box-shadow: 0 0 15px color-mix(in srgb, currentColor 25%, transparent);
 }
 
-.profile-preview-card__name {
-    margin-top: 0.85rem;
-    color: var(--text-primary);
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1.35rem;
-    font-weight: 900;
-    letter-spacing: -0.04em;
+.anime-supporter-star {
+    display: inline-block;
+    filter: drop-shadow(0 0 8px #fbbf24);
+    animation: supporterPulse 2s ease-in-out infinite;
 }
 
-.profile-preview-card__handle {
-    color: var(--text-tertiary);
-    font-size: 0.8rem;
+@keyframes supporterPulse {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    50% { transform: scale(1.18) rotate(6deg); }
 }
 
-.profile-preview-card__bio {
-    min-height: 3.1rem;
-    margin-top: 0.8rem;
+.anime-status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     color: var(--text-secondary);
-    font-size: 0.84rem;
-    line-height: 1.55;
 }
 
-.profile-preview-card__footer {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 1.15rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border);
-    color: var(--text-tertiary);
-    font-family: 'IBM Plex Sans', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+.anime-status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: #34d399;
+    box-shadow: 0 0 8px #34d399;
+    animation: statusDotPulse 2s infinite;
 }
 
-.profile-customization__controls {
-    display: grid;
-    gap: 1.25rem;
+@keyframes statusDotPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
 }
 
-.profile-editor-panel {
-    padding: 1.25rem;
-    border: 1px solid var(--border);
-    border-radius: 1.5rem;
-    background: color-mix(in srgb, var(--surface) 94%, transparent);
-    box-shadow: 0 16px 42px color-mix(in srgb, var(--shadow-color) 48%, transparent);
+.anime-glow-btn {
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--primary) 35%, transparent);
+    transition: transform 200ms ease, box-shadow 200ms ease;
 }
 
-.profile-editor-panel__heading {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1rem;
+.anime-glow-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px color-mix(in srgb, var(--primary) 55%, transparent);
 }
 
-.profile-editor-panel__title {
+/* --- Otaku XP Bar --- */
+.anime-xp-bar-container {
+    background: color-mix(in srgb, var(--surface) 80%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 85%, var(--primary) 15%);
+    backdrop-filter: blur(12px);
+}
+
+.anime-xp-track {
+    width: 100%;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    position: relative;
+}
+
+.anime-xp-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 800ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--primary) 65%, transparent);
+}
+
+/* --- Stats Grid --- */
+.anime-stats-grid {
+    margin-top: 1.5rem;
+}
+
+.anime-stat-card {
     display: flex;
     align-items: center;
-    gap: 0.55rem;
-    color: var(--text-primary);
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 0.98rem;
+    gap: 1rem;
+    padding: 1.15rem 1.25rem;
+    border-radius: 1.4rem;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.anime-stat-card:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
+    box-shadow: 0 14px 35px color-mix(in srgb, var(--shadow-color) 50%, transparent);
+}
+
+.anime-stat-card__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.anime-stat-card__icon svg {
+    width: 1.35rem;
+    height: 1.35rem;
+}
+
+.anime-stat-card__val {
+    font-size: 1.25rem;
     font-weight: 900;
+    line-height: 1.2;
     letter-spacing: -0.02em;
 }
 
-.profile-editor-panel__title svg {
-    width: 1rem;
-    height: 1rem;
+.anime-stat-card__lbl {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    margin-top: 0.15rem;
+}
+
+/* --- Anime Navigation Tabs --- */
+.anime-profile-tabs {
+    position: sticky;
+    top: 4.5rem;
+    z-index: 10;
+    background: color-mix(in srgb, var(--background) 88%, transparent);
+    backdrop-filter: blur(16px);
+    padding-top: 0.5rem;
+}
+
+.anime-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.15rem;
+    border-radius: 0.9rem;
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: var(--text-tertiary);
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 200ms ease;
+}
+
+.anime-tab-btn:hover {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--surface-hover) 60%, transparent);
+}
+
+.anime-tab-btn.is-active {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--surface-hover) 95%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+    box-shadow: 0 4px 18px color-mix(in srgb, var(--primary) 14%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.anime-tab-kanji {
+    font-size: 0.68rem;
+    opacity: 0.45;
+    font-family: sans-serif;
+}
+
+.anime-tab-badge {
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.anime-tab-btn.is-active .anime-tab-badge {
+    background: var(--primary);
+    color: #000;
+    font-weight: 900;
+}
+
+/* --- Panel Cards & Content Sections --- */
+.anime-panel-card {
+    border-radius: 1.6rem;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.22);
+}
+
+/* --- Anime Shrine (Pinned Favorites) --- */
+.anime-shrine-section {
+    padding: 1.5rem;
+    border-radius: 1.8rem;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--surface) 94%, transparent), color-mix(in srgb, var(--surface-strong) 96%, transparent));
+    border: 1px solid color-mix(in srgb, var(--border) 85%, var(--primary) 15%);
+    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.25);
+}
+
+.anime-shrine-card {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    border: 1.5px solid rgba(255, 255, 255, 0.08);
+    transition: transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1), border-color 250ms ease, box-shadow 250ms ease;
+}
+
+.anime-shrine-card:hover {
+    transform: translateY(-6px) scale(1.03);
+    border-color: var(--primary);
+    box-shadow: 0 16px 35px color-mix(in srgb, var(--primary) 30%, transparent), 0 0 15px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.anime-shrine-rank {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 3;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.65rem;
+    font-weight: 900;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    backdrop-filter: blur(6px);
+}
+
+.anime-shrine-card__overlay {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 1.5rem 0.65rem 0.65rem;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 20%, rgba(0, 0, 0, 0.6) 60%, transparent);
+}
+
+/* --- Achievement Badges --- */
+.anime-badge-card {
+    transition: transform 200ms ease, border-color 200ms ease;
+}
+
+.anime-badge-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* --- Anime Guild Card (Live Trading Card Preview) --- */
+.anime-guild-card-preview {
+    position: sticky;
+    top: 7rem;
+}
+
+.anime-guild-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.8rem;
+    border: 2px solid color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+    background: linear-gradient(155deg, color-mix(in srgb, var(--surface) 98%, transparent), color-mix(in srgb, var(--surface-strong) 98%, transparent));
+    box-shadow: 0 25px 65px var(--shadow-color), 0 0 25px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+.anime-guild-card__aura {
+    position: absolute;
+    top: -30%;
+    right: -30%;
+    width: 16rem;
+    height: 16rem;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--primary) 20%, transparent 70%);
+    filter: blur(40px);
+    opacity: 0.25;
+    pointer-events: none;
+}
+
+.anime-guild-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.anime-guild-card__badge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--primary-light);
+}
+
+.anime-guild-card__rank {
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.anime-guild-card__banner {
+    height: 5.5rem;
+    background: linear-gradient(135deg, var(--primary-dark), var(--surface));
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 1.5rem;
+}
+
+.anime-guild-card__kanji {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.08);
+    user-select: none;
+}
+
+.anime-guild-card__body {
+    padding: 0 1.25rem 1.35rem;
+}
+
+.anime-guild-card__avatar-wrap {
+    position: relative;
+    width: 5.5rem;
+    height: 5.5rem;
+    margin-top: -2.75rem;
+}
+
+.anime-guild-card__avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3.5px solid var(--surface);
+    box-shadow: 0 0 0 2px var(--primary), 0 12px 25px rgba(0, 0, 0, 0.5);
+}
+
+.anime-guild-card__lvl-tag {
+    position: absolute;
+    bottom: -0.2rem;
+    right: -0.2rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.6rem;
+    font-weight: 900;
+    color: #000;
+    border: 1.5px solid #fff;
+}
+
+.anime-guild-card__name {
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+}
+
+.anime-guild-card__handle {
+    font-size: 0.78rem;
+    color: var(--text-tertiary);
+}
+
+.anime-guild-card__bio-quote {
+    min-height: 3rem;
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 0.8rem;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    line-height: 1.5;
+}
+
+.anime-guild-card__stats-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-top: 0.85rem;
+    padding: 0.65rem;
+    border-radius: 0.8rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: center;
+}
+
+.anime-guild-card__stat-val {
+    display: block;
+    font-size: 1rem;
+    font-weight: 900;
     color: var(--primary);
 }
 
-.profile-editor-panel__description {
-    margin-top: 0.3rem;
+.anime-guild-card__stat-lbl {
+    display: block;
+    font-size: 0.62rem;
+    text-transform: uppercase;
     color: var(--text-tertiary);
-    font-size: 0.75rem;
-    line-height: 1.45;
+    letter-spacing: 0.05em;
+}
+
+.anime-guild-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.68rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+/* --- Customizer Components --- */
+.anime-customization-section {
+    display: grid;
+    grid-template-columns: minmax(18rem, 0.8fr) minmax(0, 1.4fr);
+    gap: 1.5rem;
+    align-items: start;
+    margin-top: 1.5rem;
+}
+
+.anime-editor-card {
+    padding: 1.35rem;
+    border-radius: 1.6rem;
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    border: 1px solid var(--border);
+    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.2);
+}
+
+.anime-pill-btn {
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    background: color-mix(in srgb, var(--surface-hover) 70%, transparent);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 180ms ease;
+}
+
+.anime-pill-btn:hover {
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+
+.anime-pill-btn.is-active {
+    color: #000;
+    background: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.anime-avatar-tile {
+    position: relative;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    padding: 0.2rem;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--surface-hover) 80%, transparent);
+    cursor: pointer;
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.anime-avatar-tile img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.anime-avatar-tile:hover {
+    transform: translateY(-3px) scale(1.06);
+    border-color: var(--primary-light);
+    box-shadow: 0 10px 22px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.anime-avatar-tile[aria-pressed="true"] {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent), 0 12px 25px color-mix(in srgb, var(--primary) 25%, transparent);
+    transform: scale(1.08);
+}
+
+.profile-avatar-option__check {
+    position: absolute;
+    right: -0.1rem;
+    bottom: -0.1rem;
+    display: grid;
+    place-items: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+    background: var(--primary);
+    color: #000;
+}
+
+.profile-avatar-option__check svg {
+    width: 0.75rem;
+    height: 0.75rem;
+    stroke-width: 3;
 }
 
 .profile-avatar-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.65rem;
-}
-
-.profile-avatar-option {
-    position: relative;
-    display: grid;
-    place-items: center;
-    min-width: 0;
-    aspect-ratio: 1;
-    padding: 0.18rem;
-    border: 2px solid transparent;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--surface-hover) 76%, transparent);
-    cursor: pointer;
-    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
-}
-
-.profile-avatar-option img {
-    width: 100%;
-    height: 100%;
-    border-radius: inherit;
-    object-fit: cover;
-}
-
-.profile-avatar-option:hover {
-    transform: translateY(-3px) scale(1.04);
-    border-color: color-mix(in srgb, var(--primary) 62%, transparent);
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 20%, transparent);
-}
-
-.profile-avatar-option[aria-pressed="true"] {
-    border-color: var(--primary);
-    background: var(--accent-soft);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent), 0 14px 28px color-mix(in srgb, var(--primary) 20%, transparent);
-    transform: scale(1.05);
-}
-
-.profile-avatar-option__check {
-    position: absolute;
-    right: -0.05rem;
-    bottom: -0.05rem;
-    display: grid;
-    place-items: center;
-    width: 1.2rem;
-    height: 1.2rem;
-    border: 2px solid var(--surface);
-    border-radius: 50%;
-    background: var(--primary);
-    color: var(--button-text);
-}
-
-.profile-avatar-option__check svg {
-    width: 0.72rem;
-    height: 0.72rem;
-    stroke-width: 3;
-}
-
-.profile-avatar-option__label {
-    position: absolute;
-    left: 50%;
-    bottom: -1.45rem;
-    z-index: 2;
-    display: none;
-    width: max-content;
-    max-width: 8rem;
-    transform: translateX(-50%);
-    padding: 0.25rem 0.45rem;
-    border-radius: 0.4rem;
-    background: var(--surface-strong);
-    color: var(--text-primary);
-    font-size: 0.62rem;
-    pointer-events: none;
-}
-
-.profile-avatar-option:hover .profile-avatar-option__label,
-.profile-avatar-option:focus-visible .profile-avatar-option__label {
-    display: block;
-}
-
-.profile-avatar-grid-wrap {
-    padding-bottom: 0.45rem;
+    gap: 0.75rem;
+    max-height: 18rem;
+    overflow-y: auto;
+    padding: 0.25rem 0.25rem 0.75rem;
 }
 
 .profile-theme-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.7rem;
+    gap: 0.75rem;
+    max-height: 22rem;
+    overflow-y: auto;
+    padding-right: 0.25rem;
 }
 
 .profile-theme-card {
-    --profile-preview-background: var(--surface-hover);
-    --profile-preview-surface: var(--surface);
-    --profile-preview-surface-hover: var(--surface-hover);
-    --profile-preview-primary: var(--primary);
-    --profile-preview-primary-hover: var(--primary-hover);
-    --profile-preview-primary-light: var(--primary-light);
-    --profile-preview-accent: var(--accent);
-    --profile-preview-border: var(--border);
-    --profile-preview-button-text: var(--button-text);
-    --profile-preview-text-primary: var(--text-primary);
-    --profile-preview-text-secondary: var(--text-secondary);
-    --profile-preview-text-tertiary: var(--text-tertiary);
     position: relative;
-    min-height: 8.4rem;
+    min-height: 8.5rem;
     overflow: hidden;
-    padding: 0.65rem;
-    border: 2px solid color-mix(in srgb, var(--profile-preview-border) 72%, transparent);
-    border-radius: 1rem;
-    background: var(--profile-preview-background);
-    color: var(--profile-preview-text-primary);
+    padding: 0.75rem;
+    border: 2px solid color-mix(in srgb, var(--profile-preview-border, var(--border)) 72%, transparent);
+    border-radius: 1.1rem;
+    background: var(--profile-preview-background, var(--surface));
+    color: var(--profile-preview-text-primary, var(--text-primary));
     text-align: left;
     cursor: pointer;
     transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
@@ -10751,17 +11200,12 @@ html[data-theme] .player-control-btn:active {
 
 .profile-theme-card:hover {
     transform: translateY(-3px);
-    border-color: color-mix(in srgb, var(--profile-preview-primary) 70%, transparent);
-}
-
-.profile-theme-card:focus-visible {
-    outline: 3px solid color-mix(in srgb, var(--profile-preview-primary) 55%, transparent);
-    outline-offset: 3px;
+    border-color: color-mix(in srgb, var(--profile-preview-primary, var(--primary)) 70%, transparent);
 }
 
 .profile-theme-card[aria-pressed="true"] {
-    border-color: var(--profile-preview-primary);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--profile-preview-primary) 20%, transparent), 0 12px 28px color-mix(in srgb, var(--profile-preview-primary) 14%, transparent);
+    border-color: var(--profile-preview-primary, var(--primary));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--profile-preview-primary, var(--primary)) 25%, transparent), 0 12px 28px color-mix(in srgb, var(--profile-preview-primary, var(--primary)) 20%, transparent);
 }
 
 .profile-theme-card__mock {
@@ -10769,66 +11213,53 @@ html[data-theme] .player-control-btn:active {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    height: 4.35rem;
+    height: 4.2rem;
     padding: 0.45rem;
     border-radius: 0.7rem;
-    background: var(--profile-preview-surface);
-    border: 1px solid var(--profile-preview-border);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--profile-preview-primary) 10%, transparent);
-}
-
-.profile-theme-card__mock::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto;
-    height: 0.35rem;
-    background: linear-gradient(90deg, var(--profile-preview-primary-light), var(--profile-preview-primary-hover));
+    background: var(--profile-preview-surface, var(--surface));
+    border: 1px solid var(--profile-preview-border, var(--border));
 }
 
 .profile-theme-card__avatar {
     width: 1.4rem;
     height: 1.4rem;
-    border: 3px solid var(--profile-preview-primary-light);
+    border: 2.5px solid var(--profile-preview-primary-light, var(--primary));
     border-radius: 50%;
-    background: var(--profile-preview-accent);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--profile-preview-primary) 22%, transparent);
+    background: var(--profile-preview-accent, var(--accent));
 }
 
 .profile-theme-card__surface-hover {
     position: absolute;
     right: 0.45rem;
     bottom: 0.45rem;
-    width: 2.45rem;
-    height: 0.42rem;
+    width: 2.5rem;
+    height: 0.4rem;
     border-radius: 999px;
-    background: var(--profile-preview-surface-hover);
-    opacity: 0.85;
+    background: var(--profile-preview-surface-hover, var(--surface-hover));
 }
 
 .profile-theme-card__button {
     position: relative;
     z-index: 1;
-    width: 2.5rem;
+    width: 2.6rem;
     height: 0.55rem;
     border-radius: 999px;
-    background: linear-gradient(90deg, var(--profile-preview-primary-light), var(--profile-preview-primary-hover));
-    box-shadow: 0 4px 10px color-mix(in srgb, var(--profile-preview-primary) 26%, transparent);
+    background: linear-gradient(90deg, var(--profile-preview-primary-light, var(--primary)), var(--profile-preview-primary-hover, var(--primary-hover)));
 }
 
 .profile-theme-card__title {
     display: block;
-    margin-top: 0.55rem;
-    color: var(--profile-preview-text-primary);
-    font-size: 0.76rem;
+    margin-top: 0.6rem;
+    font-size: 0.78rem;
     font-weight: 800;
 }
 
 .profile-theme-card__description {
     display: block;
-    margin-top: 0.12rem;
+    margin-top: 0.15rem;
     overflow: hidden;
-    color: var(--profile-preview-text-secondary);
-    font-size: 0.62rem;
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -10841,13 +11272,12 @@ html[data-theme] .player-control-btn:active {
     place-items: center;
     width: 1.25rem;
     height: 1.25rem;
-    border: 1px solid var(--profile-preview-border);
     border-radius: 50%;
-    background: var(--profile-preview-primary);
-    color: var(--profile-preview-button-text);
+    background: var(--primary);
+    color: #000;
     opacity: 0;
-    transform: scale(0.75);
-    transition: opacity 180ms ease, transform 180ms ease;
+    transform: scale(0.7);
+    transition: all 180ms ease;
 }
 
 .profile-theme-card[aria-pressed="true"] .profile-theme-card__check {
@@ -10855,21 +11285,9 @@ html[data-theme] .player-control-btn:active {
     transform: scale(1);
 }
 
-.profile-theme-card__check svg {
-    width: 0.78rem;
-    height: 0.78rem;
-    stroke-width: 3;
-}
-
-.profile-bio-editor {
-    position: relative;
-}
-
-.profile-bio-editor textarea {
-    min-height: 7.5rem;
-    padding-bottom: 2rem;
+.anime-bio-input {
+    min-height: 6.5rem;
     resize: vertical;
-    line-height: 1.6;
 }
 
 .profile-character-count {
@@ -10877,96 +11295,70 @@ html[data-theme] .player-control-btn:active {
     right: 0.75rem;
     bottom: 0.65rem;
     color: var(--text-tertiary);
-    font-family: 'IBM Plex Sans', monospace;
     font-size: 0.68rem;
-}
-
-.profile-character-count.is-near-limit {
-    color: var(--primary-hover);
+    font-family: monospace;
 }
 
 .profile-customization__actions {
     display: flex;
     justify-content: flex-end;
-    gap: 0.6rem;
-    margin-top: 1rem;
+    gap: 0.65rem;
 }
 
 .profile-customization__status {
     min-height: 1rem;
-    margin-top: 0.55rem;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
     color: var(--text-tertiary);
-    font-size: 0.74rem;
-}
-
-.profile-customization__status.is-error {
-    color: var(--danger);
 }
 
 .profile-customization__status.is-success {
-    color: var(--success);
+    color: var(--success, #34d399);
 }
 
-.profile-summary-avatar {
-    width: 6rem;
-    height: 6rem;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 4px solid var(--surface);
-    box-shadow: 0 0 0 2px var(--primary), 0 16px 30px var(--shadow-color);
+.profile-customization__status.is-error {
+    color: var(--danger, #f43f5e);
 }
 
-.profile-summary-avatar--small {
-    width: 2.2rem;
-    height: 2.2rem;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid color-mix(in srgb, var(--primary) 56%, transparent);
+/* --- Watch History Card --- */
+.anime-history-card {
+    transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
 }
 
+.anime-history-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+}
+
+/* --- Media Queries for Profile Hub --- */
 @media (max-width: 900px) {
-    .profile-customization {
+    .anime-customization-section {
         grid-template-columns: 1fr;
     }
 
-    .profile-preview-card {
+    .anime-guild-card-preview {
         position: relative;
         top: auto;
     }
 }
 
 @media (max-width: 640px) {
-    .profile-editor-panel {
-        padding: 1rem;
-        border-radius: 1.2rem;
-    }
-
     .profile-theme-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .profile-avatar-grid {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 0.5rem;
-    }
-
-    .profile-customization__actions {
-        flex-direction: column-reverse;
-    }
-
-    .profile-customization__actions button {
-        width: 100%;
-        min-height: 2.75rem;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
 
-@media (max-width: 380px) {
+@media (max-width: 400px) {
     .profile-theme-grid {
         grid-template-columns: 1fr;
     }
 
     .profile-avatar-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
