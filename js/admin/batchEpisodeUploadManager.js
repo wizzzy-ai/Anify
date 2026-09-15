@@ -13,7 +13,12 @@
   async function api(path, body) {
     const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token() ? { Authorization: `Bearer ${token()}` } : {}) }, body: JSON.stringify(body) });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.ok) throw new Error(data.error || `Request failed (${response.status})`);
+    if (!response.ok || !data.ok) {
+      const error = new Error(data.error || `Request failed (${response.status})`);
+      error.status = response.status;
+      error.duplicate = data.duplicate === true;
+      throw error;
+    }
     return data;
   }
   function detectEpisode(name) {
@@ -47,7 +52,15 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
   }
   function clearSession(task) { const all = sessions(); delete all[task.sessionKey]; localStorage.setItem(STORAGE_KEY, JSON.stringify(all)); }
+  async function getFileFingerprint(file) {
+    if (!file) return null;
+    if (file.__anifyFingerprint) return file.__anifyFingerprint;
+    const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    file.__anifyFingerprint = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+    return file.__anifyFingerprint;
+  }
   function taskStatus(task) {
+    if (task.status === 'checking_duplicate') return '🔎 Checking for duplicate';
     if (task.status === 'uploading') return `⬆️ Uploading ${Math.round(task.progress)}%`;
     if (task.status === 'queued_for_processing') return '⚙️ Checking compatibility';
     if (task.status === 'processing') return `⟳ Transcoding ${Math.round(task.processingProgress || 0)}%`;
@@ -294,7 +307,9 @@
 
     // Create new session if we don't have a valid one
     if (!task.key || !task.uploadId) {
-      const session = await api('/api/admin/r2-multipart/init', { animeId: anime.id, season: 1, episodeNumber: task.episode, filename: task.file.name, mimeType: task.file.type, size: task.file.size });
+      task.status = 'checking_duplicate'; scheduleRender();
+      const fingerprint = await getFileFingerprint(task.file);
+      const session = await api('/api/admin/r2-multipart/init', { animeId: anime.id, season: 1, episodeNumber: task.episode, filename: task.file.name, mimeType: task.file.type, size: task.file.size, fingerprint });
       Object.assign(task, session, { parts: [] });
       saveSession(task);
     }
@@ -373,6 +388,7 @@
     catch (error) {
       if (task.cancelled) task.status = 'cancelled';
       else if (task.paused || error.name === 'AbortError') task.status = 'paused';
+      else if (error.duplicate) { task.status = 'failed'; task.error = 'Exact duplicate file already exists in R2'; }
       else if (task.retries < MAX_RETRIES) {
         task.retries++;
         task.status = 'waiting';

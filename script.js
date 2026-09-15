@@ -840,6 +840,54 @@ function filterByGenre(genre) {
     lucide.createIcons();
 }
 
+const browseFilterState = {
+    query: '',
+    genre: null,
+    year: '',
+    studio: '',
+    rating: '',
+    status: '',
+    language: '',
+    sort: 'recent',
+};
+
+function browseQualityValues(source) {
+    const qualities = source?.qualities;
+    if (!qualities) return [];
+    return qualities instanceof Map ? [...qualities.values()] : Object.values(qualities);
+}
+
+function browseHasLanguage(anime, language) {
+    if (language === 'both') return browseHasLanguage(anime, 'sub') && browseHasLanguage(anime, 'dub');
+    if (!['sub', 'dub'].includes(language)) return true;
+    if (Array.isArray(anime?.episodesMedia) && anime.episodesMedia.some(episode => browseQualityValues(episode?.[language]).some(Boolean))) return true;
+    const legacy = anime?.videoSources?.[language];
+    return legacy instanceof Map ? legacy.size > 0 : Object.values(legacy || {}).some(Boolean);
+}
+
+function getBrowseFilterOptions() {
+    const years = [...new Set(animeData.map(anime => Number(anime.year)).filter(Number.isFinite))].sort((a, b) => b - a);
+    const studios = [...new Set(animeData.map(anime => String(anime.studio || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const statuses = [...new Set(animeData.map(anime => String(anime.status || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    return { years, studios, statuses };
+}
+
+function updateBrowseFilter(field, value) {
+    browseFilterState[field] = String(value || '').trim();
+    const content = document.getElementById('main-content');
+    if (!content) return;
+    content.innerHTML = renderBrowse(window.currentBrowseType || 'All', browseFilterState.genre);
+    if (window.lucide?.createIcons) lucide.createIcons();
+}
+
+function resetBrowseFilters() {
+    Object.assign(browseFilterState, { query: '', genre: null, year: '', studio: '', rating: '', status: '', language: '', sort: 'recent' });
+    const content = document.getElementById('main-content');
+    if (!content) return;
+    content.innerHTML = renderBrowse(window.currentBrowseType || 'All');
+    if (window.lucide?.createIcons) lucide.createIcons();
+}
+
 
 // Comments are loaded from MongoDB (see /api/anime/:id/comments)
 // Comments are loaded from MongoDB via /api/anime/:id/comments.
@@ -1541,8 +1589,18 @@ function getDefaultPlayerSource(anime) {
 
 
 function animeHasLanguage(anime, language) {
-    // Series (legacy): check videoSources
+    // Series: check episodesMedia first (new structure), then fall back to videoSources (legacy)
     if ((anime?.type || 'anime') === 'anime') {
+        // Check episodesMedia for the language
+        if (Array.isArray(anime?.episodesMedia)) {
+            const hasLanguageInEpisodes = anime.episodesMedia.some(ep => {
+                const qualities = ep?.[language]?.qualities;
+                return qualities && typeof qualities === 'object' && Object.keys(qualities).some(q => Boolean(qualities?.[q]));
+            });
+            if (hasLanguageInEpisodes) return true;
+        }
+        
+        // Fall back to legacy videoSources
         return Object.keys(getAnimeVideoSources(anime)[language] || {}).length > 0;
     }
 
@@ -1598,6 +1656,10 @@ function renderEpisodeList(anime, language = 'sub') {
 
     const episodeNumbers = Array.isArray(episodesMedia)
         ? [...new Set(episodesMedia
+            .filter(e => {
+                const qualities = e?.[language]?.qualities;
+                return qualities && typeof qualities === 'object' && Object.keys(qualities).some(q => Boolean(qualities?.[q]));
+            })
             .map(e => Number(e?.episodeNumber))
             .filter(n => Number.isFinite(n) && n >= 1))
         ].sort((a, b) => a - b)
@@ -1919,11 +1981,21 @@ let downloadAuthModalListenersAdded = false;
 // Current page tracking
 let currentPage = 'home';
 
+// Target language and episode for player navigation
+let targetLanguage = null;
+let targetEpisode = null;
+
 function navigate(page, data, options = {}) {
-    const { replace = false } = options;
+    const { replace = false, language = null, episode = null } = options;
     let hash = `#/${page}`;
     if (data) {
         hash += `/${data}`;
+    }
+
+    // Store language and episode for player navigation
+    if (language && episode) {
+        targetLanguage = language;
+        targetEpisode = episode;
     }
 
     // Close search when navigating
@@ -2004,6 +2076,19 @@ async function handleRouteChange() {
                 }
             }
             content.innerHTML = renderPlayer(Number(data));
+            
+            // Apply target language and episode if set
+            if (targetLanguage && targetEpisode) {
+                console.log('[Navigation] Setting target language:', targetLanguage, 'episode:', targetEpisode);
+                setTimeout(() => {
+                    if (typeof selectEpisodeLanguage === 'function') {
+                        console.log('[Navigation] Calling selectEpisodeLanguage with:', targetLanguage, targetEpisode);
+                        selectEpisodeLanguage(targetLanguage, targetEpisode);
+                    }
+                    targetLanguage = null;
+                    targetEpisode = null;
+                }, 500);
+            }
             break;
         case 'login': content.innerHTML = renderLogin(); break;
         case 'register': content.innerHTML = renderRegister(); break;
@@ -2036,7 +2121,7 @@ async function handleRouteChange() {
         setupHeroLiveWallpapers();
     }
     if (window.AnifyAnimationManager) window.AnifyAnimationManager.refresh(page);
-    if (page === 'player' && !window.__miniPlayerExpansionState) setupCustomPlayer();
+    if (page === 'player') setupCustomPlayer();
 }
 
 function setupTrendingReveal() {
@@ -2279,8 +2364,39 @@ function scrollCarousel(button, direction) {
     }
 }
 
+function getAudioBadges(anime) {
+    const badges = [];
+    
+    // Check for Sub availability in episodesMedia
+    const hasSub = Array.isArray(anime?.episodesMedia) && anime.episodesMedia.some(ep => {
+        const qualities = ep?.sub?.qualities;
+        return qualities && typeof qualities === 'object' && Object.keys(qualities).some(q => Boolean(qualities?.[q]));
+    });
+    
+    // Check for Dub availability in episodesMedia
+    const hasDub = Array.isArray(anime?.episodesMedia) && anime.episodesMedia.some(ep => {
+        const qualities = ep?.dub?.qualities;
+        return qualities && typeof qualities === 'object' && Object.keys(qualities).some(q => Boolean(qualities?.[q]));
+    });
+    
+    // Fallback to legacy videoSources for older data
+    const videoSources = getAnimeVideoSources(anime);
+    const hasSubLegacy = Object.keys(videoSources?.sub || {}).length > 0;
+    const hasDubLegacy = Object.keys(videoSources?.dub || {}).length > 0;
+    
+    if (hasSub || hasSubLegacy) {
+        badges.push('<span class="audio-badge audio-badge-sub">SUB</span>');
+    }
+    if (hasDub || hasDubLegacy) {
+        badges.push('<span class="audio-badge audio-badge-dub">DUB</span>');
+    }
+    
+    return badges.join('');
+}
+
 function renderAnimeCard(a, revealIndex = null) {
     const revealStyle = revealIndex === null ? '' : ` style="--reveal-index:${revealIndex}"`;
+    const audioBadges = getAudioBadges(a);
     return `
     <div onclick="navigate('anime', ${a.id})"${revealStyle} class="anime-card flex-shrink-0 w-44 md:w-52${revealIndex === null ? '' : ' trending-reveal-card'}">
         <div class="relative aspect-[3/4] rounded-2xl overflow-hidden bg-dark-700">
@@ -2300,6 +2416,11 @@ function renderAnimeCard(a, revealIndex = null) {
                 <span class="text-xs font-bold">${a.averageRating || 'N/A'}</span>
             </div>
             <div class="card-actions">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-1.5">
+                        ${audioBadges}
+                    </div>
+                </div>
                 <button class="w-full btn-primary flex items-center justify-center gap-2 py-2 rounded-xl text-xs">
                     <i data-lucide="play" class="w-4 h-4 fill-current"></i> Watch Now
                 </button>
@@ -2490,16 +2611,21 @@ function renderWideFeatureRow(title, description, items, icon = 'sparkles') {
     <section class="home-section anim-fade-in">
         ${renderSectionHeader(title, description, icon)}
         <div class="wide-feature-row">
-            ${safeItems.map(a => `
+            ${safeItems.map(a => {
+                const audioBadges = getAudioBadges(a);
+                return `
                 <button onclick="navigate('anime', ${a.id})" class="wide-feature-card glass-card glass-card-hover">
                     <img src="${ensureHttps(a.banner || a.image)}" alt="${a.title}" loading="lazy">
                     <span class="wide-feature-shade"></span>
                     <span class="wide-feature-copy">
                         <span class="wide-feature-title">${a.title}</span>
-                        <span class="wide-feature-meta">${a.genres?.[0] || 'Anime'} - Ep ${a.episodes || 1}</span>
+                        <span class="wide-feature-meta">
+                            ${a.genres?.[0] || 'Anime'} - Ep ${a.episodes || 1}
+                            ${audioBadges ? `<span class="flex items-center gap-1 ml-2">${audioBadges}</span>` : ''}
+                        </span>
                     </span>
                 </button>
-            `).join('')}
+            `}).join('')}
         </div>
     </section>`;
 }
@@ -2587,19 +2713,36 @@ function renderNewsAndActivity() {
 
 // ============ RENDER: BROWSE ============
 function renderBrowse(type, selectedGenre = null) {
+    window.currentBrowseType = type || 'All';
+    if (selectedGenre !== null) browseFilterState.genre = selectedGenre;
     const desiredType = type === 'Movie'
         ? 'movie'
         : type === 'Series'
             ? 'anime'
             : null;
 
+    const options = getBrowseFilterOptions();
+    const filters = browseFilterState;
     const list = animeData.filter((a) => {
         const isMovie = (a.type === 'animated-movie' || a.type === 'live-movie');
         const matchesType = desiredType
             ? (desiredType === 'movie' ? isMovie : (a.type || 'anime') === desiredType)
             : true;
-        const matchesGenre = !selectedGenre || (Array.isArray(a.genres) && a.genres.includes(selectedGenre));
-        return matchesType && matchesGenre;
+        const matchesGenre = !filters.genre || (Array.isArray(a.genres) && a.genres.includes(filters.genre));
+        const haystack = `${a.title || ''} ${a.titleJp || ''}`.toLowerCase();
+        const matchesQuery = !filters.query || haystack.includes(filters.query.toLowerCase());
+        const matchesYear = !filters.year || String(a.year || '') === filters.year;
+        const matchesStudio = !filters.studio || String(a.studio || '') === filters.studio;
+        const matchesRating = !filters.rating || Number(a.averageRating ?? a.rating ?? 0) >= Number(filters.rating);
+        const matchesStatus = !filters.status || String(a.status || '') === filters.status;
+        const matchesLanguage = !filters.language || browseHasLanguage(a, filters.language);
+        return matchesType && matchesGenre && matchesQuery && matchesYear && matchesStudio && matchesRating && matchesStatus && matchesLanguage;
+    }).sort((a, b) => {
+        if (filters.sort === 'rating') return Number(b.averageRating ?? b.rating ?? 0) - Number(a.averageRating ?? a.rating ?? 0);
+        if (filters.sort === 'year') return Number(b.year || 0) - Number(a.year || 0);
+        if (filters.sort === 'title') return String(a.title || '').localeCompare(String(b.title || ''));
+        if (filters.sort === 'episodes') return Number(b.episodes || 0) - Number(a.episodes || 0);
+        return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
     });
 
     return `
@@ -2607,8 +2750,8 @@ function renderBrowse(type, selectedGenre = null) {
         <div class="max-w-7xl mx-auto px-4 md:px-8">
             <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
                 <div>
-                    <h1 class="text-3xl md:text-4xl font-black mb-2 anim-slide-up">${selectedGenre ? `${selectedGenre} Collection` : `Browse ${type === 'Movie' ? 'Movies' : type === 'Series' ? 'Series' : 'All Anime'}`}</h1>
-                    <p class="text-gray-500 anim-slide-up anim-delay-1">${selectedGenre ? `Discover ${list.length} anime in ${selectedGenre}.` : 'Discover your next favorite anime'}</p>
+                    <h1 class="text-3xl md:text-4xl font-black mb-2 anim-slide-up">${filters.genre ? `${filters.genre} Collection` : `Browse ${type === 'Movie' ? 'Movies' : type === 'Series' ? 'Series' : 'All Anime'}`}</h1>
+                    <p class="text-gray-500 anim-slide-up anim-delay-1">${list.length} titles match your filters.</p>
                 </div>
                 <button onclick="showDiscoveryHub()" class="btn-primary px-6 py-3 rounded-2xl flex items-center gap-3 text-sm font-black anim-slide-up anim-delay-2 group">
                     <i data-lucide="dices" class="w-5 h-5 group-hover:rotate-12 transition-transform"></i> Surprise Me
@@ -2619,9 +2762,24 @@ function renderBrowse(type, selectedGenre = null) {
                 ${['All', ...getVisibleGenres()].map(c => `<button onclick="filterByGenre('${c}')" class="category-pill ${c === 'All' ? 'active' : ''} ${selectedGenre === c ? 'ring-2 ring-gold-400' : ''}">${c}</button>`).join('')}
             </div>
 
+            <div class="glass-card rounded-2xl p-4 mb-8 anim-fade-in">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
+                    <label class="xl:col-span-2 relative"><span class="sr-only">Search titles</span><i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"></i><input value="${escapeHtml(filters.query)}" oninput="updateBrowseFilter('query', this.value)" class="input-field h-10 pl-9 text-sm" placeholder="Search titles..."></label>
+                    <select onchange="updateBrowseFilter('genre', this.value === 'All' ? '' : this.value)" class="browse-filter-select input-field h-10 text-sm"><option value="">All genres</option>${getVisibleGenres().map(genre => `<option value="${escapeHtml(genre)}" ${filters.genre === genre ? 'selected' : ''}>${escapeHtml(genre)}</option>`).join('')}</select>
+                    <select onchange="updateBrowseFilter('year', this.value)" class="browse-filter-select input-field h-10 text-sm"><option value="">All years</option>${options.years.map(year => `<option value="${year}" ${filters.year === String(year) ? 'selected' : ''}>${year}</option>`).join('')}</select>
+                    <select onchange="updateBrowseFilter('studio', this.value)" class="browse-filter-select input-field h-10 text-sm"><option value="">All studios</option>${options.studios.map(studio => `<option value="${escapeHtml(studio)}" ${filters.studio === studio ? 'selected' : ''}>${escapeHtml(studio)}</option>`).join('')}</select>
+                    <select onchange="updateBrowseFilter('rating', this.value)" class="browse-filter-select input-field h-10 text-sm"><option value="">Any rating</option>${[9, 8, 7, 5].map(rating => `<option value="${rating}" ${filters.rating === String(rating) ? 'selected' : ''}>${rating}+ rating</option>`).join('')}</select>
+                    <select onchange="updateBrowseFilter('status', this.value)" class="browse-filter-select input-field h-10 text-sm"><option value="">All statuses</option>${options.statuses.map(status => `<option value="${escapeHtml(status)}" ${filters.status === status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}</select>
+                    <select onchange="updateBrowseFilter('language', this.value)" class="browse-filter-select input-field h-10 text-sm"><option value="">Any language</option><option value="sub" ${filters.language === 'sub' ? 'selected' : ''}>Sub available</option><option value="dub" ${filters.language === 'dub' ? 'selected' : ''}>Dub available</option><option value="both" ${filters.language === 'both' ? 'selected' : ''}>Sub + Dub</option></select>
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-3 mt-3"><span class="text-xs text-gray-500">${list.length} of ${animeData.length} catalogue titles</span><div class="flex flex-wrap items-center gap-3"><select onchange="updateBrowseFilter('sort', this.value)" class="browse-filter-select input-field h-9 text-xs"><option value="recent" ${filters.sort === 'recent' ? 'selected' : ''}>Recently updated</option><option value="rating" ${filters.sort === 'rating' ? 'selected' : ''}>Highest rated</option><option value="year" ${filters.sort === 'year' ? 'selected' : ''}>Newest year</option><option value="title" ${filters.sort === 'title' ? 'selected' : ''}>Title A-Z</option><option value="episodes" ${filters.sort === 'episodes' ? 'selected' : ''}>Most episodes</option></select><button onclick="resetBrowseFilters()" class="text-xs font-bold text-gold-400 hover:text-gold-300">Reset filters</button></div></div>
+            </div>
+
             <!-- Anime Grid -->
             <div id="browse-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                ${list.map(a => `
+                ${list.map(a => {
+                    const audioBadges = getAudioBadges(a);
+                    return `
                     <div onclick="navigate('anime', ${a.id})" class="anime-card anim-fade-in">
                         <div class="relative aspect-[3/4] rounded-2xl overflow-hidden bg-dark-700">
                             <img src="${ensureHttps(a.image)}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy">
@@ -2639,6 +2797,11 @@ function renderBrowse(type, selectedGenre = null) {
                                 <span class="text-xs font-bold">${a.averageRating || 'N/A'}</span>
                             </div>
                             <div class="card-actions">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center gap-1.5">
+                                        ${audioBadges}
+                                    </div>
+                                </div>
                                 <button class="w-full btn-primary flex items-center justify-center gap-2 py-2 rounded-xl text-xs">
                                     <i data-lucide="play" class="w-4 h-4 fill-current"></i> Watch
                                 </button>
@@ -2649,7 +2812,7 @@ function renderBrowse(type, selectedGenre = null) {
                             <p class="text-xs text-gray-500 mt-0.5">${Array.isArray(a.genres) && a.genres.length > 0 ? a.genres[0] : 'Unknown'} · ${a.year || 'N/A'}</p>
                         </div>
                     </div>
-                `).join('')}
+                `}).join('')}
             </div>
         </div>
     </div>`;
@@ -2678,12 +2841,19 @@ function renderMyList() {
                 </div>
             ` : `
                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                    ${listAnime.map(a => `
+                    ${listAnime.map(a => {
+                        const audioBadges = getAudioBadges(a);
+                        return `
                         <div onclick="navigate('anime', ${a.id})" class="anime-card anim-fade-in">
                             <div class="relative aspect-[3/4] rounded-2xl overflow-hidden bg-dark-700">
                                 <img src="${ensureHttps(a.image)}" class="w-full h-full object-cover" alt="${a.title}" loading="lazy">
                                 <div class="card-overlay"></div>
                                 <div class="card-actions">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center gap-1.5">
+                                            ${audioBadges}
+                                        </div>
+                                    </div>
                                     <button onclick="event.stopPropagation(); toggleWatchlist(${a.id})" class="w-full btn-secondary flex items-center justify-center gap-2 py-2 rounded-xl text-xs">
                                         <i data-lucide="x" class="w-4 h-4"></i> Remove
                                     </button>
@@ -2694,7 +2864,7 @@ function renderMyList() {
                                 <p class="text-xs text-gray-500 mt-0.5">${Array.isArray(a.genres) && a.genres.length > 0 ? a.genres[0] : 'Unknown'} · ${a.episodes || 0} eps</p>
                             </div>
                         </div>
-                    `).join('')}
+                    `}).join('')}
                 </div>
             `}
         </div>
@@ -2779,6 +2949,30 @@ function renderAnimeDetail(id) {
     const typeLabel = (a.type || 'anime') === 'anime' ? 'Anime Series' : 'Movie';
     const watchLabel = (a.type || 'anime') === 'anime' ? 'Watch Episode 1' : 'Watch Movie';
     const episodesMedia = Array.isArray(a?.episodesMedia) ? a.episodesMedia : null;
+    
+    // Filter episodes by language
+    const subEpisodeNumbers = episodesMedia
+        ? [...new Set(episodesMedia
+            .filter(e => {
+                const qualities = e?.sub?.qualities;
+                return qualities && typeof qualities === 'object' && Object.keys(qualities).some(q => Boolean(qualities?.[q]));
+            })
+            .map(e => Number(e?.episodeNumber))
+            .filter(n => Number.isFinite(n) && n >= 1))
+        ].sort((x, y) => x - y)
+        : Array.from({ length: Math.max(1, Number(a?.episodes) || 1) }, (_, i) => i + 1);
+    
+    const dubEpisodeNumbers = episodesMedia
+        ? [...new Set(episodesMedia
+            .filter(e => {
+                const qualities = e?.dub?.qualities;
+                return qualities && typeof qualities === 'object' && Object.keys(qualities).some(q => Boolean(qualities?.[q]));
+            })
+            .map(e => Number(e?.episodeNumber))
+            .filter(n => Number.isFinite(n) && n >= 1))
+        ].sort((x, y) => x - y)
+        : [];
+    
     const episodeNumbers = episodesMedia
         ? [...new Set(episodesMedia
             .map(e => Number(e?.episodeNumber))
@@ -2799,6 +2993,36 @@ function renderAnimeDetail(id) {
                             ${detailPage > 1 ? `<button type="button" class="detail-rec-arrow detail-rec-arrow-left" onclick="setDetailEpisodePage(${a.id}, ${detailPage - 1})" aria-label="Previous episodes"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>` : ''}
                             <span class="detail-episode-page-status">${detailPage * detailPageSize - detailPageSize + 1}-${Math.min(detailPage * detailPageSize, episodeNumbers.length)} of ${episodeNumbers.length}</span>
                             ${detailPage < detailPageCount ? `<button type="button" class="detail-rec-arrow detail-rec-arrow-right" onclick="setDetailEpisodePage(${a.id}, ${detailPage + 1})" aria-label="Next episodes"><i data-lucide="chevron-right" class="w-6 h-6"></i></button>` : ''}
+                        </div>` : '';
+    
+    // SUB episodes section data
+    const subDisplayedEpisodes = subEpisodeNumbers.length;
+    const subTotalEpisodesForLabel = episodesMedia
+        ? Math.max(1, subEpisodeNumbers.length)
+        : Math.max(1, Number(a.episodes || 1));
+    const subDetailPageCount = Math.max(1, Math.ceil(subEpisodeNumbers.length / detailPageSize));
+    const subDetailPage = Math.min(subDetailPageCount, Math.max(1, Number(window.detailEpisodePages?.[a.id + '_sub']) || 1));
+    const subDetailPageEpisodes = subEpisodeNumbers.slice((subDetailPage - 1) * detailPageSize, subDetailPage * detailPageSize);
+    const subDetailPageControls = subDetailPageCount > 1 ? `
+                        <div class="detail-episode-pagination" aria-label="Sub episode pages">
+                            ${subDetailPage > 1 ? `<button type="button" class="detail-rec-arrow detail-rec-arrow-left" onclick="setDetailEpisodePage(${a.id + '_sub'}, ${subDetailPage - 1})" aria-label="Previous sub episodes"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>` : ''}
+                            <span class="detail-episode-page-status">${subDetailPage * detailPageSize - detailPageSize + 1}-${Math.min(subDetailPage * detailPageSize, subEpisodeNumbers.length)} of ${subEpisodeNumbers.length}</span>
+                            ${subDetailPage < subDetailPageCount ? `<button type="button" class="detail-rec-arrow detail-rec-arrow-right" onclick="setDetailEpisodePage(${a.id + '_sub'}, ${subDetailPage + 1})" aria-label="Next sub episodes"><i data-lucide="chevron-right" class="w-6 h-6"></i></button>` : ''}
+                        </div>` : '';
+    
+    // DUB episodes section data
+    const dubDisplayedEpisodes = dubEpisodeNumbers.length;
+    const dubTotalEpisodesForLabel = episodesMedia
+        ? Math.max(1, dubEpisodeNumbers.length)
+        : 0;
+    const dubDetailPageCount = Math.max(1, Math.ceil(dubEpisodeNumbers.length / detailPageSize));
+    const dubDetailPage = Math.min(dubDetailPageCount, Math.max(1, Number(window.detailEpisodePages?.[a.id + '_dub']) || 1));
+    const dubDetailPageEpisodes = dubEpisodeNumbers.slice((dubDetailPage - 1) * detailPageSize, dubDetailPage * detailPageSize);
+    const dubDetailPageControls = dubDetailPageCount > 1 ? `
+                        <div class="detail-episode-pagination" aria-label="Dub episode pages">
+                            ${dubDetailPage > 1 ? `<button type="button" class="detail-rec-arrow detail-rec-arrow-left" onclick="setDetailEpisodePage(${a.id + '_dub'}, ${dubDetailPage - 1})" aria-label="Previous dub episodes"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>` : ''}
+                            <span class="detail-episode-page-status">${dubDetailPage * detailPageSize - detailPageSize + 1}-${Math.min(dubDetailPage * detailPageSize, dubEpisodeNumbers.length)} of ${dubEpisodeNumbers.length}</span>
+                            ${dubDetailPage < dubDetailPageCount ? `<button type="button" class="detail-rec-arrow detail-rec-arrow-right" onclick="setDetailEpisodePage(${a.id + '_dub'}, ${dubDetailPage + 1})" aria-label="Next dub episodes"><i data-lucide="chevron-right" class="w-6 h-6"></i></button>` : ''}
                         </div>` : '';
 
     const movieSection = isComingSoon
@@ -2826,17 +3050,17 @@ function renderAnimeDetail(id) {
             ? `
             <section class="detail-section detail-episodes anim-fade-in">
                 <div class="detail-section-head detail-heading-accent">
-                    <h2>Episodes</h2>
-                    <span>Showing ${detailPage * detailPageSize - detailPageSize + 1}-${Math.min(detailPage * detailPageSize, displayedEpisodes)} of ${totalEpisodesForLabel}</span>
+                    <h2>Episodes (Sub)</h2>
+                    <span>Showing ${subDetailPage * detailPageSize - detailPageSize + 1}-${Math.min(subDetailPage * detailPageSize, subDisplayedEpisodes)} of ${subTotalEpisodesForLabel}</span>
                 </div>
-                ${detailPageControls}
+                ${subDetailPageControls}
                 <div class="detail-episode-grid">
-                    ${detailPageEpisodes.map((epNum, i) => {
+                    ${subDetailPageEpisodes.map((epNum, i) => {
                 const epObj = Array.isArray(episodesMedia) ? episodesMedia.find(e => Number(e?.episodeNumber) === Number(epNum)) : null;
                 const epViews = Number(epObj?.views) || 0;
                 const formattedViews = formatViewCount(epViews);
                 return `
-                        <button onclick="navigate('player', ${a.id})" class="detail-episode-tile ${i === 0 ? 'is-active' : ''}" aria-label="Watch episode ${epNum} (${formattedViews})" title="Episode ${epNum} • ${formattedViews}">
+                        <button onclick="navigate('player', ${a.id}, { language: 'sub', episode: ${epNum} });" class="detail-episode-tile ${i === 0 ? 'is-active' : ''}" aria-label="Watch sub episode ${epNum} (${formattedViews})" title="Sub Episode ${epNum} • ${formattedViews}">
                             <span>${epNum}</span>
                         </button>
                     `;
@@ -3116,6 +3340,27 @@ function renderAnimeDetail(id) {
         </section>
 
         ${movieSection}
+
+        ${((a.type || 'anime') === 'anime') && !isComingSoon ? `
+            <section class="detail-section detail-episodes anim-fade-in">
+                <div class="detail-section-head detail-heading-accent">
+                    <h2>Episodes (Dub)</h2>
+                    <span>Showing ${dubDetailPage * detailPageSize - detailPageSize + 1}-${Math.min(dubDetailPage * detailPageSize, dubDisplayedEpisodes)} of ${dubTotalEpisodesForLabel}</span>
+                </div>
+                ${dubDetailPageControls}
+                <div class="detail-episode-grid">
+                    ${dubDetailPageEpisodes.map((epNum, i) => {
+                const epObj = Array.isArray(episodesMedia) ? episodesMedia.find(e => Number(e?.episodeNumber) === Number(epNum)) : null;
+                const epViews = Number(epObj?.views) || 0;
+                const formattedViews = formatViewCount(epViews);
+                return `
+                        <button onclick="navigate('player', ${a.id}, { language: 'dub', episode: ${epNum} });" class="detail-episode-tile ${i === 0 ? 'is-active' : ''}" aria-label="Watch dub episode ${epNum} (${formattedViews})" title="Dub Episode ${epNum} • ${formattedViews}">
+                            <span>${epNum}</span>
+                        </button>
+                    `;
+            }).join('')}
+                </div>
+            </section>` : ''}
 
         ${recommendedSection}
 
@@ -5627,6 +5872,7 @@ function handleSearch(query) {
         const year = a.year || a.releaseDate || 'Anime';
         const genres = Array.isArray(a.genres) ? a.genres.slice(0, 2).join(' • ') : '';
         const format = a.type ? (a.type.toUpperCase() === 'MOVIE' ? 'MOVIE' : 'TV') : 'ANIME';
+        const audioBadges = getAudioBadges(a);
 
         return `
             <button type="button" onclick="handleSearchResultClick(${a.id})"
@@ -5647,6 +5893,7 @@ function handleSearch(query) {
                         <span class="text-gold-400 font-bold flex items-center gap-0.5">
                             ⭐ ${rating}
                         </span>
+                        ${audioBadges ? `<span class="flex items-center gap-1">${audioBadges}</span>` : ''}
                     </div>
 
                     ${genres ? `<p class="text-[10px] text-gray-400 truncate mt-0.5 font-medium">${escapeHtml(genres)}</p>` : ''}
@@ -5914,11 +6161,18 @@ function switchEpisodeLanguage(language) {
 }
 
 function selectEpisodeLanguage(language, episodeNumber = 1) {
+    console.log('[selectEpisodeLanguage] Called with language:', language, 'episode:', episodeNumber);
+    // First switch the language tab
+    if (typeof switchEpisodeLanguage === 'function') {
+        console.log('[selectEpisodeLanguage] Switching language to:', language);
+        switchEpisodeLanguage(language);
+    }
     // Manual selection resets binge-watch counter
     if (playerService.state) {
         playerService.state.bingeCount = 0;
     }
     const result = playerService.selectEpisode(language, episodeNumber);
+    console.log('[selectEpisodeLanguage] Result:', result);
     updatePlayerUI();
     return result;
 }

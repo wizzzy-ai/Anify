@@ -21,6 +21,7 @@ import {
 } from "./utils/r2DirectMultipart.js";
 import { uploadFile as storageUploadFile } from "./storage/storageService.js";
 import { getStorageHealthForDashboard } from "./storage/healthChecker.js";
+import { deleteR2Orphans, findR2DuplicateByFingerprint, scanR2Cleanup } from './storage/r2Cleanup.js';
 import { startQueueProcessor, addProcessingJob, getJobStatus, getAnimeJobs, getQueueStats } from "./utils/videoProcessingQueue.js";
 import streamifier from "streamifier";
 import path from 'path';
@@ -1149,6 +1150,13 @@ app.post('/api/storage/upload/video', requireAdmin, handleUpload('file'), async 
 // single-part authorization URLs; R2 credentials never leave this server.
 app.post('/api/admin/r2-multipart/init', requireAdmin, async (req, res) => {
   try {
+    const fingerprint = String(req.body?.fingerprint || '').trim().toLowerCase();
+    if (fingerprint) {
+      const duplicate = await findR2DuplicateByFingerprint(fingerprint);
+      if (duplicate) {
+        return res.status(409).json({ ok: false, duplicate: true, existing: duplicate, error: 'This exact video file already exists in R2.' });
+      }
+    }
     const session = await createDirectMultipartUpload(req.body || {});
     console.log('[R2 DIRECT] 🚀 Multipart session created:', { animeId: req.body?.animeId, episodeNumber: req.body?.episodeNumber, key: session.key });
     res.json({ ok: true, ...session });
@@ -1263,6 +1271,22 @@ app.get('/api/admin/storage/health', requireDb, requireAdmin, async (req, res) =
   } catch (error) {
     console.error('Storage health check failed:', error);
     res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.get('/api/admin/storage/cleanup/scan', requireDb, requireAdmin, async (req, res) => {
+  try {
+    res.json({ ok: true, report: await scanR2Cleanup() });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message || 'Could not scan R2 storage.' });
+  }
+});
+
+app.post('/api/admin/storage/cleanup/delete', requireDb, requireAdmin, async (req, res) => {
+  try {
+    res.json({ ok: true, result: await deleteR2Orphans(req.body?.keys) });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message || 'Could not clean R2 storage.' });
   }
 });
 

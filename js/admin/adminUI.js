@@ -3956,7 +3956,133 @@ function editAdminAnime(id) {
                 </div>
             </div>
         </div>
+
+        <!-- R2 Storage Cleanup -->
+        <div class="glass-card rounded-2xl p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                    <i data-lucide="hard-drive" class="w-5 h-5 text-red-400"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold">R2 Storage Cleanup</h2>
+                    <p class="text-sm text-gray-500">Find uploaded video files not referenced by the video player or catalogue.</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button id="storage-cleanup-scan" onclick="scanAdminStorageCleanup()" class="btn-primary px-4 py-2 text-sm">
+                    <i data-lucide="scan-search" class="w-4 h-4 inline-block mr-1"></i> Scan R2
+                </button>
+                <button id="storage-cleanup-delete" onclick="deleteSelectedAdminStorage()" class="px-4 py-2 rounded-xl bg-red-500/15 text-red-300 hover:bg-red-500/25 text-sm font-bold disabled:opacity-40" disabled>
+                    Delete selected
+                </button>
+                <button id="storage-cleanup-select-superseded" onclick="selectSupersededAdminStorage()" class="px-4 py-2 rounded-xl bg-amber-400/15 text-amber-200 hover:bg-amber-400/25 text-sm font-bold disabled:opacity-40" disabled>
+                    Select replaced uploads
+                </button>
+                <input id="storage-cleanup-search" type="search" placeholder="Find by filename..." class="input-field h-9 max-w-xs text-xs" aria-label="Find orphaned R2 files">
+                <span id="storage-cleanup-summary" class="text-xs text-gray-500">No scan run yet.</span>
+            </div>
+            <div id="storage-cleanup-alert" class="storage-cleanup-alert hidden mt-4" role="button" tabindex="0" aria-live="polite" title="Click to fetch unlinked R2 files" onclick="scanAdminStorageCleanup()" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); scanAdminStorageCleanup(); }"></div>
+            <div id="storage-cleanup-results" class="mt-4 space-y-2 max-h-64 overflow-y-auto custom-scrollbar"></div>
+        </div>
     </div>`;
+    }
+
+    function storageCleanupToken() {
+        return global.authService?.getToken?.() || localStorage.getItem('anify-token') || '';
+    }
+
+    function formatStorageBytes(bytes) {
+        const value = Number(bytes) || 0;
+        if (!value) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+        return `${(value / (1024 ** index)).toFixed(index ? 1 : 0)} ${units[index]}`;
+    }
+
+    function escapeStorageText(value) {
+        return String(value || '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+    }
+
+    function filterAdminStorageCleanup() {
+        const query = String(document.getElementById('storage-cleanup-search')?.value || '').trim().toLowerCase();
+        document.querySelectorAll('[data-storage-row]').forEach(row => {
+            row.classList.toggle('hidden', query && !String(row.dataset.storageRow || '').includes(query));
+        });
+    }
+
+    async function scanAdminStorageCleanup() {
+        const button = document.getElementById('storage-cleanup-scan');
+        const summary = document.getElementById('storage-cleanup-summary');
+        const alert = document.getElementById('storage-cleanup-alert');
+        const results = document.getElementById('storage-cleanup-results');
+        if (!button || !summary || !alert || !results) return;
+        button.disabled = true;
+        summary.textContent = 'Scanning R2 objects and database references...';
+        alert.classList.add('hidden');
+        results.innerHTML = '';
+        try {
+            const response = await fetch('/api/admin/storage/cleanup/scan', { headers: { Authorization: `Bearer ${storageCleanupToken()}` } });
+            const data = await response.json();
+            if (!response.ok || !data.ok) throw new Error(data.error || 'Storage scan failed.');
+            const orphaned = data.report?.orphaned || [];
+            summary.textContent = `${data.report.scanned} objects scanned • ${data.report.referenced} referenced • ${orphaned.length} orphaned • ${formatStorageBytes(data.report.orphanedBytes)} reclaimable`;
+            alert.classList.remove('hidden');
+            alert.classList.toggle('storage-cleanup-alert-empty', orphaned.length === 0);
+            alert.innerHTML = orphaned.length
+                ? `<div class="storage-cleanup-alert-icon"><i data-lucide="triangle-alert" class="w-5 h-5"></i></div><div><p class="storage-cleanup-alert-title">${formatStorageBytes(data.report.orphanedBytes)} can be reclaimed</p><p class="storage-cleanup-alert-copy">${orphaned.length} videos are not used by the player. Click here to fetch the list.</p></div>`
+                : `<div class="storage-cleanup-alert-icon"><i data-lucide="circle-check" class="w-5 h-5"></i></div><div><p class="storage-cleanup-alert-title">Storage is clean</p><p class="storage-cleanup-alert-copy">No unlinked video files were found.</p></div>`;
+            if (window.lucide && typeof lucide.createIcons === 'function') lucide.createIcons();
+            results.innerHTML = orphaned.length ? orphaned.map(object => `
+                <label data-storage-row="${escapeStorageText(object.key).toLowerCase()}" class="flex items-center gap-3 p-2 rounded-lg bg-white/5 text-xs">
+                    <input type="checkbox" class="storage-cleanup-item accent-red-400" data-superseded="${object.possibleMatch?.superseded === true}" data-key="${encodeURIComponent(object.key)}">
+                    <span class="min-w-0 flex-1"><span class="block truncate" title="${escapeStorageText(object.key)}">${escapeStorageText(object.key)}</span>${object.possibleMatch ? `<span class="block text-[10px] ${object.possibleMatch.superseded ? 'text-green-300/90' : 'text-amber-300/80'} truncate">${object.possibleMatch.superseded ? 'Replaced upload' : 'Possible match'}: ${escapeStorageText(object.possibleMatch.animeTitle)} • S${object.possibleMatch.season} Episode ${object.possibleMatch.episode}</span>` : '<span class="block text-[10px] text-gray-500">No catalogue match found</span>'}</span>
+                    <span class="text-gray-500 whitespace-nowrap">${formatStorageBytes(object.size)}</span>
+                    ${object.url ? `<a href="${encodeURI(object.url)}" target="_blank" rel="noopener" class="text-gold-400 hover:text-gold-300 font-bold">Open</a>` : ''}
+                </label>`).join('') : '<p class="text-sm text-green-400">No orphaned video files found.</p>';
+            results.querySelectorAll('.storage-cleanup-item').forEach(item => item.onchange = updateStorageCleanupSelection);
+            const selectSuperseded = document.getElementById('storage-cleanup-select-superseded');
+            if (selectSuperseded) selectSuperseded.disabled = !results.querySelector('.storage-cleanup-item[data-superseded="true"]');
+            const search = document.getElementById('storage-cleanup-search');
+            if (search) search.oninput = filterAdminStorageCleanup;
+            filterAdminStorageCleanup();
+            updateStorageCleanupSelection();
+        } catch (error) {
+            summary.textContent = error.message || 'Storage scan failed.';
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    function updateStorageCleanupSelection() {
+        const deleteButton = document.getElementById('storage-cleanup-delete');
+        if (deleteButton) deleteButton.disabled = !document.querySelector('.storage-cleanup-item:checked');
+    }
+
+    function selectSupersededAdminStorage() {
+        document.querySelectorAll('.storage-cleanup-item[data-superseded="true"]').forEach(item => { item.checked = true; });
+        updateStorageCleanupSelection();
+    }
+
+    async function deleteSelectedAdminStorage() {
+        const selected = [...document.querySelectorAll('.storage-cleanup-item:checked')].map(item => decodeURIComponent(item.dataset.key || '')).filter(Boolean);
+        if (!selected.length) return;
+        if (!confirm(`Delete ${selected.length} unreferenced R2 video file(s)? This cannot be undone.`)) return;
+        const button = document.getElementById('storage-cleanup-delete');
+        if (button) button.disabled = true;
+        try {
+            const response = await fetch('/api/admin/storage/cleanup/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${storageCleanupToken()}` },
+                body: JSON.stringify({ keys: selected }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) throw new Error(data.error || 'Storage cleanup failed.');
+            if (typeof showToast === 'function') showToast(`Deleted ${data.result.deleted} orphaned file(s).`);
+            await scanAdminStorageCleanup();
+        } catch (error) {
+            alert(error.message || 'Storage cleanup failed.');
+            updateStorageCleanupSelection();
+        }
     }
 
     async function loadMaintenanceMode() {
@@ -4421,6 +4547,9 @@ function editAdminAnime(id) {
     global.saveGuestLimit = saveGuestLimit;
     global.toggleMaintenanceMode = toggleMaintenanceMode;
     global.toggleSupportEnabled = toggleSupportEnabled;
+    global.scanAdminStorageCleanup = scanAdminStorageCleanup;
+    global.deleteSelectedAdminStorage = deleteSelectedAdminStorage;
+    global.selectSupersededAdminStorage = selectSupersededAdminStorage;
     global.refreshDashboard = refreshDashboard;
     global.exportDashboardData = exportDashboardData;
 

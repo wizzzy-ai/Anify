@@ -21,7 +21,7 @@ function safeFileName(name) {
   return String(name || 'video.mp4').replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
-export async function createDirectMultipartUpload({ animeId, season = 1, episodeNumber, filename, mimeType, size }) {
+export async function createDirectMultipartUpload({ animeId, season = 1, episodeNumber, filename, mimeType, size, fingerprint }) {
   if (!Number.isFinite(Number(episodeNumber)) || Number(episodeNumber) < 1) throw new Error('A valid episode number is required.');
   if (!Number.isFinite(Number(size)) || Number(size) <= 0 || Number(size) > MAX_FILE_SIZE) throw new Error('Video size must be between 1 byte and 5 GB.');
   if (!String(mimeType || '').startsWith('video/')) throw new Error('Only video files can be uploaded.');
@@ -31,6 +31,11 @@ export async function createDirectMultipartUpload({ animeId, season = 1, episode
     Bucket: process.env.R2_BUCKET,
     Key: key,
     ContentType: mimeType,
+    Metadata: {
+      ...(fingerprint ? { 'source-sha256': String(fingerprint) } : {}),
+      'original-filename': safeFileName(filename),
+      'source-size': String(size),
+    },
   }));
 
   return { key, uploadId: response.UploadId, partSize: PART_SIZE, url: publicUrl(key) };
